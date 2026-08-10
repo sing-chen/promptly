@@ -1,19 +1,36 @@
-# Promptly — Build Brief (v2: Static HTML/CSS/Vanilla JS)
+# Promptly — Build Brief (v3: Static HTML/CSS/Vanilla JS)
 
-Personal-use AI prompt catalog. Static site, no accounts/login/auth, no backend, no database. Everything below is locked from a design session — build against it directly rather than re-deriving decisions.
+Personal-use AI prompt catalog, with planned future access for teammates as read-only viewers. Static site, no accounts/login/auth, no backend, no database. Everything below is locked from a design session — build against it directly rather than re-deriving decisions.
 
-**This version supersedes the original Astro/Pagefind-based brief.** It realigns the stack to match the [amplified thinker](../amplified%20thinker) site — static HTML/CSS/vanilla JS, deployed to Vercel — while preserving every product decision from the original brief (sitemap, taxonomy, sequencing model, favorites, copy-to-clipboard, page templates, design system, accessibility baseline). Sections changed from v1 are marked **(revised)**; everything else is unchanged.
+**This version supersedes the original Astro/Pagefind-based brief.** It realigns the stack to match the [amplified thinker](../amplified%20thinker) site — static HTML/CSS/vanilla JS, deployed to Vercel — while preserving every product decision from the original brief (sitemap, taxonomy, sequencing model, favorites, copy-to-clipboard, page templates, design system, accessibility baseline). v3 adds site identity (naming, logo, nav), bulk admin, and crawlability, on top of v2's stack change. Sections changed are marked **(revised)** or **(new)**; everything else is unchanged.
+
+---
+
+## 0. Naming
+
+- Site name: **Promptly**. Repo: [github.com/sing-chen/promptly](https://github.com/sing-chen/promptly) (private). `package.json` `name`, page `<title>` tags, nav logo text, and the favorites `localStorage` key all use "Promptly."
+- Access model: repo stays **private**. Teammates who need to view the deployed site get added as **Read-role collaborators** (view only, no commit/push rights) rather than the repo going public. Exact hosting mechanics (GitHub Pages vs. going straight to Vercel) are decided at deploy time (§11).
 
 ---
 
 ## 1. Project Constraints (revised)
 
-- **Static site** — no server, no database, no user accounts. Personal use only, single user.
+- **Static site** — no server, no database, no login/accounts. Built for single-author editing; viewing may extend to invited teammates (see §0).
 - **Stack**: no site-generator framework (Astro dropped). A small custom Node.js build script (`scripts/build.mjs`) reads `/prompts`, validates frontmatter, and statically pre-renders every page in the sitemap as real `.html` files at build time. Output uses `/prompt/<slug>/index.html`-style directories so Vercel serves clean URLs natively — no rewrites needed.
+- **The build script fully clears and regenerates `dist/` on every run** (no incremental build) — required so a prompt deleted via bulk admin (§4a) doesn't leave an orphaned page live on the site.
 - Content still lives as one Markdown file per prompt in a `/prompts` folder, YAML frontmatter. The build script generates all pages (category, tag, detail, sequence, etc.) from that folder at build time — same principle as the original brief, just without a framework runtime.
 - Shared markup (nav, prompt card, chip, filter rail) is implemented as plain JS template functions invoked by the build script — not framework components — mirroring how `nav.js` works in amplified thinker.
 - "Submitting a prompt" = adding a file and rebuilding — there is no live submission form or moderation queue.
 - Search moves from Pagefind to a build-time-generated Fuse.js index (see §7).
+
+---
+
+## 1a. Site Identity (new, finalized)
+
+- **Logo**: "Prompt cursor" mark — a rounded tile (`rx` matching the design system's 4px chip radius, scaled up) in `--accent` blue, containing a white `>` chevron and a short cursor bar. Reads as a literal command-prompt symbol, legible down to ~20px nav size. Fixed blue-tile-on-white-glyph lockup, not theme-swapped — the tile carries its own contrast regardless of surrounding `--paper` value. Source file: `public/images/promptly-logo.svg`.
+- **Nav menu** (finalized, deviates from the original brief's literal nav wording — see note below): logo + "PROMPTLY" wordmark (links home) · **Browse** · **Sequences** (active state = accent underline) · always-visible pill-shaped search field (flex-grow, never icon-triggered) · favorites count (`☆ N`).
+  - **Deviation flag**: the original brief's §8 Homepage spec named only "logo, search field, Sequences link, favorites count" in the nav — no explicit Browse link. Browse was added deliberately for direct wayfinding to `/browse` rather than relying solely on homepage category tiles.
+- **About** and **Contributing** are secondary/footer-level links, not primary nav items, to keep the nav strip lean.
 
 ---
 
@@ -37,9 +54,11 @@ Adding a Prompt                   /contributing  (docs page — explains the fil
 About                             /about
 ```
 
-No account pages, no moderation queue, no login — deliberately cut since this is single-user.
+No account pages, no moderation queue, no login — deliberately cut since this is single-author, view-only for invited teammates.
 
 Every route above is emitted as a real static HTML file by the build script (e.g. `dist/prompt/draft-the-brief/index.html`), not rendered client-side from JSON — this matters for SEO, no-JS robustness, and instant direct-link loads.
+
+**Crawlability**: `robots.txt` disallows all crawlers — this is a private tool, not a promoted destination, so there's no reason to be search-indexed. Easy to reverse later.
 
 ---
 
@@ -92,6 +111,13 @@ A drag-and-drop authoring tool, separate from the deployed site:
 - New sequence = new named board. Deleting a sequence clears the field on member files; the prompts themselves are untouched.
 - This tool was already plain HTML/JS operating directly on frontmatter files — the stack change to the main site does not require rewriting it, only re-verifying it against the (unchanged) `/prompts` folder structure.
 
+### 4a. Bulk Admin (new, extends the Sequence Builder above)
+
+- Multi-select prompt deletion and re-categorization are added to the **same Sequence Builder tool** (`tools/sequence-builder/`) — not a new tool, and not a capability on the deployed site. The tool already has File System Access API read/write access to `/prompts`; extending it keeps all local, file-mutating admin actions in one place, consistent with "no live submission form."
+- **Multi-select delete**: select N prompt cards → confirm → tool deletes the corresponding `.md` files from `/prompts`, with an on-screen confirmation (same pattern as the existing sequence_step-rewrite "saved" indicator). Since `/prompts` is git-tracked, an accidental delete is recoverable via `git checkout` as long as it hasn't been committed and pushed over — that's the safety net, not an in-tool undo.
+- **Multi-select re-categorize**: select N prompt cards → choose a new `category` (and optionally add/remove tags) → tool rewrites frontmatter across all selected files.
+- A prompt removed here that was a sequence member is handled the same way a manual removal would be — no special-cased cleanup beyond what already exists.
+
 ---
 
 ## 5. Favorites
@@ -120,6 +146,7 @@ A drag-and-drop authoring tool, separate from the deployed site:
 - Typo tolerance via Fuse's fuzzy matching (threshold-tuned); basic synonym mapping (e.g. "email" ↔ "outreach") is hand-rolled logic layered on top of the index — same effort this would've taken under Pagefind.
 - Facets (category, tag, model, complexity) narrow results in real time without a full reload.
 - Zero-result state suggests the 3 nearest tags — never a dead end.
+- Client-side querying needs a browser build of Fuse.js (a vendored `fuse.min.js`, same pattern as amplified thinker) — the build-time index generation itself only needs to emit structured JSON, not Fuse as an npm dependency.
 
 ---
 
@@ -269,18 +296,24 @@ Single-weight outline icons, `stroke-width: 1.6`, rounded caps/joins, no fill ex
 
 ## 10. Build Order (revised)
 
-1. Scaffold the custom build script (`scripts/build.mjs`) + `/prompts` content folder + `dist/` output structure — replaces "scaffold Astro project."
-2. Implement the design tokens (CSS custom properties) exactly as specified in §9 — ports directly, no change needed.
-3. Build the Category page template first (it exercises cards, chips, filters, and the "Chain" filter all at once).
-4. Build Prompt Detail, Homepage, Sequence page.
-5. Wire up build-time Fuse.js index generation + client-side `search.js` — replaces "wire up Pagefind."
-6. Add the favorites `localStorage` logic.
-7. Seed with a handful of real prompt files (a mix of standalone and one full sequence) to validate everything end to end before writing the Sequence Builder tool.
-8. Build/verify the Sequence Builder as a separate local tool once the core site works.
+1. ~~Scaffold custom build script + `/prompts` folder~~ — done.
+2. ~~Remove Astro scaffold, relocate reusable content/logic~~ — done.
+3. ~~Rename project to Promptly~~ — done.
+4. ~~Create GitHub repo (private), push~~ — done: [github.com/sing-chen/promptly](https://github.com/sing-chen/promptly).
+5. ~~Design site identity: logo + nav~~ — done (§1a).
+6. Build the content pipeline (`scripts/build.mjs`): frontmatter parsing/validation, internal data model. Add an `example_output` field + placeholder asset to one seed prompt (none currently have one).
+7. Build static page generation for every sitemap route, including `robots.txt`; clean-rebuild `dist/` every run.
+8. Port design tokens + shared interactive JS (nav using the finalized logo/nav, prompt card, chip, copy button, favorite star, filter rail).
+9. Wire up build-time Fuse index generation + client-side `search.js` (vendored Fuse browser build).
+10. Wire up favorites `localStorage` logic.
+11. Extend the Sequence Builder with bulk admin (§4a) and verify it against the renamed/relocated `/prompts` folder.
+12. Deploy to Vercel (native URL).
+13. QA pass against the accessibility baseline.
 
-## 11. Deployment (new)
+## 11. Deployment (revised)
 
-- Vercel project, native `*.vercel.app` URL — no custom domain.
+- GitHub repo: private, teammates added as **Read-role collaborators** for view access (§0) — no commit/edit rights regardless of visibility.
+- Vercel project, native `*.vercel.app` URL — no custom domain. Vercel supports deploying from a private repo without it needing to be public.
 - Vercel build command runs the build script (e.g. `npm run build` → `node scripts/build.mjs`) before serving `dist/` — same zero-config static hosting model amplified thinker uses, with an actual build step instead of hand-edited HTML.
 - A `deploy.bat` equivalent (git add/commit/push) triggers Vercel's Git-integration auto-deploy, matching amplified thinker's workflow.
 - No Edge Middleware planned initially — every page here is fully pre-rendered at build time (unlike amplified thinker's client-rendered `news.html`, which needed middleware to serve crawlers a prerendered shell). Add middleware later only if a specific page turns out to need bot-specific handling.
