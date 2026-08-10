@@ -247,6 +247,13 @@ button { font-family: var(--sans); }
 .icon-btn.is-active { color: var(--accent); }
 .icon-btn.fav.is-active svg { fill: var(--accent); }
 
+/* theme toggle: shows the icon for the mode you'd switch TO */
+.theme-toggle { flex-shrink: 0; }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
 /* filter rail */
 .filter-rail {
   background: var(--well);

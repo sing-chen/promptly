@@ -116,9 +116,34 @@ function initExportButton() {
   document.getElementById('export-favorites-btn')?.addEventListener('click', exportFavorites);
 }
 
+const THEME_KEY = 'promptly:theme';
+
+function syncThemeToggleUI(btn) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+  btn.setAttribute('aria-pressed', String(isDark));
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+
+function initThemeToggle() {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  syncThemeToggleUI(btn);
+  btn.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_KEY, next); } catch {
+      // localStorage unavailable, ignore - theme just won't persist across reloads
+    }
+    syncThemeToggleUI(btn);
+  });
+}
+
 updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
   initInteractive(document);
   initFavoritesGrid();
   initExportButton();
+  initThemeToggle();
 });
