@@ -39,8 +39,10 @@ function updateNavCount() {
   if (el) el.textContent = `☆ ${getFavorites().length}`;
 }
 
-function initStars() {
-  document.querySelectorAll('[data-fav-slug]').forEach(btn => {
+function initStars(root) {
+  root.querySelectorAll('[data-fav-slug]').forEach(btn => {
+    if (btn.dataset.favBound) return;
+    btn.dataset.favBound = 'true';
     const slug = btn.getAttribute('data-fav-slug');
     const active = isFavorite(slug);
     btn.classList.toggle('is-active', active);
@@ -55,8 +57,10 @@ function initStars() {
   });
 }
 
-function initCopyButtons() {
-  document.querySelectorAll('[data-copy-target]').forEach(btn => {
+function initCopyButtons(root) {
+  root.querySelectorAll('[data-copy-target]').forEach(btn => {
+    if (btn.dataset.copyBound) return;
+    btn.dataset.copyBound = 'true';
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -77,6 +81,15 @@ function initCopyButtons() {
       }, 2000);
     });
   });
+}
+
+// Re-runnable entry point: call again with a specific root (e.g. a freshly
+// rendered search-results container) to wire up stars/copy buttons on DOM
+// created after the initial DOMContentLoaded pass. Idempotent via the
+// data-*-bound guards above, so it's safe to call on the whole document too.
+export function initInteractive(root = document) {
+  initStars(root);
+  initCopyButtons(root);
 }
 
 function initFavoritesGrid() {
@@ -101,7 +114,6 @@ function initFavoritesGrid() {
 
 updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
-  initStars();
-  initCopyButtons();
+  initInteractive(document);
   initFavoritesGrid();
 });

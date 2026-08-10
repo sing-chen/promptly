@@ -1,6 +1,6 @@
 import { existsSync, rmSync, mkdirSync, writeFileSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadPrompts, validatePrompts, buildData, PROMPTS_DIR, PUBLIC_DIR } from '../lib/content.mjs';
+import { loadPrompts, validatePrompts, buildData, buildSearchIndex, PROMPTS_DIR, PUBLIC_DIR } from '../lib/content.mjs';
 import {
   renderHomePage, renderBrowseHub, renderCategoryPage, renderTagPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
@@ -40,12 +40,25 @@ if (existsSync(PUBLIC_DIR)) cpSync(PUBLIC_DIR, DIST_DIR, { recursive: true });
 cpSync('styles', join(DIST_DIR, 'styles'), { recursive: true });
 writeFileSync(join(DIST_DIR, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
 
+// Vendored Fuse.js browser build (v7 ships ESM only, no UMD - imported
+// directly as a module, no global-exposing <script> tag needed).
+cpSync('node_modules/fuse.js/dist/fuse.min.mjs', join(DIST_DIR, 'scripts', 'fuse.min.mjs'));
+
+// lib/render.mjs + lib/sequences.mjs are plain browser-safe JS (no Node
+// built-ins) - reused client-side by search.js so search results render
+// with the exact same prompt-card markup as every server-rendered page.
+mkdirSync(join(DIST_DIR, 'scripts', 'lib'), { recursive: true });
+cpSync('lib/render.mjs', join(DIST_DIR, 'scripts', 'lib', 'render.mjs'));
+cpSync('lib/sequences.mjs', join(DIST_DIR, 'scripts', 'lib', 'sequences.mjs'));
+
+writeFileSync(join(DIST_DIR, 'search-index.json'), JSON.stringify(buildSearchIndex(data)));
+
 // --- pages ---
 writeRoute('', renderHomePage(data));
 writeRoute('browse', renderBrowseHub(data));
 writeRoute('sequences', renderSequencesIndex(data));
 writeRoute('favorites', renderFavoritesPage(data));
-writeRoute('search', renderSearchPage());
+writeRoute('search', renderSearchPage(data));
 writeRoute('about', renderAboutPage());
 writeRoute('contributing', renderContributingPage());
 
