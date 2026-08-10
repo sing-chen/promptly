@@ -1,4 +1,4 @@
-const KEY = 'prompt-library:favorites';
+const KEY = 'promptly:favorites';
 
 export function getFavorites() {
   try {
@@ -29,7 +29,7 @@ export function exportFavorites() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'prompt-library-favorites.json';
+  a.download = 'promptly-favorites.json';
   a.click();
   URL.revokeObjectURL(url);
 }

@@ -1,4 +1,4 @@
-# Prompt Library
+# Promptly
 
 Personal-use, static prompt catalog. Static HTML/CSS/vanilla JS, no framework, no backend, no database — see [BUILD_BRIEF.md](./BUILD_BRIEF.md) for the full spec.
 

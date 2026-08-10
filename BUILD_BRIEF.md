@@ -1,4 +1,4 @@
-# Prompt Library — Build Brief (v2: Static HTML/CSS/Vanilla JS)
+# Promptly — Build Brief (v2: Static HTML/CSS/Vanilla JS)
 
 Personal-use AI prompt catalog. Static site, no accounts/login/auth, no backend, no database. Everything below is locked from a design session — build against it directly rather than re-deriving decisions.
 
