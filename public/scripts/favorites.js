@@ -79,8 +79,29 @@ function initCopyButtons() {
   });
 }
 
+function initFavoritesGrid() {
+  const grid = document.getElementById('favorites-grid');
+  if (!grid) return;
+  const emptyState = document.getElementById('favorites-empty');
+  function apply() {
+    const favs = getFavorites();
+    let count = 0;
+    Array.from(grid.children).forEach(card => {
+      const slug = card.querySelector('[data-fav-slug]')?.getAttribute('data-fav-slug');
+      const visible = favs.includes(slug);
+      card.hidden = !visible;
+      if (visible) count++;
+    });
+    if (emptyState) emptyState.hidden = count !== 0;
+    grid.hidden = count === 0;
+  }
+  apply();
+  document.addEventListener('favorites:changed', apply);
+}
+
 updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
   initStars();
   initCopyButtons();
+  initFavoritesGrid();
 });
