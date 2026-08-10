@@ -49,8 +49,10 @@
   .card {
     background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px;
     box-shadow: var(--shadow-sm); cursor: grab; min-width: 160px; font-size: 13px;
-    border-left: 3px solid var(--seq);
+    border-left: 3px solid var(--seq); display: flex; gap: 8px; align-items: flex-start;
   }
+  .card .card-select { flex-shrink: 0; cursor: pointer; padding-top: 1px; }
+  .card .card-body { flex: 1; }
   .card .step-num {
     font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
     color: var(--seq); font-weight: 700; margin-bottom: 4px; display: block;
@@ -66,11 +68,23 @@
     flex: 1; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
     background: var(--surface); color: var(--ink);
   }
+  #bulk-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--accent-soft); border-radius: var(--radius-sm);
+    padding: 10px 14px; margin-top: 16px; font-size: 13px;
+  }
+  #bulk-bar select, #bulk-bar input {
+    padding: 6px 8px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-size: 13px;
+  }
+  #bulk-bar input { width: 110px; }
+  #bulk-count { font-weight: 700; color: var(--accent); }
+  #bulk-delete { border-color: #A6392E; color: #A6392E; }
 </style>
 </head>
 <body>
   <h1>Sequence Builder</h1>
-  <p class="sub">Local tool — reads/writes files directly in your <code>/prompts</code> folder via the File System Access API. Not part of the deployed site.</p>
+  <p class="sub">Local tool — reads/writes files directly in your <code>/prompts</code> folder via the File System Access API. Not part of the deployed site. Drag cards between sequences below, or check cards to bulk delete/re-categorize.</p>
 
   <button class="primary" id="pick-folder">Open prompts folder</button>
   <span id="status">No folder selected.</span>
@@ -78,6 +92,16 @@
   <div class="new-board-row" id="new-board-row" hidden>
     <input type="text" id="new-board-name" placeholder="New sequence slug (e.g. client-onboarding)" />
     <button id="create-board">New sequence</button>
+  </div>
+
+  <div id="bulk-bar" hidden>
+    <span id="bulk-count">0 selected</span>
+    <select id="bulk-category"><option value="">Change category…</option></select>
+    <input type="text" id="bulk-add-tag" placeholder="Add tag">
+    <input type="text" id="bulk-remove-tag" placeholder="Remove tag">
+    <button id="bulk-apply">Apply</button>
+    <button id="bulk-delete">Delete selected</button>
+    <button id="bulk-clear">Clear selection</button>
   </div>
 
   <div class="lane-heading" id="pool-heading" hidden>Unassigned prompts (drag into a sequence below to assign)</div>
