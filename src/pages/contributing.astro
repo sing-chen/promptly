@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Adding a Prompt">
+  <div class="container" style="padding: 24px 20px 48px; max-width: 720px;">
+    <h1 style="margin-bottom: 12px;">Adding a Prompt</h1>
+    <p>There's no submission form — "adding a prompt" means creating a Markdown file and rebuilding the site.</p>
+
+    <h2 style="margin: 24px 0 8px;">1. Create the file</h2>
+    <p>Add a new file to <code>/prompts</code>, e.g. <code>/prompts/my-new-prompt.md</code>.</p>
+
+    <h2 style="margin: 24px 0 8px;">2. Fill in frontmatter</h2>
+    <div class="well" style="padding: 16px; font-family: var(--mono); font-size: 13px; white-space: pre;">{`---
+title: My new prompt
+category: writing
+tags: [drafting, claude]
+purpose: One sentence on what it's for.
+# optional:
+sequence: some-chain
+sequence_step: 1
+depends_on: prior-slug
+example_output: /assets/examples/my-example.png
+models: [claude, gpt]
+complexity: simple
+notes: When to use / when not to use this.
+---
+
+Prompt body with {{variable_placeholders}} here.`}</div>
+
+    <h2 style="margin: 24px 0 8px;">3. Validate and build</h2>
+    <p>Run the validation script before building — it checks for required fields (title, category, ≥1 tag) and duplicate slugs.</p>
+    <pre class="well" style="padding: 12px; font-family: var(--mono); font-size: 13px;">npm run validate
+npm run build</pre>
+
+    <h2 style="margin: 24px 0 8px;">Sequences</h2>
+    <p>Most prompts are standalone — leave <code>sequence</code> unset. If a prompt is part of a chain, set <code>sequence</code> and <code>sequence_step</code> (and <code>depends_on</code> if the chain forks). You can also use the local Sequence Builder tool in <code>/tools/sequence-builder</code> to manage chains via drag-and-drop.</p>
+  </div>
+</BaseLayout>

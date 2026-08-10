@@ -1,0 +1,129 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Chip from '../../components/Chip.astro';
+import Icon from '../../components/Icon.astro';
+import PromptCard from '../../components/PromptCard.astro';
+import SequenceRail from '../../components/SequenceRail.astro';
+import { getSequenceSteps, getRelatedPrompts } from '../../lib/sequences';
+import { withBase } from '../../lib/url';
+
+export async function getStaticPaths() {
+  const prompts = await getCollection('prompts');
+  return prompts.map(p => ({ params: { slug: p.slug }, props: { entry: p } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await entry.render();
+const allPrompts = await getCollection('prompts');
+
+const seqSteps = entry.data.sequence ? getSequenceSteps(allPrompts, entry.data.sequence) : [];
+const stepIndex = seqSteps.findIndex(s => s.slug === entry.slug);
+const prevStep = stepIndex > 0 ? seqSteps[stepIndex - 1] : undefined;
+const nextStep = stepIndex >= 0 && stepIndex < seqSteps.length - 1 ? seqSteps[stepIndex + 1] : undefined;
+
+const related = getRelatedPrompts(allPrompts, entry);
+
+// highlight {{variables}} in the rendered body via raw markdown source
+const rawBody = entry.body;
+const highlighted = rawBody.replace(/\{\{(.*?)\}\}/g, '<span class="var">{{$1}}</span>');
+
+const isImage = entry.data.example_output && /\.(png|jpe?g|gif|webp|svg)$/i.test(entry.data.example_output);
+const exampleOutputUrl = entry.data.example_output ? withBase(entry.data.example_output) : undefined;
+---
+<BaseLayout title={entry.data.title} description={entry.data.purpose}>
+  <div class="container" style="padding: 24px 20px 48px; max-width: 900px;">
+    <p class="breadcrumb"><a href={withBase('/')}>Home</a> / <a href={withBase(`/browse/${entry.data.category}`)} style="text-transform: capitalize;">{entry.data.category.replace('-', ' ')}</a> / <span>{entry.data.title}</span></p>
+
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+      <div>
+        <h1>{entry.data.title}</h1>
+        {entry.data.purpose && <p style="font-size: 15px;">{entry.data.purpose}</p>}
+      </div>
+      <button class="icon-btn fav" data-fav-slug={entry.slug} aria-label="Toggle favorite" style="width: 36px; height: 36px;">
+        <Icon name="star" size={20} />
+      </button>
+    </div>
+
+    <div class="card-chips" style="margin: 12px 0 20px;">
+      <Chip label={entry.data.category} href={withBase(`/browse/${entry.data.category}`)} />
+      {entry.data.tags.map(t => <Chip label={t} href={withBase(`/tag/${t}`)} />)}
+    </div>
+
+    {entry.data.sequence && stepIndex >= 0 && (
+      <SequenceRail
+        sequenceName={entry.data.sequence}
+        step={entry.data.sequence_step ?? stepIndex + 1}
+        total={seqSteps.length}
+        prevSlug={prevStep?.slug}
+        nextSlug={nextStep?.slug}
+        handoffNote={entry.data.depends_on ? `depends on: ${entry.data.depends_on}` : undefined}
+      />
+    )}
+
+    <div class="prompt-body-block well" id="prompt-body" data-raw-text={rawBody}>
+      <button class="btn btn-primary copy-pinned" data-copy-target="prompt-body">
+        <Icon name="copy" size={14} /> Copy
+      </button>
+      <div set:html={highlighted} />
+    </div>
+
+    {entry.data.example_output && (
+      <section style="margin: 24px 0;">
+        <h2 style="margin-bottom: 8px;">Example output</h2>
+        {isImage ? (
+          <a href={exampleOutputUrl} target="_blank" rel="noopener">
+            <img src={exampleOutputUrl} alt="Example output" style="max-width: 100%; border-radius: var(--radius); box-shadow: var(--shadow-sm);" />
+          </a>
+        ) : (
+          <a href={exampleOutputUrl} class="surface" style="display: flex; align-items: center; gap: 10px; padding: 14px; max-width: 320px;">
+            <Icon name="document" size={20} />
+            <span>{entry.data.example_output.split('/').pop()}</span>
+          </a>
+        )}
+      </section>
+    )}
+
+    {entry.data.notes && (
+      <section style="margin: 24px 0;">
+        <h2 style="margin-bottom: 8px;">When to use / when not to</h2>
+        <p>{entry.data.notes}</p>
+      </section>
+    )}
+
+    <div class="prose" style="margin: 24px 0;">
+      <Content />
+    </div>
+
+    {related.length > 0 && (
+      <section style="margin: 32px 0;">
+        <h2 style="margin-bottom: 12px;">Related prompts</h2>
+        <div class="card-grid">
+          {related.map(p => (
+            <PromptCard
+              slug={p.slug}
+              title={p.data.title}
+              purpose={p.data.purpose}
+              category={p.data.category}
+              tags={p.data.tags}
+              sequence={p.data.sequence}
+              sequenceStep={p.data.sequence_step}
+              sequenceTotal={allPrompts.filter(x => x.data.sequence === p.data.sequence).length}
+              hasExample={!!p.data.example_output}
+              updated={p.data.updated}
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    <aside class="surface" style="margin-top: 32px; padding: 16px; font-size: 13px;">
+      <h3 style="margin-bottom: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint);">Details</h3>
+      {entry.data.models && <p><strong>Compatible models:</strong> {entry.data.models.join(', ')}</p>}
+      {entry.data.complexity && <p><strong>Complexity:</strong> {entry.data.complexity}</p>}
+      {entry.data.added && <p><strong>Added:</strong> {new Date(entry.data.added).toISOString().slice(0, 10)}</p>}
+      {entry.data.updated && <p><strong>Last revised:</strong> {new Date(entry.data.updated).toISOString().slice(0, 10)}</p>}
+      {entry.data.sequence && <p><strong>Sequence:</strong> <a href={withBase(`/sequence/${entry.data.sequence}`)} style="color: var(--accent);">{entry.data.sequence}</a></p>}
+    </aside>
+  </div>
+</BaseLayout>

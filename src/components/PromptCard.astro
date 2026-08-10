@@ -1,0 +1,50 @@
+---
+import Icon from './Icon.astro';
+import Chip from './Chip.astro';
+import { withBase } from '../lib/url';
+
+interface Props {
+  slug: string;
+  title: string;
+  purpose?: string;
+  category: string;
+  tags: string[];
+  sequence?: string;
+  sequenceStep?: number;
+  sequenceTotal?: number;
+  hasExample?: boolean;
+  updated?: Date;
+}
+const {
+  slug, title, purpose, category, tags,
+  sequence, sequenceStep, sequenceTotal, hasExample, updated
+} = Astro.props;
+
+const dateStr = updated ? new Date(updated).toISOString().slice(0, 10) : null;
+---
+<a class="prompt-card surface" href={withBase(`/prompt/${slug}`)} data-slug={slug}>
+  <div class="card-top">
+    <span class="card-title">{title}</span>
+    <span class="card-actions">
+      <button class="icon-btn fav" data-fav-slug={slug} aria-label="Toggle favorite" aria-pressed="false">
+        <Icon name="star" size={15} />
+      </button>
+      <button class="icon-btn" data-copy-target={`raw-${slug}`} aria-label="Copy prompt">
+        <Icon name="copy" size={15} />
+      </button>
+      <span id={`raw-${slug}`} data-raw-text={title} hidden></span>
+    </span>
+  </div>
+  {purpose && <p class="card-purpose">{purpose}</p>}
+  <div class="card-chips">
+    <Chip label={category} />
+    {tags.slice(0, 2).map(t => <Chip label={t} />)}
+    {sequence && (
+      <Chip variant="seq" label={`step ${sequenceStep} of ${sequenceTotal}`} />
+    )}
+  </div>
+  <div class="card-footer">
+    <span>{dateStr ? `Updated ${dateStr}` : ''}</span>
+    {hasExample && <Icon name="image" size={13} />}
+  </div>
+</a>

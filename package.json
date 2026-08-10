@@ -1,0 +1,19 @@
+{
+  "name": "prompt-library",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "node scripts/validate-prompts.mjs && astro build && pagefind --site dist",
+    "preview": "astro preview",
+    "validate": "node scripts/validate-prompts.mjs"
+  },
+  "dependencies": {
+    "astro": "^4.16.0"
+  },
+  "devDependencies": {
+    "pagefind": "^1.1.0",
+    "gray-matter": "^4.0.3"
+  }
+}

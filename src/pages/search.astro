@@ -1,0 +1,65 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../lib/url';
+
+const pagefindUrl = withBase('/pagefind/pagefind.js');
+---
+<BaseLayout title="Search">
+  <div class="container" style="padding: 24px 20px 48px;">
+    <h1 style="margin-bottom: 16px;">Search</h1>
+    <div class="search-field" style="max-width: 480px; margin-bottom: 24px;">
+      <input type="text" id="pagefind-input" placeholder="Search prompts…" aria-label="Search prompts" />
+    </div>
+    <div id="pagefind-results"></div>
+    <div id="zero-results" hidden>
+      <p>No results. Nearest tags:</p>
+      <div id="nearest-tags" class="card-chips"></div>
+    </div>
+  </div>
+
+  <script type="module" define:vars={{ pagefindUrl }}>
+    // Pagefind emits its static index into /pagefind (relative to the site
+    // base) at build time.
+    const params = new URLSearchParams(location.search);
+    const initial = params.get('q') || '';
+    const input = document.getElementById('pagefind-input');
+    const resultsEl = document.getElementById('pagefind-results');
+    const zeroEl = document.getElementById('zero-results');
+    input.value = initial;
+
+    let pagefind;
+    async function loadPagefind() {
+      if (pagefind) return pagefind;
+      try {
+        pagefind = await import(/* @vite-ignore */ pagefindUrl);
+        await pagefind.init();
+      } catch (e) {
+        console.warn('Pagefind index not built yet. Run `npm run build`.');
+      }
+      return pagefind;
+    }
+
+    async function runSearch(query) {
+      if (!query) { resultsEl.innerHTML = ''; zeroEl.hidden = true; return; }
+      const pf = await loadPagefind();
+      if (!pf) return;
+      const search = await pf.search(query);
+      if (search.results.length === 0) {
+        resultsEl.innerHTML = '';
+        zeroEl.hidden = false;
+        return;
+      }
+      zeroEl.hidden = true;
+      const items = await Promise.all(search.results.slice(0, 20).map(r => r.data()));
+      resultsEl.innerHTML = items.map(item => `
+        <a class="surface prompt-card" href="${item.url}" style="display:block; margin-bottom: 10px;">
+          <div class="card-title">${item.meta.title || item.url}</div>
+          <p class="card-purpose">${item.excerpt}</p>
+        </a>
+      `).join('');
+    }
+
+    input.addEventListener('input', (e) => runSearch(e.target.value));
+    if (initial) runSearch(initial);
+  </script>
+</BaseLayout>

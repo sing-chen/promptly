@@ -1,0 +1,35 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { getAllSequenceSlugs, getSequenceSteps } from '../../lib/sequences';
+import { withBase } from '../../lib/url';
+
+export async function getStaticPaths() {
+  const prompts = await getCollection('prompts');
+  return getAllSequenceSlugs(prompts).map(slug => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params;
+const prompts = await getCollection('prompts');
+const steps = getSequenceSteps(prompts, slug as string);
+---
+<BaseLayout title={slug}>
+  <div class="container" style="padding: 24px 20px 48px;">
+    <p class="breadcrumb"><a href={withBase('/')}>Home</a> / <a href={withBase('/sequences')}>Sequences</a> / <span style="text-transform: capitalize;">{slug?.replace(/-/g, ' ')}</span></p>
+    <h1 style="text-transform: capitalize; margin-bottom: 4px;">{slug?.replace(/-/g, ' ')}</h1>
+    <p>{steps.length} steps · standalone-usable at every step</p>
+
+    <div class="seq-flow">
+      {steps.map((step, i) => (
+        <>
+          <a class="seq-step-card surface" href={withBase(`/prompt/${step.slug}`)}>
+            <div class="chip chip-seq" style="margin-bottom: 8px;">step {step.data.sequence_step} of {steps.length}</div>
+            <div class="card-title" style="margin-bottom: 6px;">{step.data.title}</div>
+            {step.data.purpose && <p style="font-size: 12.5px;">{step.data.purpose}</p>}
+          </a>
+          {i < steps.length - 1 && <span class="seq-connector">→</span>}
+        </>
+      ))}
+    </div>
+  </div>
+</BaseLayout>

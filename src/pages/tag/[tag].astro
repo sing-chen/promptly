@@ -1,0 +1,40 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PromptCard from '../../components/PromptCard.astro';
+import { withBase } from '../../lib/url';
+
+export async function getStaticPaths() {
+  const prompts = await getCollection('prompts');
+  const tags = new Set<string>();
+  prompts.forEach(p => p.data.tags.forEach(t => tags.add(t)));
+  return Array.from(tags).map(tag => ({ params: { tag } }));
+}
+
+const { tag } = Astro.params;
+const allPrompts = await getCollection('prompts');
+const filtered = allPrompts.filter(p => p.data.tags.includes(tag as string));
+---
+<BaseLayout title={`#${tag}`}>
+  <div class="container" style="padding: 24px 20px 48px;">
+    <p class="breadcrumb"><a href={withBase('/')}>Home</a> / <a href={withBase('/browse')}>Browse</a> / <span>#{tag}</span></p>
+    <h1 style="margin-bottom: 16px;">#{tag}</h1>
+    {filtered.length === 0 && <p>No prompts tagged with "{tag}" yet.</p>}
+    <div class="card-grid">
+      {filtered.map(p => (
+        <PromptCard
+          slug={p.slug}
+          title={p.data.title}
+          purpose={p.data.purpose}
+          category={p.data.category}
+          tags={p.data.tags}
+          sequence={p.data.sequence}
+          sequenceStep={p.data.sequence_step}
+          sequenceTotal={allPrompts.filter(x => x.data.sequence === p.data.sequence).length}
+          hasExample={!!p.data.example_output}
+          updated={p.data.updated}
+        />
+      ))}
+    </div>
+  </div>
+</BaseLayout>

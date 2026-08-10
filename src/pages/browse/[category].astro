@@ -1,0 +1,55 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PromptCard from '../../components/PromptCard.astro';
+import FilterRail from '../../components/FilterRail.astro';
+import { CATEGORIES } from '../../content/config';
+import { withBase } from '../../lib/url';
+
+export async function getStaticPaths() {
+  return CATEGORIES.map(category => ({ params: { category } }));
+}
+
+const { category } = Astro.params;
+const allPrompts = await getCollection('prompts');
+const prompts = allPrompts.filter(p => p.data.category === category);
+
+const models = Array.from(new Set(prompts.flatMap(p => p.data.models ?? [])));
+const url = Astro.url;
+const activeModel = url.searchParams.get('model') ?? undefined;
+const activeComplexity = url.searchParams.get('complexity') ?? undefined;
+const activeChain = url.searchParams.get('chain') === 'sequenced' ? 'sequenced' : 'all';
+
+let filtered = prompts;
+if (activeModel) filtered = filtered.filter(p => (p.data.models ?? []).includes(activeModel));
+if (activeComplexity) filtered = filtered.filter(p => p.data.complexity === activeComplexity);
+if (activeChain === 'sequenced') filtered = filtered.filter(p => !!p.data.sequence);
+---
+<BaseLayout title={category}>
+  <div class="container" style="padding: 24px 20px 48px;">
+    <p class="breadcrumb"><a href={withBase('/')}>Home</a> / <a href={withBase('/browse')}>Browse</a> / <span style="text-transform: capitalize;">{category.replace('-', ' ')}</span></p>
+    <h1 style="text-transform: capitalize; margin-bottom: 16px;">{category.replace('-', ' ')}</h1>
+    <div class="layout-with-rail">
+      <FilterRail models={models} activeModel={activeModel} activeComplexity={activeComplexity} activeChain={activeChain} />
+      <div>
+        {filtered.length === 0 && <p>No prompts match these filters yet.</p>}
+        <div class="card-grid">
+          {filtered.map(p => (
+            <PromptCard
+              slug={p.slug}
+              title={p.data.title}
+              purpose={p.data.purpose}
+              category={p.data.category}
+              tags={p.data.tags}
+              sequence={p.data.sequence}
+              sequenceStep={p.data.sequence_step}
+              sequenceTotal={allPrompts.filter(x => x.data.sequence === p.data.sequence).length}
+              hasExample={!!p.data.example_output}
+              updated={p.data.updated}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</BaseLayout>

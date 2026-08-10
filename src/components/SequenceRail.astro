@@ -1,0 +1,19 @@
+---
+import { withBase } from '../lib/url';
+
+interface Props {
+  sequenceName: string;
+  step: number;
+  total: number;
+  prevSlug?: string;
+  nextSlug?: string;
+  handoffNote?: string;
+}
+const { sequenceName, step, total, prevSlug, nextSlug, handoffNote } = Astro.props;
+---
+<div class="sequence-rail">
+  {prevSlug ? <a href={withBase(`/prompt/${prevSlug}`)}>← prior step</a> : <span>start</span>}
+  <span class="current">{sequenceName} · step {step} of {total}</span>
+  {nextSlug ? <a href={withBase(`/prompt/${nextSlug}`)}>next step →</a> : <span>final step</span>}
+  {handoffNote && <span style="color: var(--ink-faint);">— {handoffNote}</span>}
+</div>

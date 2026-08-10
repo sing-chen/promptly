@@ -1,0 +1,76 @@
+---
+import '../styles/base.css';
+import Icon from '../components/Icon.astro';
+import { withBase } from '../lib/url';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description = 'Personal AI prompt catalog.' } = Astro.props;
+const path = Astro.url.pathname;
+
+const navLinks = [
+  { href: withBase('/browse'), label: 'Browse' },
+  { href: withBase('/sequences'), label: 'Sequences' },
+  { href: withBase('/favorites'), label: 'Favorites' },
+  { href: withBase('/contributing'), label: 'Contributing' },
+  { href: withBase('/about'), label: 'About' }
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title} · Prompt Library</title>
+  <meta name="description" content={description} />
+  <script is:inline>
+    (function () {
+      var stored = localStorage.getItem('theme');
+      if (stored) document.documentElement.setAttribute('data-theme', stored);
+    })();
+  </script>
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a href={withBase('/')} class="nav-logo">Prompt Library</a>
+      <form class="nav-search" action={withBase('/search')} role="search">
+        <div class="search-field">
+          <Icon name="search" size={14} />
+          <input type="text" name="q" placeholder="Search prompts…" aria-label="Search prompts" />
+        </div>
+      </form>
+      <nav class="nav-links">
+        {navLinks.map(link => (
+          <a href={link.href} aria-current={path.startsWith(link.href) ? 'page' : undefined}>{link.label}</a>
+        ))}
+      </nav>
+      <span class="nav-fav-count" id="nav-fav-count">☆ 0</span>
+      <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme">
+        <Icon name="moon" size={16} />
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">Personal prompt catalog · built with Astro</div>
+  </footer>
+
+  <script src={withBase('/scripts/favorites.js')} type="module"></script>
+  <script is:inline>
+    var t = document.getElementById('theme-toggle');
+    t.addEventListener('click', function () {
+      var cur = document.documentElement.getAttribute('data-theme');
+      var next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    });
+  </script>
+</body>
+</html>

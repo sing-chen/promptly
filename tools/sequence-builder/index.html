@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sequence Builder — local tool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+  :root {
+    --paper: #EEEAE1; --surface: #FFFFFF; --well: #DFD8C9;
+    --ink: #1C1912; --ink-soft: #59544A; --ink-faint: #8A8477;
+    --line: #CFC6B4; --accent: #1B5FC2; --accent-soft: #DCE8F7;
+    --seq: #9A5008; --seq-soft: #F2E2C8;
+    --radius-sm: 4px; --radius: 8px;
+    --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #131110; --surface: #1D1B17; --well: #100F0C;
+      --ink: #F1ECE1; --ink-soft: #B8AF9C; --ink-faint: #7C7566;
+      --line: #3A362C; --accent: #6FA8E8; --accent-soft: #1E3352;
+      --seq: #D79A4E; --seq-soft: #3A2A14;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "Segoe UI", Arial, sans-serif; padding: 24px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { color: var(--ink-soft); margin: 0 0 20px; font-size: 13px; }
+  button {
+    font-family: inherit; font-weight: 700; font-size: 13px;
+    border-radius: var(--radius-sm); border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); padding: 8px 14px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #status { font-size: 12px; color: var(--ink-faint); margin-left: 10px; }
+  .boards { display: flex; flex-direction: column; gap: 24px; margin-top: 24px; }
+  .board {
+    background: var(--surface); border-radius: var(--radius); padding: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .board-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .board-header input { font-weight: 700; font-size: 14px; border: none; background: transparent; color: var(--ink); }
+  .lane {
+    display: flex; gap: 10px; min-height: 90px; padding: 10px;
+    background: var(--well); border-radius: var(--radius-sm); flex-wrap: wrap;
+  }
+  .card {
+    background: var(--surface); border-radius: var(--radius-sm); padding: 10px 12px;
+    box-shadow: var(--shadow-sm); cursor: grab; min-width: 160px; font-size: 13px;
+    border-left: 3px solid var(--seq);
+  }
+  .card .step-num {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--seq); font-weight: 700; margin-bottom: 4px; display: block;
+  }
+  #pool .card { border-left-color: var(--accent); }
+  #pool-heading, .lane-heading {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--ink-faint); margin: 18px 0 6px;
+  }
+  #pool { }
+  .new-board-row { display: flex; gap: 8px; margin: 20px 0; }
+  .new-board-row input {
+    flex: 1; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+  <h1>Sequence Builder</h1>
+  <p class="sub">Local tool — reads/writes files directly in your <code>/prompts</code> folder via the File System Access API. Not part of the deployed site.</p>
+
+  <button class="primary" id="pick-folder">Open prompts folder</button>
+  <span id="status">No folder selected.</span>
+
+  <div class="new-board-row" id="new-board-row" hidden>
+    <input type="text" id="new-board-name" placeholder="New sequence slug (e.g. client-onboarding)" />
+    <button id="create-board">New sequence</button>
+  </div>
+
+  <div class="lane-heading" id="pool-heading" hidden>Unassigned prompts (drag into a sequence below to assign)</div>
+  <div class="lane" id="pool" hidden></div>
+
+  <div class="boards" id="boards"></div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
