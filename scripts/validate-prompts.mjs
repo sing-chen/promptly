@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 
-const PROMPTS_DIR = join(process.cwd(), 'src', 'content', 'prompts');
+const PROMPTS_DIR = join(process.cwd(), 'prompts');
 
 function fail(messages) {
   console.error('\nPrompt validation failed:\n');
