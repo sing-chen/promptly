@@ -112,8 +112,13 @@ function initFavoritesGrid() {
   document.addEventListener('favorites:changed', apply);
 }
 
+function initExportButton() {
+  document.getElementById('export-favorites-btn')?.addEventListener('click', exportFavorites);
+}
+
 updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
   initInteractive(document);
   initFavoritesGrid();
+  initExportButton();
 });
