@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
+    "watch": "node scripts/watch.mjs",
     "validate": "node scripts/validate-prompts.mjs"
   },
   "devDependencies": {

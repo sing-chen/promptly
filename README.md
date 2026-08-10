@@ -9,7 +9,15 @@ npm install
 npm run build
 ```
 
-There is no dev server — open the generated files in `dist/` directly, or serve them with any static file server while iterating.
+There is no dev server (no live-reload, no local HTTP serving) — `dist/` is a plain static folder, open the generated files directly or serve them with any static file server while iterating.
+
+Every change (content, templates, styles, client JS) requires a rebuild before it shows up in `dist/` — nothing in `dist/` is live-edited or watched by itself. For active editing sessions, run the watcher instead of calling `npm run build` by hand after every change:
+
+```bash
+npm run watch
+```
+
+This runs an initial build, then rebuilds automatically whenever anything under `prompts/`, `lib/`, `styles/`, or `public/` changes. A bad edit (invalid frontmatter, etc.) prints the validation error and keeps watching rather than crashing. Note: changes to `scripts/build.mjs` or `scripts/watch.mjs` themselves need a restart to take effect, since the watcher doesn't watch its own code.
 
 ## Adding a prompt
 
@@ -27,13 +35,17 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 ## Structure
 
 - `prompts/` — one Markdown file per prompt, YAML frontmatter
-- `scripts/build.mjs` — reads `prompts/`, validates, generates every static page + the search index into `dist/`
+- `scripts/build.mjs` — reads `prompts/`, validates, generates every static page + the search index into `dist/` (exports `runBuild()`, reused by `watch.mjs`)
+- `scripts/watch.mjs` — rebuilds automatically on changes under `prompts/`, `lib/`, `styles/`, `public/`
 - `scripts/validate-prompts.mjs` — standalone content validation (required fields, duplicate slugs)
-- `lib/sequences.mjs`, `lib/collections.mjs` — sequence/related-prompt/collection logic, consumed by `scripts/build.mjs`
-- `styles/tokens.css`, `styles/base.css` — design tokens ("Stone & Signal")
-- `public/scripts/favorites.js` — favorites (localStorage) + copy-to-clipboard, shared across generated pages
-- `tools/sequence-builder/` — standalone local authoring tool
+- `lib/render.mjs` — HTML template functions for every page type; also reused client-side by `search.js` (it's plain browser-safe JS)
+- `lib/content.mjs` — frontmatter loading/validation, the derived data model, and the search index shape
+- `lib/schema.mjs` — controlled category/complexity vocabulary
+- `lib/sequences.mjs`, `lib/collections.mjs`, `lib/useCases.mjs` — sequence/related-prompt/collection/use-case logic
+- `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal")
+- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard), `filters.js` (category/tag page facets), `search.js` (Fuse-powered search page)
+- `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete/re-categorize)
 
 ## Status
 
-Rewrite in progress per `BUILD_BRIEF.md` v2 (Astro → custom static build script, Pagefind → Fuse.js). Astro scaffold removed; content, design tokens, and reusable logic ported. `scripts/build.mjs` (page generation) not yet written.
+Rewrite per `BUILD_BRIEF.md` v3 (Astro → custom static build script, Pagefind → Fuse.js) is functionally complete: content pipeline, full page generation, design system, search, favorites/copy, and Sequence Builder bulk admin are all built and verified. Remaining: deploy to Vercel, and a final accessibility QA pass.
