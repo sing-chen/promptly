@@ -12,6 +12,20 @@ html, body {
   line-height: 1.5;
 }
 
+/* Sticky footer: main takes a minimum height (viewport minus nav/footer)
+   and grows past that once content needs more - so the footer always sits
+   at the bottom of the viewport on short pages instead of riding up right
+   under the content, but never overlaps content on long ones. */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+main {
+  flex: 1 0 auto;
+  padding-top: 32px;
+}
+
 h1, h2, h3, .display {
   font-family: var(--display);
   font-weight: 700;
@@ -147,13 +161,15 @@ button { font-family: var(--sans); }
   color: var(--seq);
 }
 
-/* Nav - a surface like every other raised element (§9 elevation rule: nothing
-   sits flush with --paper), not the page background it was flush with before. */
+/* Nav - a raised surface (§9 elevation rule: nothing sits flush with
+   --paper), tinted with --accent-soft rather than plain --surface white -
+   the same soft-brand tone used for chip backgrounds/hover states
+   throughout, so the nav reads as branded chrome rather than a plain box. */
 .nav {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--surface);
+  background: var(--accent-soft);
   border-bottom: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
 }
@@ -369,7 +385,7 @@ button.nav-toggle { display: none; }
 .breadcrumb a:hover { color: var(--accent); }
 
 /* prompt detail page: two-box single-column bento (Prompt, Notes) */
-.pd-page { padding-top: 20px; padding-bottom: 48px; max-width: 720px; }
+.pd-page { padding-bottom: 48px; max-width: 720px; }
 .pd-header { margin-bottom: 20px; }
 .pd-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .pd-title-row h1 { margin: 0; }

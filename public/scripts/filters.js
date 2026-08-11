@@ -64,10 +64,10 @@ export function initFilterToolbar(toolbarId, { onChange } = {}) {
   };
 }
 
-// Static-page flavor for Category: filters the table's own DOM rows in-place
-// using the data-chain attribute each row already carries (same attribute
-// the §9b table renders for the quick-view modal), rather than routing
-// through a live search index.
+// Static-page flavor for Category/Home: filters the table's own DOM rows
+// in-place using the data-categories attribute each row already carries
+// (same attribute the §9b table renders for the quick-view modal), rather
+// than routing through a live search index.
 export function initTableFilterToolbar(toolbarId, gridId) {
   const grid = document.getElementById(gridId);
   if (!grid) return;
@@ -92,7 +92,6 @@ export function initTableFilterToolbar(toolbarId, gridId) {
   const toolbar = initFilterToolbar(toolbarId, { onChange: apply });
 
   function apply() {
-    const chainOnly = toolbar.getActive('chain').has('true');
     // Empty on pages with no category pill group (e.g. Category, which is
     // already server-scoped to one category) - matchesCategory is then
     // always true below, so this is a no-op there.
@@ -102,9 +101,7 @@ export function initTableFilterToolbar(toolbarId, gridId) {
     let visibleCount = 0;
     for (const card of cards) {
       const cardCats = (card.dataset.categories || '').split(',').filter(Boolean);
-      const matchesChain = !chainOnly || card.dataset.chain === 'true';
-      const matchesCategory = activeCats.size === 0 || cardCats.some(c => activeCats.has(c));
-      const visible = matchesChain && matchesCategory;
+      const visible = activeCats.size === 0 || cardCats.some(c => activeCats.has(c));
       card.hidden = !visible;
       if (visible) visibleCount++;
     }
