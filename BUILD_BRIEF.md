@@ -172,7 +172,7 @@ Single-column, two-box **bento** layout — deliberately mobile-first, no side r
 - **Tags**, **compatible models**, and **complexity** — originally just hidden from the detail page while staying in frontmatter/search (this was a display-only cut). As of §9c, all three are no longer captured at all — a full data-model removal, not a display cut.
 - **Source / attribution link** — considered during the layout session, explicitly decided against. Not implemented.
 
-**Standing open item, not yet designed**: browsing a list and opening a prompt is still a full navigation away from results — no quick-view/slide-over/prev-next-through-results exists yet. Flagged during the layout session as something to prototype once the depth/interactivity pass (§9a) is scoped, not forgotten.
+~~**Standing open item, not yet designed**: browsing a list and opening a prompt is still a full navigation away from results — no quick-view/slide-over/prev-next-through-results exists yet.~~ Resolved by §9b's quick-view modal (`renderQuickViewModal`, `quickview.js`) — clicking a row now opens full detail-page content in a dialog with prev/next through the filtered result set, no round-trip to `/prompt/[slug]/` required.
 
 ### Sequence page `/sequence/[slug]`
 Breadcrumb → chain name + one-line description → horizontal flow of connected step cards (step number, title, one-line note on what it consumes/produces), left-to-right with a visible connector between them.
@@ -325,7 +325,7 @@ A second design pass, separate from and later than the §9 retheme, focused on l
 - ~~**Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.~~ Resolved: swapped for the live pill toolbar, then simplified further — see §9c.
 - **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign). Moot for tags specifically as of §9c (field removed); category chip style is still open.
 - **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.
-- **Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.
+- ~~**Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.~~ Resolved in §9d: solid badge (option B) chosen, ported to `renderPromptCard`.
 - **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); source was tried and rejected. Tags/models/complexity superseded by §9c: no longer a display cut, the fields themselves aren't captured.
 
 Design references cited going into this pass: Amplified Thinker (sibling site, same teal/sage identity) and MasterClass (clean, modern, easy to navigate) — originally cited for the §9 color/font work, carried forward as a general quality bar rather than a literal reference for layout.
@@ -355,7 +355,7 @@ Third design pass, addressing the "quick-view / reduced back-and-forth" item fla
 
 **Still open / deliberately deferred**:
 - ~~Whether the filter-pill pattern should also replace the filter rail's implicit category scoping on Category/Tag pages, or the two stay split as they are now.~~ Resolved in §9c: filter rail replaced by pills on Category/Search; Tag pages removed outright.
-- Card/chip treatment for Home, Sequences, and Collections, which stay card-based (§9a card/chip directions were mocked but never decided).
+- ~~Card/chip treatment for Home, Sequences, and Collections, which stay card-based (§9a card/chip directions were mocked but never decided).~~ Resolved in §9d.
 
 ---
 
@@ -380,6 +380,16 @@ Two changes landed back-to-back and are documented together since the second imm
 **What stayed**: `categories` (still captured, filtered, and badge-colored), `sequence`/`sequence_step`/`depends_on` (the Chain filter and sequence stepper are untouched — chain-ness is derived from `sequence`, never from the removed fields), Favorites, quick-view, and search by title/purpose/body/category.
 
 **Reversibility**: nothing here was a one-way door — re-adding `tags` means restoring the schema/validation/build-data pieces above plus the Tag route and its filter-pill group; re-adding `models`/`complexity` is narrower (just the two pill groups and their data attributes). If reintroduced, revisit the design rather than reverting wholesale — the pill toolbar pattern this pass landed didn't exist the first time these fields were designed.
+
+---
+
+## 9d. Card Chip Decision (new) — solid badge (option B)
+
+Resolves the §9a "Prompt card + Chip redesign" open item: three directions had been mocked (soft chip pill / solid badge / dot+label eyebrow) for how a card shows its category, on the pages that stayed card-based after §9b's tabular pivot — Home, Sequences, Collections. Mocked side-by-side with real prompts before deciding (soft pill blurred together on the two-category card; dot+label was quietest but shrank the sequence-step chip's visual weight; solid badge won on legibility and consistency with the already-shipped detail-page/table badge).
+
+**Decision**: solid badge, same treatment as `renderCatBadges` (detail-page header, §9b table). `renderPromptCard` (`lib/render.mjs`) now calls `renderCatBadges(p.categories)` instead of the generic soft `.chip` for category chips — one consistent category-badge component across the whole site, not a card-specific variant. The sequence-step chip is unchanged (`.chip-seq`, soft accent tint) since it was never part of this decision and stays visually distinct from category by design (§4's "never color alone" rule — it's the only chip with literal "step X of Y" text).
+
+**Scope note**: Sequences' flow-view cards (`.seq-step-card`, the connected step cards on `/sequences` and `/sequence/[slug]`) never rendered category chips in the first place — a different, simpler card component (step number + title only) — so this decision only visibly changes Home's rails and Collection pages. Nothing to revisit there; it just wasn't in scope structurally.
 
 ---
 
@@ -409,4 +419,4 @@ Two changes landed back-to-back and are documented together since the second imm
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's last open card/chip question.*
