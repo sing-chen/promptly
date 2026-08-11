@@ -65,7 +65,7 @@ Every route above is emitted as a real static HTML file by the build script (e.g
 
 Three distinct axes — do not conflate them:
 
-- **category** — single-select, structural (where a prompt lives). Set: `writing`, `code`, `marketing`, `research`, `data-analysis`, `product`, `education`, `creative`, `ops-admin`.
+- **category** — multi-select as of the §9b tabular-browse pass (was single-select; most prompts still carry just one in practice), structural (where a prompt lives). Set: `writing`, `code`, `marketing`, `research`, `data-analysis`, `product`, `education`, `creative`, `ops-admin`. Frontmatter field is `categories: [...]` (array, 1+ entries) — see §9b.
 - **tags** — multi-select, descriptive (how it's found). Facets: task type (debug/draft/summarize/translate…), format (single-shot/chained/agentic), model (claude/gpt/gemini/model-agnostic), tone, skill level. Controlled vocabulary — new tags should route through a review step conceptually, not sprawl freely.
 - **sequence** — relational, *not* a tag. See §4.
 
@@ -74,7 +74,7 @@ Three distinct axes — do not conflate them:
 ```yaml
 ---
 title: Post-meeting follow-up
-category: writing
+categories: [writing]            # array, 1+ entries — see §3 note on the §9b multi-category change
 tags: [sales-outreach, follow-up, claude, gpt]
 sequence: client-onboarding      # optional
 sequence_step: 2                 # optional, only if sequence is set
@@ -328,13 +328,40 @@ A second design pass, separate from and later than the §9 retheme, focused on l
 
 **Explicitly open / not yet touched by this pass** — the color/font retheme (§9) recolored these in place without redesigning their structure:
 - **Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.
-- **Filter rail** (category/search pages, §8) — still the original layout.
+- **Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.
 - **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign).
-- **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored. Every other page still uses the pre-existing shadow/card treatment untouched.
-- **Quick-view / reduced back-and-forth** between a list (browse/search) and the detail page — flagged during the detail-page mockup rounds as worth prototyping once this pass reaches interactivity, not designed yet.
+- **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.
+- **Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.
 - **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); tags/models may return with their own design treatment, complexity is judged not worth detail-page space, source was tried and rejected.
 
 Design references cited going into this pass: Amplified Thinker (sibling site, same teal/sage identity) and MasterClass (clean, modern, easy to navigate) — originally cited for the §9 color/font work, carried forward as a general quality bar rather than a literal reference for layout.
+
+---
+
+## 9b. Tabular Browse & Quick-View Pass (implemented)
+
+Third design pass, addressing the "quick-view / reduced back-and-forth" item flagged as open in §9a, plus a scale concern raised separately: a card grid gets unwieldy once the catalog has many prompts. Went through mockup rounds (card/chip directions first, then a pivot to a tabular layout once the scale problem was raised) before landing here. **Implemented** across `lib/schema.mjs`, `lib/content.mjs`, `lib/render.mjs`, `styles/base.css`, and three client scripts (`public/scripts/quickview.js`, `public/scripts/categoryPills.js`, updates to `filters.js`/`favorites.js`/`search.js`).
+
+**Scope**: replaces the card grid on browse-heavy, non-curated pages — Category page, Tag page, Search, Favorites. Browse hub itself still lists category tiles (not prompts), so it was never in scope — corrected here after the design pass mistakenly listed it. Home and Sequences stay card-based (curated, not browsed-at-volume) — the open card/chip redesign question in §9a still applies there. Collections pages are also still card-based (not explicitly in scope; revisit if a collection ever gets large).
+
+**Table layout**:
+- Columns: **Category** (badges) · **Title** (with purpose subline stacked underneath, and a sequence-step pill inline when chained) · **Updated** · row actions (Favorite/Copy, icon-only, visible on hover/focus).
+- No separate Tags/Models columns — matches their removal from the detail page (§8).
+- Purpose stays stacked under the title rather than its own column: a dedicated column would need a fixed width for text of very different lengths (misaligned truncation, or a wide column forcing horizontal scroll). Stacked, title+purpose read as one unit — the same idiom GitHub's issue list and Linear's list view use for a title/description pair.
+- **Comfortable density** locked in (a denser "compact" variant was mocked and rejected in favor of comfortable).
+- Category uses the **solid badge** treatment (ported from the detail page's `pd-cat-badge` / §9's fixed-hex hues) rather than a soft chip or dot+label — chosen specifically because it scales cleanly to multi-category (below), where a plain dot or soft chip reads weakly with 2+ per row.
+
+**Multi-category** (see §3): a prompt can now belong to more than one category. Rendering rule: no "primary" category is picked — every category badge shows, in category order. The table cell wraps and caps at 2 visible badges + a neutral "+N" overflow badge to protect row height; the detail-page header has no cap since it isn't space-constrained the same way.
+
+**Live filter pills**: one pill per category (`renderCategoryFilterBar`, controller in `categoryPills.js`), positioned above the table, colored to match its badge hue (soft outline unselected, solid fill + white text selected), each showing a live count. Multi-select, OR logic within category (selecting Marketing + Product shows anything tagged with either). Filtering is instant client-side, no page reload; a result-count line and a "Clear filters" control (appears only once ≥1 pill is active) sit just above the table. **Shipped on Search and Favorites only** — Category and Tag pages already scope the listing by category/tag, so pills there were judged redundant for now and were left on the existing filter rail (model/complexity/chain) instead; revisit if multi-category makes that feel incomplete.
+
+**Quick-view modal**: clicking a row opens the **full detail-page content** (§8's exact structure — header with title + category badges + purpose, the two-box bento with Prompt box and Notes box, sequence stepper, Created/Modified) inside a modal shell (`renderQuickViewModal`, controller in `quickview.js`), not a condensed summary. Modal chrome adds: prev/next chevrons + a position counter ("3 / 7") that step through the **currently filtered/visible** result set (not the whole catalog), an "Open full page ↗" link that really navigates to `/prompt/[slug]/`, and a close control. Static pages (Category/Tag/Favorites) embed each row's full data as a JSON script tag at build time; the Search page (client-rendered results) feeds the modal live Fuse match objects instead and resolves sequence prev/next from the flat search index on the fly (`resolveSeqInfoFlat` in `quickview.js`) since it has no per-page precomputed sequence data.
+
+**Row selection persists**, deliberately not a brief flash: opening a row gives it a held highlight (tinted background + left rail) behind the modal; stepping prev/next in the modal moves the highlight to match in real time; closing the modal (Esc or backdrop click) leaves the highlight in place until a different row is opened. Chosen over a timed flash because a flash still requires guessing "how long is long enough" — a held state removes the question and directly answers the original ask: comparing several candidate prompts without losing your place or round-tripping through the full detail page each time.
+
+**Still open / deliberately deferred**:
+- Whether the filter-pill pattern should also replace the filter rail's implicit category scoping on Category/Tag pages, or the two stay split as they are now.
+- Card/chip treatment for Home, Sequences, and Collections, which stay card-based (§9a card/chip directions were mocked but never decided).
 
 ---
 
@@ -364,4 +391,4 @@ Design references cited going into this pass: Amplified Thinker (sibling site, s
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked.*

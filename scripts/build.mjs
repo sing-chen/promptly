@@ -48,12 +48,16 @@ export function runBuild() {
   // directly as a module, no global-exposing <script> tag needed).
   cpSync('node_modules/fuse.js/dist/fuse.min.mjs', join(DIST_DIR, 'scripts', 'fuse.min.mjs'));
 
-  // lib/render.mjs + lib/sequences.mjs are plain browser-safe JS (no Node
-  // built-ins) - reused client-side by search.js so search results render
-  // with the exact same prompt-card markup as every server-rendered page.
+  // lib/render.mjs + lib/sequences.mjs + lib/schema.mjs are plain browser-safe
+  // JS (no Node built-ins) - reused client-side by search.js/quickview.js so
+  // search results and the quick-view modal render with the exact same
+  // markup helpers (renderPromptTableRows, renderCatBadges, esc) as every
+  // server-rendered page. schema.mjs must ship too: render.mjs imports
+  // CATEGORIES from it, and a static import that 404s fails the whole module.
   mkdirSync(join(DIST_DIR, 'scripts', 'lib'), { recursive: true });
   cpSync('lib/render.mjs', join(DIST_DIR, 'scripts', 'lib', 'render.mjs'));
   cpSync('lib/sequences.mjs', join(DIST_DIR, 'scripts', 'lib', 'sequences.mjs'));
+  cpSync('lib/schema.mjs', join(DIST_DIR, 'scripts', 'lib', 'schema.mjs'));
 
   writeFileSync(join(DIST_DIR, 'search-index.json'), JSON.stringify(buildSearchIndex(data)));
 
@@ -67,7 +71,7 @@ export function runBuild() {
   writeRoute('contributing', renderContributingPage());
 
   for (const category of data.categories) {
-    const inCategory = data.prompts.filter(p => p.category === category.slug);
+    const inCategory = data.prompts.filter(p => p.categories.includes(category.slug));
     writeRoute(`browse/${category.slug}`, renderCategoryPage(category.slug, inCategory, data));
   }
 

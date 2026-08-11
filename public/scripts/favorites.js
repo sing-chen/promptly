@@ -1,3 +1,5 @@
+import { initCategoryPillBar } from './categoryPills.js';
+
 const KEY = 'promptly:favorites';
 
 export function getFavorites() {
@@ -95,18 +97,34 @@ export function initInteractive(root = document) {
 function initFavoritesGrid() {
   const grid = document.getElementById('favorites-grid');
   if (!grid) return;
-  const emptyState = document.getElementById('favorites-empty');
+  const wrap = grid.closest('.table-wrap') || grid;
+  const emptyEl = document.getElementById('favorites-grid-empty');
+  const pills = initCategoryPillBar('favorites-category-filter', { onChange: apply });
+
   function apply() {
     const favs = getFavorites();
+    const activeCats = pills.getActive();
     let count = 0;
-    Array.from(grid.children).forEach(card => {
-      const slug = card.querySelector('[data-fav-slug]')?.getAttribute('data-fav-slug');
-      const visible = favs.includes(slug);
-      card.hidden = !visible;
+    const catCounts = {};
+    Array.from(grid.children).forEach(row => {
+      const slug = row.querySelector('[data-fav-slug]')?.getAttribute('data-fav-slug');
+      const rowCats = (row.dataset.categories || '').split(',').filter(Boolean);
+      const isFav = favs.includes(slug);
+      if (isFav) rowCats.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
+      const matchesCategory = activeCats.size === 0 || rowCats.some(c => activeCats.has(c));
+      const visible = isFav && matchesCategory;
+      row.hidden = !visible;
       if (visible) count++;
     });
-    if (emptyState) emptyState.hidden = count !== 0;
-    grid.hidden = count === 0;
+    pills.setCounts(catCounts);
+    wrap.hidden = count === 0;
+    pills.setResultText(favs.length === 0 ? '' : `${count} of ${favs.length} favorite${favs.length === 1 ? '' : 's'} shown`);
+    if (emptyEl) {
+      emptyEl.textContent = favs.length === 0
+        ? 'Nothing starred yet. Browse prompts and click the star to save one here.'
+        : 'No favorites match the selected categories.';
+      emptyEl.hidden = count !== 0;
+    }
   }
   apply();
   document.addEventListener('favorites:changed', apply);

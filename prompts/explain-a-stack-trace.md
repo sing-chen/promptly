@@ -1,6 +1,6 @@
 ---
 title: Explain a stack trace
-category: code
+categories: [code]
 tags: [debug, single-shot, claude, model-agnostic]
 purpose: Get a plain-language explanation of an error and likely fix, from a raw stack trace.
 models: [claude, gpt, gemini]

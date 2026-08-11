@@ -1,6 +1,8 @@
 import Fuse from '/scripts/fuse.min.mjs';
-import { renderPromptCard } from '/scripts/lib/render.mjs';
+import { renderPromptTableRows } from '/scripts/lib/render.mjs';
 import { initInteractive } from '/scripts/favorites.js';
+import { initCategoryPillBar } from '/scripts/categoryPills.js';
+import { initQuickView } from '/scripts/quickview.js';
 
 const SYNONYMS = {
   email: ['outreach'],
@@ -12,6 +14,7 @@ const SYNONYMS = {
 };
 
 const resultsEl = document.getElementById('search-results');
+const resultsWrapEl = document.getElementById('search-results-wrap');
 const summaryEl = document.getElementById('search-summary');
 const suggestionsEl = document.getElementById('search-suggestions');
 const filtersEl = document.getElementById('search-filters');
@@ -22,7 +25,7 @@ if (resultsEl && filtersEl) {
 
   const fuse = new Fuse(index.prompts, {
     keys: [
-      { name: 'category', weight: 0.3 },
+      { name: 'categories', weight: 0.3 },
       { name: 'tags', weight: 0.3 },
       { name: 'title', weight: 0.2 },
       { name: 'purpose', weight: 0.15 },
@@ -37,6 +40,9 @@ if (resultsEl && filtersEl) {
   // nearest tags" suggestion even for a totally unrelated query, matching
   // the "never a dead end" requirement.
   const tagFuse = new Fuse(index.tags, { threshold: 1, includeScore: true });
+
+  const categoryPills = initCategoryPillBar('search-category-filter', { onChange: runSearch });
+  const quickView = initQuickView('search-results', { data: [], sequenceTotals: index.sequenceTotals, allPrompts: index.prompts });
 
   function checkedValues(group) {
     return Array.from(filtersEl.querySelectorAll(`[data-filter-group="${group}"] input:checked`)).map(i => i.value);
@@ -61,9 +67,11 @@ if (resultsEl && filtersEl) {
 
   function render(matches, q) {
     suggestionsEl.hidden = true;
+    quickView.update(matches);
     if (matches.length === 0) {
       resultsEl.innerHTML = '';
-      resultsEl.dataset.state = 'empty';
+      resultsWrapEl.hidden = true;
+      categoryPills.setResultText('');
       if (q) {
         summaryEl.textContent = `No results for "${q}".`;
         const nearest = tagFuse.search(q).slice(0, 3).map(r => r.item);
@@ -77,14 +85,15 @@ if (resultsEl && filtersEl) {
       return;
     }
     summaryEl.textContent = `${matches.length} result${matches.length === 1 ? '' : 's'}`;
-    resultsEl.dataset.state = 'results';
-    resultsEl.innerHTML = matches.map(p => renderPromptCard(p, { sequenceTotals: index.sequenceTotals })).join('');
+    resultsWrapEl.hidden = false;
+    resultsEl.innerHTML = renderPromptTableRows(matches, { sequenceTotals: index.sequenceTotals });
     initInteractive(resultsEl);
+    categoryPills.setResultText('');
   }
 
   function runSearch() {
     const q = (navInput?.value || '').trim();
-    const categories = checkedValues('category');
+    const categories = [...categoryPills.getActive()];
     const models = checkedValues('model');
     const complexities = checkedValues('complexity');
     const tags = checkedValues('tag');
@@ -106,7 +115,7 @@ if (resultsEl && filtersEl) {
     }
 
     matches = matches.filter(p =>
-      (categories.length === 0 || categories.includes(p.category)) &&
+      (categories.length === 0 || categories.some(c => p.categories.includes(c))) &&
       (models.length === 0 || models.some(m => p.models.includes(m))) &&
       (complexities.length === 0 || complexities.includes(p.complexity)) &&
       (tags.length === 0 || tags.some(t => p.tags.includes(t)))
@@ -118,7 +127,11 @@ if (resultsEl && filtersEl) {
   // Prefill from the URL (shareable/deep-linkable search state).
   const params = new URLSearchParams(location.search);
   if (navInput) navInput.value = params.get('q') || '';
-  for (const key of ['category', 'model', 'tag']) {
+  const initialCategory = params.get('category');
+  if (initialCategory) {
+    document.querySelector(`#search-category-filter [data-cat="${CSS.escape(initialCategory)}"]`)?.click();
+  }
+  for (const key of ['model', 'tag']) {
     const val = params.get(key);
     if (!val) continue;
     const input = filtersEl.querySelector(`[data-filter-group="${key}"] input[value="${CSS.escape(val)}"]`);

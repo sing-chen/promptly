@@ -1,0 +1,211 @@
+// §9b quick-view modal - opens the full detail-page content in a dialog when
+// a table row is clicked, so browsing many prompts doesn't mean round-tripping
+// through /prompt/[slug]/ for every candidate. Shared across every page that
+// renders a prompt table (Category, Tag, Search, Favorites) - the dialog
+// markup itself (renderQuickViewModal in lib/render.mjs) is a single shell
+// reused by whichever table on the page is currently active.
+import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
+import { isFavorite, toggleFavorite } from './favorites.js';
+
+function readEmbedded(gridId) {
+  const el = document.getElementById(`${gridId}-data`);
+  if (!el) return [];
+  try { return JSON.parse(el.textContent); } catch { return []; }
+}
+
+function seqLabel(sequenceSlug) {
+  return sequenceSlug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Resolves sequence-stepper info for an item that didn't come with a
+// precomputed `.seq` (the search page's live Fuse matches, which are flat
+// index records) - mirrors resolveSeqInfo() in lib/render.mjs but works off
+// the flat prompt list the client already has instead of data.sequences.
+function resolveSeqInfoFlat(item, allPrompts, sequenceTotals) {
+  if (!item.sequence || !allPrompts) return null;
+  const steps = allPrompts
+    .filter(p => p.sequence === item.sequence)
+    .sort((a, b) => (a.sequence_step ?? 0) - (b.sequence_step ?? 0));
+  const idx = steps.findIndex(s => s.slug === item.slug);
+  const prev = steps[idx - 1];
+  const next = steps[idx + 1];
+  return {
+    label: seqLabel(item.sequence),
+    step: item.sequence_step,
+    total: sequenceTotals ? sequenceTotals[item.sequence] : steps.length,
+    prev: prev ? { slug: prev.slug, title: prev.title } : null,
+    next: next ? { slug: next.slug, title: next.title } : null
+  };
+}
+
+export function initQuickView(gridId, opts = {}) {
+  const tbody = document.getElementById(gridId);
+  const backdrop = document.getElementById('qv-backdrop');
+  if (!tbody || !backdrop) return { update() {} };
+
+  let items = opts.data || readEmbedded(gridId);
+  const sequenceTotals = opts.sequenceTotals || null;
+  const allPrompts = opts.allPrompts || null;
+
+  const els = {
+    title: document.getElementById('qv-title'),
+    catBadges: document.getElementById('qv-cat-badges'),
+    purpose: document.getElementById('qv-purpose'),
+    body: document.getElementById('qv-body-text'),
+    notes: document.getElementById('qv-notes'),
+    added: document.getElementById('qv-added'),
+    modified: document.getElementById('qv-modified'),
+    modifiedRow: document.getElementById('qv-modified-row'),
+    seqBlock: document.getElementById('qv-seq-block'),
+    seqCurrent: document.getElementById('qv-seq-current'),
+    seqNav: document.getElementById('qv-seq-nav'),
+    position: document.getElementById('qv-position'),
+    prev: document.getElementById('qv-prev'),
+    next: document.getElementById('qv-next'),
+    close: document.getElementById('qv-close'),
+    fav: document.getElementById('qv-fav'),
+    copy: document.getElementById('qv-copy'),
+    openFull: document.getElementById('qv-open-full')
+  };
+
+  let currentSlug = null;
+  let selectedSlug = null;
+
+  function visibleSlugsInOrder() {
+    return Array.from(tbody.querySelectorAll('tr[data-slug]:not([hidden])')).map(tr => tr.dataset.slug);
+  }
+
+  function markSelectedRow() {
+    tbody.querySelectorAll('tr[data-slug]').forEach(tr => {
+      tr.classList.toggle('is-selected', tr.dataset.slug === selectedSlug);
+    });
+  }
+
+  function syncFavButton(slug) {
+    const active = isFavorite(slug);
+    els.fav.classList.toggle('is-active', active);
+    els.fav.setAttribute('aria-pressed', String(active));
+  }
+
+  function populate(item) {
+    els.title.textContent = item.title;
+    els.catBadges.innerHTML = renderCatBadges(item.categories);
+    els.purpose.textContent = item.purpose || '';
+    const highlighted = esc(item.body).replace(/\{\{[^}]+\}\}/g, m => `<span class="var">${m}</span>`);
+    els.body.innerHTML = highlighted;
+    els.notes.textContent = item.notes || '';
+    els.added.textContent = fmtDate(item.added);
+    if (item.updated) {
+      els.modified.textContent = fmtDate(item.updated);
+      els.modifiedRow.hidden = false;
+    } else {
+      els.modifiedRow.hidden = true;
+    }
+
+    const seq = item.seq !== undefined && item.seq !== null ? item.seq : resolveSeqInfoFlat(item, allPrompts, sequenceTotals);
+    if (seq) {
+      els.seqBlock.hidden = false;
+      els.seqCurrent.textContent = `${seq.label} · Step ${seq.step} of ${seq.total}`;
+      els.seqNav.innerHTML = `
+        ${seq.prev ? `<a href="/prompt/${seq.prev.slug}/">← Back</a>` : `<span style="color:var(--ink-faint);">← Start</span>`}
+        ${seq.next ? `<a class="next" href="/prompt/${seq.next.slug}/">Next →</a>` : `<span style="color:var(--ink-faint);">End →</span>`}`;
+    } else {
+      els.seqBlock.hidden = true;
+    }
+
+    els.fav.setAttribute('data-fav-slug', item.slug);
+    syncFavButton(item.slug);
+    els.openFull.href = `/prompt/${item.slug}/`;
+
+    const order = visibleSlugsInOrder();
+    const pos = order.indexOf(item.slug);
+    els.position.textContent = order.length ? `${pos + 1} / ${order.length}` : '';
+    els.prev.disabled = pos <= 0;
+    els.next.disabled = pos === -1 || pos >= order.length - 1;
+
+    modal_scrollTop();
+  }
+
+  function modal_scrollTop() {
+    document.getElementById('qv-modal').scrollTop = 0;
+  }
+
+  function findItem(slug) {
+    return items.find(p => p.slug === slug);
+  }
+
+  function open(slug) {
+    const item = findItem(slug);
+    if (!item) return;
+    currentSlug = slug;
+    selectedSlug = slug;
+    populate(item);
+    markSelectedRow();
+    backdrop.classList.add('is-open');
+  }
+
+  function step(delta) {
+    if (currentSlug === null) return;
+    const order = visibleSlugsInOrder();
+    const pos = order.indexOf(currentSlug);
+    const nextPos = pos + delta;
+    if (nextPos < 0 || nextPos >= order.length) return;
+    open(order[nextPos]);
+  }
+
+  function close() {
+    backdrop.classList.remove('is-open');
+    currentSlug = null;
+    // selectedSlug intentionally persists - row stays highlighted for orientation
+  }
+
+  tbody.addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-slug]');
+    if (!tr || e.target.closest('button')) return;
+    open(tr.dataset.slug);
+  });
+  tbody.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const tr = e.target.closest('tr[data-slug]');
+    if (!tr) return;
+    e.preventDefault();
+    open(tr.dataset.slug);
+  });
+
+  els.close.addEventListener('click', close);
+  els.prev.addEventListener('click', () => step(-1));
+  els.next.addEventListener('click', () => step(1));
+  els.fav.addEventListener('click', () => {
+    if (!currentSlug) return;
+    toggleFavorite(currentSlug);
+    syncFavButton(currentSlug);
+  });
+  els.copy.addEventListener('click', async () => {
+    const item = findItem(currentSlug);
+    if (!item) return;
+    try { await navigator.clipboard.writeText(item.body); } catch { /* clipboard unavailable */ }
+    const original = els.copy.innerHTML;
+    els.copy.textContent = 'Copied';
+    setTimeout(() => { els.copy.innerHTML = original; }, 2000);
+  });
+  backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+  document.addEventListener('keydown', (e) => {
+    if (!backdrop.classList.contains('is-open')) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowDown') { e.preventDefault(); step(1); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); step(-1); }
+  });
+
+  // Any favorite toggled elsewhere (a row's own star, another quick-view
+  // session) should be reflected here too if it's the open prompt.
+  document.addEventListener('favorites:changed', () => {
+    if (currentSlug) syncFavButton(currentSlug);
+  });
+
+  return {
+    update(newItems) {
+      items = newItems;
+      if (selectedSlug) markSelectedRow();
+    }
+  };
+}

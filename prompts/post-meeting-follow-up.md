@@ -1,6 +1,6 @@
 ---
 title: Post-meeting follow-up
-category: writing
+categories: [writing, product]
 tags: [sales-outreach, follow-up, claude, gpt]
 purpose: Turn raw meeting notes into a clean follow-up email.
 sequence: client-onboarding

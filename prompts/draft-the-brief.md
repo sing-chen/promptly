@@ -1,6 +1,6 @@
 ---
 title: Draft the brief
-category: product
+categories: [product]
 tags: [drafting, kickoff, claude, gpt]
 purpose: Turn a rough project idea into a structured one-page brief.
 sequence: client-onboarding

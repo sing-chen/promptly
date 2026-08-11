@@ -3,15 +3,21 @@ export function initFilters(railId, gridId) {
   const grid = document.getElementById(gridId);
   if (!rail || !grid) return;
 
-  let emptyMsg = grid.parentElement.querySelector('.filter-empty');
+  // A table's tbody can't take an arbitrary sibling via .after() (invalid as
+  // a direct child of <table>) - lib/render.mjs pre-renders `${gridId}-empty`
+  // for that case. Card grids (a plain <div>) still get one created on the fly.
+  let emptyMsg = document.getElementById(`${gridId}-empty`);
   if (!emptyMsg) {
-    emptyMsg = document.createElement('p');
-    emptyMsg.className = 'filter-empty';
-    emptyMsg.style.color = 'var(--ink-faint)';
-    emptyMsg.style.padding = '24px 0';
-    emptyMsg.textContent = 'No prompts match these filters.';
-    emptyMsg.hidden = true;
-    grid.after(emptyMsg);
+    emptyMsg = grid.parentElement.querySelector('.filter-empty');
+    if (!emptyMsg) {
+      emptyMsg = document.createElement('p');
+      emptyMsg.className = 'filter-empty';
+      emptyMsg.style.color = 'var(--ink-faint)';
+      emptyMsg.style.padding = '24px 0';
+      emptyMsg.textContent = 'No prompts match these filters.';
+      emptyMsg.hidden = true;
+      grid.after(emptyMsg);
+    }
   }
 
   function checkedValues(group) {

@@ -1,6 +1,6 @@
 ---
 title: Ad copy variants
-category: marketing
+categories: [marketing]
 tags: [draft, single-shot, claude, gpt]
 purpose: Generate multiple short ad copy variants for A/B testing from one product description.
 models: [claude, gpt]
