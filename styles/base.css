@@ -303,6 +303,12 @@ button.nav-toggle { display: none; }
   color: var(--ink-soft);
   margin: 0;
 }
+/* Category page's description sits between the h1 and the result table -
+   needed its own bottom margin since .card-purpose is margin:0 everywhere
+   else it's used (cards, Collection page). */
+.category-description {
+  margin-bottom: 28px;
+}
 .card-actions {
   display: flex;
   gap: 4px;

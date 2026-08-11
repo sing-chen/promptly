@@ -6,7 +6,7 @@ import {
   renderHomePage, renderCategoryPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
-  renderAboutPage, renderContributingPage
+  renderAboutPage
 } from '../lib/render.mjs';
 
 const DIST_DIR = 'dist';
@@ -67,7 +67,6 @@ export function runBuild() {
   writeRoute('favorites', renderFavoritesPage(data));
   writeRoute('search', renderSearchPage(data));
   writeRoute('about', renderAboutPage());
-  writeRoute('contributing', renderContributingPage());
 
   for (const category of data.categories) {
     const inCategory = data.prompts.filter(p => p.categories.includes(category.slug));
@@ -86,7 +85,7 @@ export function runBuild() {
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.collections.length} collection page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/contributing and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.collections.length} collection page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).

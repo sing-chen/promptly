@@ -20,7 +20,7 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 - **The build script fully clears and regenerates `dist/` on every run** (no incremental build) — required so a prompt deleted via bulk admin (§4a) doesn't leave an orphaned page live on the site.
 - Content still lives as one Markdown file per prompt in a `/prompts` folder, YAML frontmatter. The build script generates all pages (category, detail, sequence, etc.) from that folder at build time — same principle as the original brief, just without a framework runtime.
 - Shared markup (nav, prompt card, chip, filter rail) is implemented as plain JS template functions invoked by the build script — not framework components — mirroring how `nav.js` works in amplified thinker.
-- "Submitting a prompt" = adding a file and rebuilding — there is no live submission form or moderation queue.
+- "Submitting a prompt" = adding a file and rebuilding — there is no live submission form or moderation queue. **Pending, not yet built** (§12): a Claude Code skill is planned to review/add prompts (checking quality and required fields) rather than the author hand-authoring frontmatter directly — a workflow upgrade for the same single author, not a new public capability, so this still holds as written.
 - Search moves from Pagefind to a build-time-generated Fuse.js index (see §7).
 
 ---
@@ -30,7 +30,7 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 - **Logo**: "Prompt cursor" mark — a rounded tile (`rx` matching the design system's 4px chip radius, scaled up) in `--accent` blue, containing a white `>` chevron and a short cursor bar. Reads as a literal command-prompt symbol, legible down to ~20px nav size. Fixed blue-tile-on-white-glyph lockup, not theme-swapped — the tile carries its own contrast regardless of surrounding `--paper` value. Source file: `public/images/promptly-logo.svg`.
 - **Nav menu** (finalized, deviates from the original brief's literal nav wording — see note below): logo + "PROMPTLY" wordmark (links home) · ~~**Browse**~~ · **Sequences** (active state = accent underline) · always-visible pill-shaped search field (flex-grow, never icon-triggered) · favorites count (`☆ N`). **Browse link removed in §9g** — Home absorbed the Browse hub's job, so a separate nav link to the same destination became redundant.
   - **Deviation flag**: the original brief's §8 Homepage spec named only "logo, search field, Sequences link, favorites count" in the nav — no explicit Browse link. Browse was added deliberately for direct wayfinding to `/browse` rather than relying solely on homepage category tiles; §9g's removal brings the nav back in line with that original spec, just for a different reason (the hub itself is gone, not a return to the original rationale).
-- **About** and **Contributing** are secondary/footer-level links, not primary nav items, to keep the nav strip lean.
+- ~~**About** and **Contributing** are secondary/footer-level links, not primary nav items, to keep the nav strip lean.~~ **Contributing page and its footer link removed in §9j** — it documented the raw file+rebuild workflow, which is being superseded (§12); **About** remains as the one footer-level link.
 
 ---
 
@@ -46,8 +46,9 @@ Prompt detail                     /prompt/[slug]
 Sequences                         /sequences  (index of all chains)
   Sequence page                   /sequence/[slug]
 Favorites                         /favorites  (localStorage, no login)
-Adding a Prompt                   /contributing  (docs page — explains the file-based workflow, not a form)
 About                             /about
+```
+`/contributing` (docs page explaining the file-based workflow) removed in §9j — superseded by the pending skill-based workflow (§12).
 ```
 
 No account pages, no moderation queue, no login — deliberately cut since this is single-author, view-only for invited teammates.
@@ -467,6 +468,16 @@ A third small housekeeping pass, same day as §9h.
 
 ---
 
+## 9j. Category Description Spacing, Contributing Page Removed (new)
+
+A fourth small housekeeping pass, same day as §9i, on top of it rather than a separate design question.
+
+**Category description spacing**: §9i's new description sat right on top of the result table with no gap — `.category-description` (a modifier on `.card-purpose`, `styles/base.css`) adds `margin-bottom: 28px`, matching the breathing-room scale used elsewhere in these housekeeping passes. `.card-purpose` itself stays `margin: 0` everywhere else it's used (cards, Collection page) — this is scoped, not a global change.
+
+**`/contributing` page removed entirely** — `renderContributingPage` and its route are gone, along with the footer's "Adding a prompt" link and Home's bottom-of-page "Adding a prompt is just a file and a rebuild." note. The page documented the raw file-plus-rebuild authoring workflow (§1), which is being superseded by a planned Claude Code skill for reviewing/adding prompts — see §12 for that pending item. Removing the page now rather than leaving it describing a workflow that's on its way out.
+
+---
+
 ## 10. Build Order (revised)
 
 1. ~~Scaffold custom build script + `/prompts` folder~~ — done.
@@ -493,4 +504,14 @@ A third small housekeeping pass, same day as §9h.
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9f (card depth = richer hover, option C) is implemented and locked, closing out §9a's depth/interactivity question — §9a has no remaining open items as of §9f. §9g (Home = all-prompts table, Browse hub removed) is implemented and locked for the table/pills/hero shape and the hub removal; the collections/sequences discoverability question it surfaces is explicitly open — pending the tags-return/architecture decision — and should not be treated as solved by anything currently on Home. §9h (hero refinement, Chain filter removed site-wide, nav/breadcrumb spacing + sticky footer, nav background color) is implemented and locked — treat §9g's own Decision/Implementation text as superseded on the specific points §9h calls out (Home's title and Chain pill), not as still-current. §9i (breadcrumb separator = `>`, Sort control removed site-wide, Category page descriptions + result-count removed) is implemented and locked — §8's Category page template text is superseded accordingly.*
+## 12. Backlog / Pending Ideas (new)
+
+Not designed or built yet — recorded here so they aren't lost, not as commitments with a timeline.
+
+- **Prompt submission via a Claude Code skill.** The current model (§1, §4a) is: add a Markdown file to `/prompts` by hand, run `npm run validate` and `npm run build`. Planned replacement: a Claude Code skill that reviews and adds new prompts on request — checking for quality and required fields (title, ≥1 category, etc.) before a prompt lands in `/prompts` — rather than the author hand-authoring frontmatter directly. This is a tooling upgrade to the same single-author workflow, not a new public-facing capability, so §1's "no live submission form or moderation queue" still holds. The `/contributing` page, which documented the old raw-file workflow, was removed in §9j as a result; revisit whether a replacement doc page (or in-skill help text) is needed once the skill actually exists.
+- **Collections/sequences discoverability on Home** (flagged as open in §9g) — still unresolved, and may end up related to the item below.
+- **Whether `tags` return to complement `categories`** (removed in §9c) — specifically raised as a possible mechanism for defining/finding collections, per the discussion in §9g. Not decided.
+
+---
+
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9f (card depth = richer hover, option C) is implemented and locked, closing out §9a's depth/interactivity question — §9a has no remaining open items as of §9f. §9g (Home = all-prompts table, Browse hub removed) is implemented and locked for the table/pills/hero shape and the hub removal; the collections/sequences discoverability question it surfaces is explicitly open — pending the tags-return/architecture decision — and should not be treated as solved by anything currently on Home. §9h (hero refinement, Chain filter removed site-wide, nav/breadcrumb spacing + sticky footer, nav background color) is implemented and locked — treat §9g's own Decision/Implementation text as superseded on the specific points §9h calls out (Home's title and Chain pill), not as still-current. §9i (breadcrumb separator = `>`, Sort control removed site-wide, Category page descriptions + result-count removed) is implemented and locked — §8's Category page template text is superseded accordingly. §9j (category description spacing, `/contributing` page removed) is implemented and locked. §12 (backlog) is explicitly *not* locked — nothing there should be treated as decided.*
