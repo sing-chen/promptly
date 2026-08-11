@@ -515,11 +515,23 @@ button.nav-toggle { display: none; }
   display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600;
   padding: 6px 12px 6px 10px; border-radius: 999px; border: 1.5px solid transparent; cursor: pointer;
   background: var(--surface); color: var(--ink-soft); box-shadow: var(--shadow-sm);
-  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease, box-shadow .12s ease;
 }
 .filter-pill .count { font-variant-numeric: tabular-nums; opacity: .65; }
 .filter-pill:hover { border-color: var(--line); }
-.filter-pill.is-active { color: #FFFFFF; border-color: transparent; background: var(--accent); }
+/* Selected state (§9l): now that every pill carries a hue-tinted background
+   at rest (§9k), fill-darkening alone read too subtly as "selected" -
+   especially hue-to-hue, where the jump from soft tint to solid fill is a
+   lightness change, not an on/off signal. A two-layer ring (a --paper gap,
+   then a solid --accent outline) sits on top of the fill instead, so
+   selection reads the same way regardless of which category's underneath -
+   accent is used rather than the pill's own hue deliberately, keeping
+   "you selected this" (interaction) visually distinct from "this is a
+   Writing prompt" (content), matching §9's single-accent-for-actions rule. */
+.filter-pill.is-active {
+  color: #FFFFFF; border-color: transparent; background: var(--accent);
+  box-shadow: 0 0 0 1px var(--paper), 0 0 0 3px var(--accent), var(--shadow-sm);
+}
 .filter-pill.is-active .count { opacity: .85; }
 /* Rest-state background matches the category's badge hue (soft tint, §9k) -
    text stays neutral ink rather than hue-colored, since --cat-* is a fixed
