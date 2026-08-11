@@ -119,8 +119,8 @@ button { font-family: var(--sans); }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line-soft);
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
 }
 .nav-inner {
   display: flex;
@@ -131,9 +131,7 @@ button { font-family: var(--sans); }
 .nav-logo {
   font-family: var(--display);
   font-weight: 700;
-  text-transform: uppercase;
-  font-size: 13px;
-  letter-spacing: .02em;
+  font-size: 15px;
   white-space: nowrap;
 }
 .nav-links {
@@ -306,7 +304,7 @@ button { font-family: var(--sans); }
 .prompt-body-block {
   position: relative;
   padding: 20px;
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: 13.5px;
   white-space: pre-wrap;
   line-height: 1.6;

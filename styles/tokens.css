@@ -1,23 +1,23 @@
 :root {
-  --display: "Segoe UI Semibold", "Segoe UI", Arial, sans-serif;
-  --sans: "Segoe UI", Calibri, Arial, sans-serif;
-  --mono: Consolas, "Cascadia Mono", "SF Mono", monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  --display: var(--sans);
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
 
-  --paper: #EEEAE1;
+  --paper: #F4F6F3;
   --surface: #FFFFFF;
-  --well: #DFD8C9;
-  --ink: #1C1912;
-  --ink-soft: #59544A;
-  --ink-faint: #8A8477;
-  --line: #CFC6B4;
-  --line-soft: #DED7C8;
-  --accent: #1B5FC2;
+  --well: #E7EBE4;
+  --ink: #1F2B27;
+  --ink-soft: #586860;
+  --ink-faint: #8B978F;
+  --line: #DCE4DD;
+  --line-soft: #E6EEE4;
+  --accent: #2D6A63;
   --accent-ink: #FFFFFF;
-  --accent-soft: #DCE8F7;
-  --accent-hover: #154C9C;
-  --accent-active: #113E7F;
-  --seq: #9A5008;
-  --seq-soft: #F2E2C8;
+  --accent-soft: #E1EBE6;
+  --accent-hover: #245650;
+  --accent-active: #1C433F;
+  --seq: #2D6A63;
+  --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
 
@@ -30,21 +30,21 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #131110;
-    --surface: #1D1B17;
-    --well: #100F0C;
-    --ink: #F1ECE1;
-    --ink-soft: #B8AF9C;
-    --ink-faint: #7C7566;
-    --line: #3A362C;
-    --line-soft: #262319;
-    --accent: #6FA8E8;
-    --accent-ink: #0B1A2E;
-    --accent-soft: #1E3352;
-    --accent-hover: #8CBBEE;
-    --accent-active: #4E86C7;
-    --seq: #D79A4E;
-    --seq-soft: #3A2A14;
+    --paper: #121614;
+    --surface: #1B211D;
+    --well: #0F1311;
+    --ink: #EFEAE0;
+    --ink-soft: #B3AFA0;
+    --ink-faint: #7A796D;
+    --line: #333A34;
+    --line-soft: #242923;
+    --accent: #62BBA8;
+    --accent-ink: #08211C;
+    --accent-soft: #1B3530;
+    --accent-hover: #7ECDBC;
+    --accent-active: #4C9C8C;
+    --seq: #62BBA8;
+    --seq-soft: #1B3530;
     --danger: #E2948A;
     --danger-soft: #3A1F1B;
     --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
@@ -53,21 +53,21 @@
 }
 
 :root[data-theme="dark"] {
-  --paper: #131110;
-  --surface: #1D1B17;
-  --well: #100F0C;
-  --ink: #F1ECE1;
-  --ink-soft: #B8AF9C;
-  --ink-faint: #7C7566;
-  --line: #3A362C;
-  --line-soft: #262319;
-  --accent: #6FA8E8;
-  --accent-ink: #0B1A2E;
-  --accent-soft: #1E3352;
-  --accent-hover: #8CBBEE;
-  --accent-active: #4E86C7;
-  --seq: #D79A4E;
-  --seq-soft: #3A2A14;
+  --paper: #121614;
+  --surface: #1B211D;
+  --well: #0F1311;
+  --ink: #EFEAE0;
+  --ink-soft: #B3AFA0;
+  --ink-faint: #7A796D;
+  --line: #333A34;
+  --line-soft: #242923;
+  --accent: #62BBA8;
+  --accent-ink: #08211C;
+  --accent-soft: #1B3530;
+  --accent-hover: #7ECDBC;
+  --accent-active: #4C9C8C;
+  --seq: #62BBA8;
+  --seq-soft: #1B3530;
   --danger: #E2948A;
   --danger-soft: #3A1F1B;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
@@ -75,21 +75,21 @@
 }
 
 :root[data-theme="light"] {
-  --paper: #EEEAE1;
+  --paper: #F4F6F3;
   --surface: #FFFFFF;
-  --well: #DFD8C9;
-  --ink: #1C1912;
-  --ink-soft: #59544A;
-  --ink-faint: #8A8477;
-  --line: #CFC6B4;
-  --line-soft: #DED7C8;
-  --accent: #1B5FC2;
+  --well: #E7EBE4;
+  --ink: #1F2B27;
+  --ink-soft: #586860;
+  --ink-faint: #8B978F;
+  --line: #DCE4DD;
+  --line-soft: #E6EEE4;
+  --accent: #2D6A63;
   --accent-ink: #FFFFFF;
-  --accent-soft: #DCE8F7;
-  --accent-hover: #154C9C;
-  --accent-active: #113E7F;
-  --seq: #9A5008;
-  --seq-soft: #F2E2C8;
+  --accent-soft: #E1EBE6;
+  --accent-hover: #245650;
+  --accent-active: #1C433F;
+  --seq: #2D6A63;
+  --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
