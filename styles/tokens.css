@@ -26,6 +26,15 @@
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
   --shadow: 0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
+
+  /* Solid category badge hues - fixed hex, not theme-dependent, so a category's
+     color stays put across light/dark instead of flipping shade. */
+  --cat-clay: #A8552A;
+  --cat-ochre: #96731A;
+  --cat-blue: #34647F;
+  --cat-plum: #7A4780;
+  --cat-moss: #566627;
+  --cat-rose: #8A3B4E;
 }
 
 @media (prefers-color-scheme: dark) {

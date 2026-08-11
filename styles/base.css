@@ -300,42 +300,111 @@ button { font-family: var(--sans); }
 }
 .breadcrumb a:hover { color: var(--accent); }
 
-/* prompt body */
-.prompt-body-block {
-  position: relative;
-  padding: 20px;
-  font-family: var(--sans);
-  font-size: 13.5px;
-  white-space: pre-wrap;
-  line-height: 1.6;
+/* prompt detail page: two-box single-column bento (Prompt, Notes) */
+.pd-page { padding-top: 20px; padding-bottom: 48px; max-width: 720px; }
+.pd-header { margin-bottom: 20px; }
+.pd-title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.pd-title-row h1 { margin: 0; }
+
+.pd-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: .05em;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  color: #FFFFFF;
 }
-.prompt-body-block .var {
+.pd-cat-badge.cat-clay { background: var(--cat-clay); }
+.pd-cat-badge.cat-ochre { background: var(--cat-ochre); }
+.pd-cat-badge.cat-blue { background: var(--cat-blue); }
+.pd-cat-badge.cat-plum { background: var(--cat-plum); }
+.pd-cat-badge.cat-moss { background: var(--cat-moss); }
+.pd-cat-badge.cat-rose { background: var(--cat-rose); }
+
+.pd-bento {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pd-box { padding: 20px; }
+
+.pd-box-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--ink-faint);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.pd-actions { display: flex; gap: 6px; }
+.pd-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--well);
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.pd-action-btn.square { width: 30px; padding: 0; }
+.pd-action-btn:hover { background: var(--line-soft); color: var(--ink); }
+.pd-action-btn.is-active { color: var(--accent); background: var(--accent-soft); }
+.pd-action-btn.is-active svg { fill: var(--accent); }
+.pd-action-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+.pd-action-btn .fav-label-on { display: none; }
+.pd-action-btn.is-active .fav-label-off { display: none; }
+.pd-action-btn.is-active .fav-label-on { display: inline; }
+
+.pd-body-text {
+  font-size: 14px;
+  white-space: pre-wrap;
+  line-height: 1.7;
+  background: var(--well);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+}
+.pd-body-text .var {
   background: var(--accent-soft);
   color: var(--accent);
   border-radius: 3px;
   padding: 0 2px;
 }
-.copy-pinned {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-}
 
-/* sequence rail */
-.sequence-rail {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12.5px;
-  font-family: var(--mono);
-  color: var(--ink-soft);
+.pd-notes-box p { font-size: 13.5px; color: var(--ink-soft); margin: 0; line-height: 1.6; }
+.pd-notes-divider { height: 1px; background: var(--line-soft); margin: 14px 0; }
+
+.pd-seq-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pd-seq-current {
+  font-size: 11.5px;
+  color: var(--seq);
+  font-weight: 700;
   background: var(--seq-soft);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
-  margin: 12px 0;
+  padding: 5px 9px;
+  white-space: nowrap;
 }
-.sequence-rail a { color: var(--seq); font-weight: 700; }
-.sequence-rail .current { color: var(--seq); font-weight: 700; }
+.pd-seq-nav { display: flex; gap: 14px; font-size: 12px; }
+.pd-seq-nav a { color: var(--ink-soft); font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
+.pd-seq-nav a.next { color: var(--seq); }
+.pd-seq-nav a:hover { color: var(--seq); }
+
+.pd-meta-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
+.pd-meta-row .kv span:first-child { color: var(--ink-faint); margin-right: 4px; }
+.pd-meta-row .kv span:last-child { font-variant-numeric: tabular-nums; }
 
 /* sequence flow */
 .seq-flow {
