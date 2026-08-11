@@ -91,10 +91,10 @@ Prompt body goes here, with {{variable_placeholders}} in double braces.
 
 - A sequence badge/chip only ever appears on the minority of prompts that are actually chained — it is never a slot every card reserves space for.
 - Every prompt in a chain must still render as a fully standalone, fully usable page. The sequence relationship is a layer on top, never a dependency to use the prompt.
-- Data model: `sequence` (slug a prompt belongs to — a prompt can join more than one), `sequence_step` (its position), optional `depends_on` (names the exact prior slug when a chain forks). No `sequence` field = standalone, same template, no missing-field weirdness.
+- Data model: `sequence` (slug a prompt belongs to — a prompt can join more than one), `sequence_step` (its position), optional `depends_on` (names the exact prior slug when a chain forks), optional `handoff` (plain-language note on what this step produces for the next one — see §9e). No `sequence` field = standalone, same template, no missing-field weirdness.
 - Category and Search pages include a **"Chain" filter**: *All prompts* / *In a sequence only* — since chained prompts are rare, make isolating them a dedicated control, not something you scan for visually.
-- Detail page shows a slim step rail only when chained: `← prior step · you are here (step X of Y) · next step →`, plus a plain-language note on what input/output the handoff involves.
-- `/sequences` index page lists each chain as its own mini flow (connected step cards).
+- Detail page shows a slim step rail only when chained: `← prior step · you are here (step X of Y) · next step →`. The "plain-language note on what input/output the handoff involves" originally scoped for *this* rail was never built here — it landed instead on the `/sequence/[slug]` rail (§9e) as the `handoff` field. Revisit if the detail page's own stepper wants it too.
+- `/sequences` index page lists each chain as its own mini flow — a compact version of the same vertical connected rail described in §9e, not a separate component.
 
 ### Sequence Builder (local tool, not part of the public site) — unaffected by the stack change
 
@@ -174,8 +174,8 @@ Single-column, two-box **bento** layout — deliberately mobile-first, no side r
 
 ~~**Standing open item, not yet designed**: browsing a list and opening a prompt is still a full navigation away from results — no quick-view/slide-over/prev-next-through-results exists yet.~~ Resolved by §9b's quick-view modal (`renderQuickViewModal`, `quickview.js`) — clicking a row now opens full detail-page content in a dialog with prev/next through the filtered result set, no round-trip to `/prompt/[slug]/` required.
 
-### Sequence page `/sequence/[slug]`
-Breadcrumb → chain name + one-line description → horizontal flow of connected step cards (step number, title, one-line note on what it consumes/produces), left-to-right with a visible connector between them.
+### Sequence page `/sequence/[slug]` (revised — see §9e)
+Breadcrumb → chain name + step count → **vertical connected rail**: numbered dot per step on a connecting line, each dot's step a small surface card (title, category badges, purpose), with a plain-language handoff note between non-final steps when the prompt's `handoff` field is set. Replaced the original horizontal box-and-chevron flow — see §9e for why.
 
 ### Favorites page `/favorites`
 Same grid/card component as Category page, filtered client-side to starred slugs. Empty state as above.
@@ -321,9 +321,9 @@ A second design pass, separate from and later than the §9 retheme, focused on l
 - Category badge color system (§9) introduced as part of this pass.
 
 **Explicitly open / not yet touched by this pass** — the color/font retheme (§9) recolored these in place without redesigning their structure:
-- **Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.
+- ~~**Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.~~ Resolved in §9e: vertical connected rail (option A of three mocked directions).
 - ~~**Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.~~ Resolved: swapped for the live pill toolbar, then simplified further — see §9c.
-- **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign). Moot for tags specifically as of §9c (field removed); category chip style is still open.
+- ~~**Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign).~~ Moot for tags as of §9c (field removed); category chip style resolved in §9d (solid badge).
 - **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.
 - ~~**Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.~~ Resolved in §9d: solid badge (option B) chosen, ported to `renderPromptCard`.
 - **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); source was tried and rejected. Tags/models/complexity superseded by §9c: no longer a display cut, the fields themselves aren't captured.
@@ -389,7 +389,21 @@ Resolves the §9a "Prompt card + Chip redesign" open item: three directions had 
 
 **Decision**: solid badge, same treatment as `renderCatBadges` (detail-page header, §9b table). `renderPromptCard` (`lib/render.mjs`) now calls `renderCatBadges(p.categories)` instead of the generic soft `.chip` for category chips — one consistent category-badge component across the whole site, not a card-specific variant. The sequence-step chip is unchanged (`.chip-seq`, soft accent tint) since it was never part of this decision and stays visually distinct from category by design (§4's "never color alone" rule — it's the only chip with literal "step X of Y" text).
 
-**Scope note**: Sequences' flow-view cards (`.seq-step-card`, the connected step cards on `/sequences` and `/sequence/[slug]`) never rendered category chips in the first place — a different, simpler card component (step number + title only) — so this decision only visibly changes Home's rails and Collection pages. Nothing to revisit there; it just wasn't in scope structurally.
+**Scope note**: at the time this was written, Sequences' flow-view cards (`.seq-step-card`) never rendered category chips at all — a different, simpler component (step number + title only) — so this decision only visibly changed Home's rails and Collection pages. Superseded by §9e: the sequence rail was redesigned and now shows `renderCatBadges` too (the same solid badge this section chose), so the two are consistent by inheritance rather than by this decision covering Sequences directly.
+
+---
+
+## 9e. Sequence-Rail Redesign (new) — vertical connected rail (option A)
+
+Resolves the §9a "Sequence-rail treatment" open item: the `/sequence/[slug]` flow view and `/sequences` index still used the original horizontal box-and-chevron strip from before the §9 retheme — small cards connected by a lone chevron, scrolling sideways past two steps. Three directions were mocked with the real Client Onboarding chain before deciding: a numbered horizontal stepper (closest to the original, but keeps the horizontal-scroll problem), a single bento box with steps as divided rows (quiet and consistent with the detail page's box pattern, but reads as a list rather than a flow), and the vertical rail below.
+
+**Decision**: vertical connected rail. Steps stack top-to-bottom along a line with a numbered dot per step; each step is a small surface card (title, category badges via `renderCatBadges`, purpose). Chosen for two reasons that trace back to earlier decisions in this doc, not a fresh preference: it never needs horizontal scroll at any chain length or viewport width — the same mobile-first reasoning that ruled out a side rail on the prompt detail page (§8) — and chains are "additive, not the norm" (§4), so a quiet checklist register fits better than a horizontal process-wizard stepper would.
+
+**New field: `handoff`** (optional, per-prompt frontmatter). §4 originally specified that the detail page's own step rail should carry "a plain-language note on what input/output the handoff involves" — that line sat unbuilt since before this pass. It's now implemented, but on the `/sequence/[slug]` rail rather than the individual detail page's mini-stepper: a step with `handoff: the drafted brief` set (and not the chain's last step) shows `↳ hands off: the drafted brief` beneath its card. The detail page's own prev/next stepper still doesn't show it — an open follow-up if that's wanted too, not assumed done by this pass.
+
+**Compact variant**: `/sequences`' per-sequence preview uses the identical rail component (`renderSequenceRail` in `lib/render.mjs`) with a `compact` flag — same dots and connecting line, but no purpose, category badges, or handoff note, keeping multiple sequence previews scannable on one index page. Not a separate component to maintain.
+
+**Implementation**: `renderSequenceRail` (`lib/render.mjs`), replacing the inline chevron-strip markup in both `renderSequencesIndex` and `renderSequencePage`. CSS: `.seq-rail`/`.seq-rail-item`/`.seq-rail-marker`/`.seq-rail-dot`/`.seq-rail-line`/`.seq-rail-body`/`.seq-rail-card`/`.seq-rail-handoff` in `styles/base.css`, replacing `.seq-flow`/`.seq-step-card`/`.seq-connector`.
 
 ---
 
@@ -419,4 +433,4 @@ Resolves the §9a "Prompt card + Chip redesign" open item: three directions had 
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's last open card/chip question.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9a's one remaining open item is "Depth and interactivity" for the card grid (shadows/flip-card/modal patterns) — not yet touched by any pass.*

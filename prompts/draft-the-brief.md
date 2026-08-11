@@ -4,6 +4,7 @@ categories: [product]
 purpose: Turn a rough project idea into a structured one-page brief.
 sequence: client-onboarding
 sequence_step: 1
+handoff: the drafted brief
 notes: Use this at kickoff, before any client call has happened. Not meant for briefs that already have stakeholder input — use a revision prompt for that instead.
 added: 2026-06-01
 updated: 2026-07-15
