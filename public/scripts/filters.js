@@ -93,11 +93,18 @@ export function initTableFilterToolbar(toolbarId, gridId) {
 
   function apply() {
     const chainOnly = toolbar.getActive('chain').has('true');
+    // Empty on pages with no category pill group (e.g. Category, which is
+    // already server-scoped to one category) - matchesCategory is then
+    // always true below, so this is a no-op there.
+    const activeCats = toolbar.getActive('category');
 
     const cards = Array.from(grid.children);
     let visibleCount = 0;
     for (const card of cards) {
-      const visible = !chainOnly || card.dataset.chain === 'true';
+      const cardCats = (card.dataset.categories || '').split(',').filter(Boolean);
+      const matchesChain = !chainOnly || card.dataset.chain === 'true';
+      const matchesCategory = activeCats.size === 0 || cardCats.some(c => activeCats.has(c));
+      const visible = matchesChain && matchesCategory;
       card.hidden = !visible;
       if (visible) visibleCount++;
     }

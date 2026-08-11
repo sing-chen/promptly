@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPrompts, validatePrompts, buildData, buildSearchIndex, PROMPTS_DIR, PUBLIC_DIR } from '../lib/content.mjs';
 import {
-  renderHomePage, renderBrowseHub, renderCategoryPage,
+  renderHomePage, renderCategoryPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderContributingPage
@@ -63,7 +63,6 @@ export function runBuild() {
 
   // --- pages ---
   writeRoute('', renderHomePage(data));
-  writeRoute('browse', renderBrowseHub(data));
   writeRoute('sequences', renderSequencesIndex(data));
   writeRoute('favorites', renderFavoritesPage(data));
   writeRoute('search', renderSearchPage(data));
@@ -87,7 +86,7 @@ export function runBuild() {
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.collections.length} collection page(s), ${data.sequences.length} sequence page(s), plus home/browse/sequences/favorites/search/about/contributing and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.collections.length} collection page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/contributing and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).

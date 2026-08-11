@@ -28,8 +28,8 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 ## 1a. Site Identity (new, finalized)
 
 - **Logo**: "Prompt cursor" mark — a rounded tile (`rx` matching the design system's 4px chip radius, scaled up) in `--accent` blue, containing a white `>` chevron and a short cursor bar. Reads as a literal command-prompt symbol, legible down to ~20px nav size. Fixed blue-tile-on-white-glyph lockup, not theme-swapped — the tile carries its own contrast regardless of surrounding `--paper` value. Source file: `public/images/promptly-logo.svg`.
-- **Nav menu** (finalized, deviates from the original brief's literal nav wording — see note below): logo + "PROMPTLY" wordmark (links home) · **Browse** · **Sequences** (active state = accent underline) · always-visible pill-shaped search field (flex-grow, never icon-triggered) · favorites count (`☆ N`).
-  - **Deviation flag**: the original brief's §8 Homepage spec named only "logo, search field, Sequences link, favorites count" in the nav — no explicit Browse link. Browse was added deliberately for direct wayfinding to `/browse` rather than relying solely on homepage category tiles.
+- **Nav menu** (finalized, deviates from the original brief's literal nav wording — see note below): logo + "PROMPTLY" wordmark (links home) · ~~**Browse**~~ · **Sequences** (active state = accent underline) · always-visible pill-shaped search field (flex-grow, never icon-triggered) · favorites count (`☆ N`). **Browse link removed in §9g** — Home absorbed the Browse hub's job, so a separate nav link to the same destination became redundant.
+  - **Deviation flag**: the original brief's §8 Homepage spec named only "logo, search field, Sequences link, favorites count" in the nav — no explicit Browse link. Browse was added deliberately for direct wayfinding to `/browse` rather than relying solely on homepage category tiles; §9g's removal brings the nav back in line with that original spec, just for a different reason (the hub itself is gone, not a return to the original rationale).
 - **About** and **Contributing** are secondary/footer-level links, not primary nav items, to keep the nav strip lean.
 
 ---
@@ -37,8 +37,7 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 ## 2. Full Sitemap
 
 ```
-Home                              /
-Browse                            (category hub)
+Home                              /  (all-prompts table + live filters, §9g — absorbs the old Browse hub)
   Category page                   /browse/[category]
   Collection page                 /collections/[slug]
 Search                            /search  (?q=&category=)
@@ -146,11 +145,11 @@ A drag-and-drop authoring tool, separate from the deployed site:
 
 ## 8. Page Templates (layout specs)
 
-### Homepage `/`
-Top to bottom: nav (logo, **always-visible** search field — never hidden behind an icon, Sequences link, favorites count) → one-line framing stat ("128 prompts across 9 categories, organized into 6 sequences") → category tile grid (icon + name + count) → one featured/curated collection rail → "recently added" rail of prompt cards → a quiet single-line contribute note (not a banner). (A secondary "browse by use case" tile set — task-oriented: "Debugging," "First drafts" — sat here too, keyed off `tags`; removed in §9c along with that field.)
+### Homepage `/` (superseded — see §9g)
+~~Top to bottom: nav (logo, **always-visible** search field — never hidden behind an icon, Sequences link, favorites count) → one-line framing stat ("128 prompts across 9 categories, organized into 6 sequences") → category tile grid (icon + name + count) → one featured/curated collection rail → "recently added" rail of prompt cards → a quiet single-line contribute note (not a banner). (A secondary "browse by use case" tile set — task-oriented: "Debugging," "First drafts" — sat here too, keyed off `tags`; removed in §9c along with that field.)~~ Replaced in §9g with the all-prompts table + live category/chain pills (the same pattern §9b built for Category/Search/Favorites) under a minimal hero, absorbing the Browse hub's job.
 
-### Category page `/browse/[category]` (revised — see §9a/§9c)
-Breadcrumb (Home / Browse / [Category]) → filter toolbar: **Chain** (All prompts / In a sequence only), **Sort** → result table (§9b) with quick-view modal. (Model and Complexity pills sat in this toolbar too, per the original §9a rail spec below; removed in §9c along with those fields.)
+### Category page `/browse/[category]` (revised — see §9a/§9c/§9g)
+Breadcrumb (Home / [Category] — was Home / Browse / [Category] before §9g removed the Browse hub) → filter toolbar: **Chain** (All prompts / In a sequence only), **Sort** → result table (§9b) with quick-view modal. (Model and Complexity pills sat in this toolbar too, per the original §9a rail spec below; removed in §9c along with those fields.)
 
 **Prompt card anatomy** (used everywhere a card grid still renders — homepage rails, collections, sequences, favorites card view):
 - Title (bold display weight)
@@ -336,7 +335,7 @@ Design references cited going into this pass: Amplified Thinker (sibling site, s
 
 Third design pass, addressing the "quick-view / reduced back-and-forth" item flagged as open in §9a, plus a scale concern raised separately: a card grid gets unwieldy once the catalog has many prompts. Went through mockup rounds (card/chip directions first, then a pivot to a tabular layout once the scale problem was raised) before landing here. **Implemented** across `lib/schema.mjs`, `lib/content.mjs`, `lib/render.mjs`, `styles/base.css`, and three client scripts (`public/scripts/quickview.js`, `public/scripts/categoryPills.js`, updates to `filters.js`/`favorites.js`/`search.js`).
 
-**Scope**: replaces the card grid on browse-heavy, non-curated pages — Category page, Tag page, Search, Favorites. Browse hub itself still lists category tiles (not prompts), so it was never in scope — corrected here after the design pass mistakenly listed it. Home and Sequences stay card-based (curated, not browsed-at-volume) — the open card/chip redesign question in §9a still applies there. Collections pages are also still card-based (not explicitly in scope; revisit if a collection ever gets large).
+**Scope**: replaces the card grid on browse-heavy, non-curated pages — Category page, Tag page, Search, Favorites. Browse hub itself still lists category tiles (not prompts), so it was never in scope — corrected here after the design pass mistakenly listed it. ~~Home and Sequences stay card-based (curated, not browsed-at-volume)~~ — **Home moved to this same tabular pattern in §9g**; Sequences is unaffected and still card-based (chain-flow rail, not a browsed list). Collections pages are also still card-based (not explicitly in scope; revisit if a collection ever gets large).
 
 **Table layout**:
 - Columns: **Category** (badges) · **Title** (with purpose subline stacked underneath, and a sequence-step pill inline when chained) · **Updated** · row actions (Favorite/Copy, icon-only, visible on hover/focus).
@@ -419,6 +418,22 @@ Three directions were mocked live (real hover/click behavior, not static compari
 
 ---
 
+## 9g. Home Simplification — all-prompts table replaces curated rails, Browse hub removed (new)
+
+A later, separate pass, prompted by a simplification question rather than an open item from §9a: with the tabular/live-pill pattern already proven on Category/Search/Favorites (§9b/§9c), does Home need its own bespoke curated layout at all, or can it just be the same table scoped to everything?
+
+**What prompted it**: a review of Home surfaced that its curated layout (category tile grid, one featured collection rail, a recently-added rail) had real problems at the catalog's current size — the Featured Collection and Recently Added rails were independently duplicating the same two prompts, and five of nine category tiles led to empty "no prompts yet" pages with no visual signal they were dead ends before the click (fixed for the old layout in the prior Home pass, but the underlying tension — a curated homepage needs enough content to curate *from* — doesn't go away as the catalog grows either).
+
+**Decision**: Home is now the all-prompts table (`renderPromptTable`) with the same live Category + Chain pill toolbar (`renderFilterToolbar`) and quick-view modal §9b built for Category/Search/Favorites, under a minimal hero — just the "Promptly" title and the existing one-line framing stat ("N prompts across N categories..."), not a fuller marketing-style header. This is a personal, single-author tool where the primary job is finding and copying a prompt fast; the table+pills pattern already does that better than a curated landing page, and reusing it here instead of maintaining a bespoke Home layout is less surface area to keep consistent as the design system evolves.
+
+**Browse hub (`/browse/`) removed entirely** — `renderBrowseHub` and its route are gone. Home now does that job (browsing everything, filterable by category). Individual category pages (`/browse/[category]/`) are unaffected and still exist — only the hub index that listed all nine category tiles is gone. Nav's **Browse** link is removed for the same reason (§1a) — it pointed at a now-redundant destination. Breadcrumbs that rooted at Browse (Category page, Collection page, Prompt detail) now root at Home (`Home / [Category] / ...`) instead.
+
+**Explicitly deferred, not decided**: what replaces the old Featured Collection rail's job of surfacing curated collections and sequences on Home. Collections currently have no discovery path at all besides being in the all-prompts table like any other prompt — a real regression for the one existing collection (Client Onboarding Kit), accepted for now rather than solved with a placeholder mechanism. The right fix depends on an architecture question that's still open: whether collections/sequences get their own surfacing mechanism, and whether tags return (dropped in §9c) to complement categories as the thing that lets a collection be defined/found in the first place. Revisit this once that's decided — don't bolt on a rail here first and redesign it later.
+
+**Implementation**: `renderHomePage` (`lib/render.mjs`) rewritten to the table+pills shape (mirrors `renderFavoritesPage`'s structure most closely). `renderCategoryTiles` (a shared helper the prior Home pass had just extracted for Home + Browse hub's matching tile grids) is deleted along with both call sites — dead code once neither page uses tiles. `initTableFilterToolbar` (`public/scripts/filters.js`) extended to optionally match a `category` pill group against each row's `data-categories` attribute (OR-within-category, same logic Favorites' bespoke handler already used) — additive and backward-compatible, since Category page's toolbar has no category group and so triggers none of the new matching logic.
+
+---
+
 ## 10. Build Order (revised)
 
 1. ~~Scaffold custom build script + `/prompts` folder~~ — done.
@@ -445,4 +460,4 @@ Three directions were mocked live (real hover/click behavior, not static compari
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9f (card depth = richer hover, option C) is implemented and locked, closing out §9a's depth/interactivity question — §9a has no remaining open items as of §9f.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9f (card depth = richer hover, option C) is implemented and locked, closing out §9a's depth/interactivity question — §9a has no remaining open items as of §9f. §9g (Home = all-prompts table, Browse hub removed) is implemented and locked for the table/pills/hero shape and the hub removal; the collections/sequences discoverability question it surfaces is explicitly open — pending the tags-return/architecture decision — and should not be treated as solved by anything currently on Home.*
