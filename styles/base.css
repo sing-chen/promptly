@@ -32,6 +32,17 @@ main section + section, main section + p, main p + section {
 }
 main section > h2 { margin-bottom: 12px; }
 
+/* Home's hero (framing stat) -> filter toolbar transition - generous
+   top margin gives the stat line room to breathe (it directly follows the
+   sr-only h1, which has zero visible height), the hairline plus its own
+   margins mark a clear break before the filter/table content starts. */
+.home-hero-divider {
+  border: none;
+  height: 1px;
+  background: var(--line-soft);
+  margin: 32px 0 24px;
+}
+
 a { color: inherit; text-decoration: none; }
 
 p { margin: 0 0 1em; color: var(--ink-soft); }
@@ -45,6 +56,18 @@ button { font-family: var(--sans); }
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .container {
