@@ -44,8 +44,26 @@ export function initQuickView(gridId, opts = {}) {
   if (!tbody || !backdrop) return { update() {} };
 
   let items = opts.data || readEmbedded(gridId);
-  const sequenceTotals = opts.sequenceTotals || null;
-  const allPrompts = opts.allPrompts || null;
+  let sequenceTotals = opts.sequenceTotals || null;
+  let allPrompts = opts.allPrompts || null;
+
+  // The catalog-wide search index, lazily fetched only the first time a
+  // sequence Back/Next/Start/End target isn't among the prompts already on
+  // this page (e.g. a chained prompt whose category isn't the one being
+  // browsed). Lets sequence navigation stay inside the modal everywhere,
+  // not just on pages that happen to already list every step.
+  let indexFetch = null;
+  function ensureIndex() {
+    if (allPrompts) return Promise.resolve(allPrompts);
+    if (!indexFetch) {
+      indexFetch = fetch('/search-index.json').then(r => r.json()).then(idx => {
+        allPrompts = idx.prompts;
+        if (!sequenceTotals) sequenceTotals = idx.sequenceTotals;
+        return allPrompts;
+      }).catch(() => null);
+    }
+    return indexFetch;
+  }
 
   const els = {
     title: document.getElementById('qv-title'),
@@ -117,11 +135,21 @@ export function initQuickView(gridId, opts = {}) {
     syncFavButton(item.slug);
     els.openFull.href = `/prompt/${item.slug}/`;
 
+    // A sequence neighbor opened via fallback fetch (see ensureIndex) may not
+    // be one of the rows on this page at all - stepping through "the list"
+    // doesn't mean anything for it, so the counter/chevrons go inert rather
+    // than showing a misleading "0 / N".
     const order = visibleSlugsInOrder();
     const pos = order.indexOf(item.slug);
-    els.position.textContent = order.length ? `${pos + 1} / ${order.length}` : '';
-    els.prev.disabled = pos <= 0;
-    els.next.disabled = pos === -1 || pos >= order.length - 1;
+    if (pos === -1) {
+      els.position.textContent = '';
+      els.prev.disabled = true;
+      els.next.disabled = true;
+    } else {
+      els.position.textContent = `${pos + 1} / ${order.length}`;
+      els.prev.disabled = pos <= 0;
+      els.next.disabled = pos >= order.length - 1;
+    }
 
     modal_scrollTop();
   }
@@ -131,11 +159,16 @@ export function initQuickView(gridId, opts = {}) {
   }
 
   function findItem(slug) {
-    return items.find(p => p.slug === slug);
+    return items.find(p => p.slug === slug) || allPrompts?.find(p => p.slug === slug);
   }
 
-  function open(slug) {
-    const item = findItem(slug);
+  // Async because a sequence neighbor might not be among the prompts this
+  // page already has - in that case ensureIndex() fetches the catalog-wide
+  // index once before opening. Callers don't need to await this; it's safe
+  // to fire-and-forget from a click handler.
+  async function open(slug) {
+    let item = findItem(slug);
+    if (!item) item = (await ensureIndex())?.find(p => p.slug === slug);
     if (!item) return;
     currentSlug = slug;
     selectedSlug = slug;
@@ -175,6 +208,16 @@ export function initQuickView(gridId, opts = {}) {
   els.close.addEventListener('click', close);
   els.prev.addEventListener('click', () => step(-1));
   els.next.addEventListener('click', () => step(1));
+  // Sequence Back/Next inside the modal stay inside the modal - only a real
+  // <a> so it still works (as a normal page navigation) if JS fails or this
+  // markup is ever read outside quickview.js's control.
+  els.seqNav.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="/prompt/"]');
+    if (!a) return;
+    e.preventDefault();
+    const slug = a.getAttribute('href').replace(/^\/prompt\//, '').replace(/\/$/, '');
+    open(slug);
+  });
   els.fav.addEventListener('click', () => {
     if (!currentSlug) return;
     toggleFavorite(currentSlug);
