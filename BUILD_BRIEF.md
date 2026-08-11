@@ -46,7 +46,6 @@ Search                            /search  (?q=&tag=&category=&model=)
   Zero-result state — suggests nearest tags, never a dead end
 Prompt detail                     /prompt/[slug]
   Example output (tab/section on the page)
-  Related prompts module
 Sequences                         /sequences  (index of all chains)
   Sequence page                   /sequence/[slug]
 Favorites                         /favorites  (localStorage, no login)
@@ -158,15 +157,28 @@ Top to bottom: nav (logo, **always-visible** search field — never hidden behin
 ### Category page `/browse/[category]`
 Breadcrumb (Home / Browse / [Category]) → sticky left filter rail: **Model**, **Complexity** (Simple/Multi-step/Agentic), **Chain** (All prompts / In a sequence only), **Sort** → result grid of prompt cards → load-more pagination (not numbered pages, to preserve filter state).
 
-**Prompt card anatomy** (used everywhere — homepage rails, category grid, search results, favorites, related rails):
+**Prompt card anatomy** (used everywhere — homepage rails, category grid, search results, favorites):
 - Title (bold display weight)
 - Purpose line — one sentence: what it's for, not what it says
-- Tag chips (category/tag = primary-accent tint; sequence badge = secondary/amber tint, always includes literal text like "step 2 of 4" — never color alone)
+- Tag chips (soft accent tint; sequence badge uses the same single accent, always includes literal text like "step 2 of 4" — never color alone)
 - Favorite star + copy icon, top-right, always visible (not hover-only)
 - Footer: updated date, small icon if an example output is attached
 
-### Prompt Detail page `/prompt/[slug]`
-Header (title, purpose line, category+tag chips, favorite toggle) → **sequence rail** (only rendered if chained) → prompt body block with pinned copy button, `{{variables}}` visually highlighted → example output section (image/file/text, only if attached) → notes ("when to use / when not to," authored per-prompt) → related prompts rail (same category, overlapping tags, or same sequence) → sidebar: compatibility (model badges, complexity), added/last-revised dates, sequence membership if any.
+### Prompt Detail page `/prompt/[slug]` (revised — see §9a for the layout session that produced this)
+Single-column, two-box **bento** layout — deliberately mobile-first, no side rail (a right rail was tried and rejected specifically because it doesn't collapse cleanly to narrow widths):
+
+- **Header**: title with a solid-fill **category badge** inline beside it (not a soft-tint chip — see §9 for the badge color system), purpose line underneath.
+- **Prompt box**: box label "Prompt" with **Favorite** (icon + text, toggles to "Favorited") and **Copy** (icon-only) actions together in the box header, top-right. Body text below with `{{variables}}` visually highlighted. No pinned/floating button — both actions live in the box header.
+- **Notes box**: box label "Notes" (renamed from "when to use / when not to"), authored per-prompt free text. Below a hairline divider: the **sequence stepper** (chain name, "Step X of Y", back/next links) — only rendered if the prompt is chained. Below a second hairline divider: **Created** / **Modified** dates.
+- **Example output** section (image/file/text) renders below the bento pair, only if `example_output` is attached.
+
+**Deliberately cut from this page for now** (flagged as reintroduce-later, not a final decision):
+- **Related prompts module** — removed entirely, including its query-time computation. If reintroduced, needs its own design pass, not a straight port of the old card-grid rail.
+- **Tags** and **compatible models** — no longer surfaced on the detail page. Still fully present in frontmatter and still used for search/filtering.
+- **Complexity** — removed from the detail page specifically (reasoning: it's a *pre-click* filtering signal for browse/search results, not something a reader needs once they've already opened the prompt). Still used in the category/search filter rail (§8, category page spec) and in `lib/schema.mjs`'s `COMPLEXITY_LEVELS` — this is a display-only cut, not a data model change.
+- **Source / attribution link** — considered during the layout session, explicitly decided against. Not implemented.
+
+**Standing open item, not yet designed**: browsing a list and opening a prompt is still a full navigation away from results — no quick-view/slide-over/prev-next-through-results exists yet. Flagged during the layout session as something to prototype once the depth/interactivity pass (§9a) is scoped, not forgotten.
 
 ### Sequence page `/sequence/[slug]`
 Breadcrumb → chain name + one-line description → horizontal flow of connected step cards (step number, title, one-line note on what it consumes/produces), left-to-right with a visible connector between them.
@@ -176,45 +188,44 @@ Same grid/card component as Category page, filtered client-side to starred slugs
 
 ---
 
-## 9. Design System — "Stone & Signal"
+## 9. Design System — "Botanical Quiet A" (revised — supersedes "Stone & Signal")
 
-### Typography — "Grotesk Clean" (locked)
+**§9 was fully retheme'd in a later design session (commit `d90c04b`) and is locked as of that commit; the layout/depth work in §9a is a separate, later, not-yet-complete pass on top of it.** The blue/amber "Stone & Signal" system originally documented here (Segoe UI display face, royal blue + amber accents) was replaced wholesale — treat this section as current truth, not the excerpt above.
 
-Sans-only. No serif anywhere. Hierarchy comes from **weight and size**, not a face change.
+### Typography (locked)
+
+Single sans stack for **both** display and body text — no serif, no separate mono for the prompt body. Mono is kept only for genuinely tabular/code-flavored spots (the contributing-page snippet, filter-group micro-labels).
 
 ```css
---display: "Segoe UI Semibold", "Segoe UI", Arial, sans-serif;   /* anything titled or acted on */
---sans:    "Segoe UI", Calibri, Arial, sans-serif;               /* body / reading text */
---mono:    Consolas, "Cascadia Mono", "SF Mono", monospace;      /* prompt bodies, metadata labels */
+--sans: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+--display: var(--sans);   /* same stack — hierarchy comes from weight/size only */
+--mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
 ```
 
-Rules:
-- Headings/titles/nav-logo/card-titles/buttons: `--display`, `font-weight:700`, tight negative letter-spacing (roughly `-0.005em` at small sizes down to `-0.02em` at large sizes).
-- Body copy: `--sans`, regular weight.
-- Chips and micro-labels: uppercase, bold, small (9–11px), `letter-spacing: .03–.06em`, **4px border-radius** (not pill-shaped) — deliberately denser/more utilitarian than a soft rounded chip.
-- Approximate scale: h1 24–38px / h2 17–24px / card titles ~13–13.5px / body 13–15px / captions & mono labels 9.5–12.5px.
-- Nav logo: uppercase, bold, small (~13px).
+- Headings/titles/nav-logo/card-titles/buttons: `font-weight:700`, tight negative letter-spacing (`-0.01em` to `-0.02em`).
+- Chips: uppercase, bold, 10px, `letter-spacing: .05em`, **4px border-radius** (not pill-shaped).
+- Approximate scale unchanged from the original brief: h1 24–38px / h2 17–24px / card titles ~13.5px / body 13–15px.
 
 ### Color tokens
 
-**Light** (default):
+**Light** (default) — source of truth is `styles/tokens.css`:
 
 ```css
---paper:        #EEEAE1;  /* warm stone base — deliberately not blue/cool */
+--paper:        #F4F6F3;  /* warm sage paper */
 --surface:      #FFFFFF;
---well:         #DFD8C9;  /* recessed level — code blocks, filter rails */
---ink:          #1C1912;
---ink-soft:     #59544A;
---ink-faint:    #8A8477;
---line:         #CFC6B4;
---line-soft:    #DED7C8;
---accent:       #1B5FC2;  /* Royal Blue — primary, every action */
+--well:         #E7EBE4;
+--ink:          #1F2B27;  /* dark ink */
+--ink-soft:     #586860;
+--ink-faint:    #8B978F;
+--line:         #DCE4DD;
+--line-soft:    #E6EEE4;
+--accent:       #2D6A63;  /* deep teal — the ONLY accent, carries every action AND sequence membership */
 --accent-ink:   #FFFFFF;
---accent-soft:  #DCE8F7;
---accent-hover: #154C9C;
---accent-active:#113E7F;
---seq:          #9A5008;  /* Amber — secondary, sequence membership ONLY, never an action color */
---seq-soft:     #F2E2C8;
+--accent-soft:  #E1EBE6;
+--accent-hover: #245650;
+--accent-active:#1C433F;
+--seq:          #2D6A63;  /* same value as --accent — the old indigo/amber "sequence" pair was consolidated */
+--seq-soft:     #E1EBE6;
 --danger:       #A6392E;
 --danger-soft:  #F1DAD3;
 ```
@@ -222,28 +233,28 @@ Rules:
 **Dark**:
 
 ```css
---paper:        #131110;
---surface:      #1D1B17;
---well:         #100F0C;
---ink:          #F1ECE1;
---ink-soft:     #B8AF9C;
---ink-faint:    #7C7566;
---line:         #3A362C;
---line-soft:    #262319;
---accent:       #6FA8E8;
---accent-ink:   #0B1A2E;
---accent-soft:  #1E3352;
---accent-hover: #8CBBEE;
---accent-active:#4E86C7;
---seq:          #D79A4E;
---seq-soft:     #3A2A14;
+--paper:        #121614;
+--surface:      #1B211D;
+--well:         #0F1311;
+--ink:          #EFEAE0;
+--ink-soft:     #B3AFA0;
+--ink-faint:    #7A796D;
+--line:         #333A34;
+--line-soft:    #242923;
+--accent:       #62BBA8;
+--accent-ink:   #08211C;
+--accent-soft:  #1B3530;
+--accent-hover: #7ECDBC;
+--accent-active:#4C9C8C;
+--seq:          #62BBA8;
+--seq-soft:     #1B3530;
 --danger:       #E2948A;
 --danger-soft:  #3A1F1B;
 ```
 
-Theme switching: define tokens on `:root` (light default), redefine under `@media (prefers-color-scheme: dark)`, then again under `:root[data-theme="dark"]` / `:root[data-theme="light"]` so an explicit toggle overrides the OS preference in both directions.
+Theme switching mechanics are unchanged from the original brief: tokens on `:root` (light default), redefined under `@media (prefers-color-scheme: dark)`, then again under `:root[data-theme="dark"]` / `:root[data-theme="light"]` so an explicit toggle overrides the OS preference in both directions.
 
-**Radii & elevation**:
+**Radii & elevation** (values carried over unchanged from the original brief):
 
 ```css
 --radius-sm: 4px;
@@ -253,22 +264,35 @@ Theme switching: define tokens on `:root` (light default), redefine under `@medi
 --shadow:    0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
 ```
 
-(Use rgba(0,0,0,…) heavier values for the dark theme shadows — roughly double the alpha.)
+### Category badge colors (new — from the §9a layout session)
 
-### Why blue + amber (rationale to preserve, not re-derive)
+The prompt detail page's category badge (§8) needs to read as distinct from the single-accent UI, so it uses its own small palette of **solid, theme-independent** hues — fixed hex values, not `:root`/dark-mode tokens, so a given category's color doesn't shift between light and dark (same logic as a language-color dot in a repo file list). Assigned by index into `CATEGORIES` (`lib/schema.mjs`) modulo the hue list, via `categoryHue()` in `lib/render.mjs`:
 
-- **Blue** = trust/dependability, carries every interactive action (buttons, links, active nav/filter states).
-- **Amber** = warmth/energy, reserved *exclusively* for sequence membership — never used for buttons or general actions.
-- They're **complementary** (opposite on the color wheel), not analogous — chosen specifically so the sequence badge is distinguishable from a normal tag chip through color alone, which matters because sequences are the rare case and need to visually stand out, not blend in. This pairing also stays legible under the common forms of color-blindness (unlike a blue/green pairing, which is a frequent confusion pair).
-- Paper is a warm stone neutral, not cool/blue-grey — an earlier "Ice & Paper" direction read as clinical; this warmed version was the fix.
+```css
+--cat-clay:  #A8552A;
+--cat-ochre: #8A6817;
+--cat-blue:  #34647F;
+--cat-plum:  #7A4780;
+--cat-moss:  #566627;
+--cat-rose:  #8A3B4E;
+```
 
-### WCAG accessibility baseline (verified, do not regress)
+White text on all six. These are intentionally a separate system from the soft-tint `.chip` used for tags — solid fill reads as a badge next to a title, soft tint reads as a filterable facet in a list. If tags/models return to the detail page (see §8), they should stay on the soft-tint `.chip` system, not borrow these solid hues.
 
-- `--accent` vs white: **6.07:1** (passes AA normal text, 4.5:1 threshold)
-- `--seq` vs white: **5.96:1** (passes AA normal text)
-- `--ink` vs `--paper`: **15.1:1** (passes AAA, 7:1 threshold)
-- Every accent-on-soft-tint chip pairing (e.g. `--accent` text on `--accent-soft` background) must independently clear 4.5:1 — check against the tint, not just against white.
-- **Never rely on color alone** for meaning: sequence badges always carry literal text ("step 2 of 4"), not just an amber color cue.
+### Why a single accent (rationale — supersedes the old blue+amber rationale)
+
+- The original two-color system (blue for actions, amber exclusively for sequence membership) was replaced with **one accent doing both jobs**. Sequence badges still always carry literal text ("step X of Y") — that was the actual accessibility requirement, not the second hue — so dropping the color split didn't reintroduce a color-only-meaning problem.
+- Paper stayed a warm neutral (sage now, stone before) — the "not cool/clinical" rationale from the original brief still holds, just re-anchored to green rather than beige.
+- The category badges (above) are where a multi-hue system now lives instead — deliberately scoped to *one field* (category) rather than spread across accent/sequence/action colors, so it can't be confused with interactive/action styling.
+
+### WCAG accessibility baseline (recomputed against current tokens — do not regress)
+
+- `--accent` (light) vs white: **6.26:1** (passes AA normal text, 4.5:1 threshold)
+- `--accent` (dark) vs `--surface` (dark): **7.17:1**
+- `--ink` vs `--paper` (light): **13.48:1** / (dark): **15.22:1** (both pass AAA, 7:1 threshold)
+- `--accent` text on `--accent-soft` background (light): **5.14:1**
+- Category badges (white text on solid fill) — all six re-verified after the layout session caught `--cat-ochre` originally failing at 4.41:1; darkened to `#8A6817` (**5.16:1**). Full set: clay 5.25, ochre 5.16, blue 6.41, plum 6.91, moss 6.31, rose 7.46 — all clear AA.
+- **Never rely on color alone** for meaning: sequence badges always carry literal text ("step 2 of 4"), not just a color cue.
 - All interactive elements need a visible `:focus-visible` state (not just `:hover`).
 - Respect `prefers-reduced-motion`.
 
@@ -287,10 +311,30 @@ Single-weight outline icons, `stroke-width: 1.6`, rounded caps/joins, no fill ex
 - **Button** — primary (accent fill, white text, `shadow-sm`→`shadow` on hover, pressed/active = darker + slight translateY, disabled = faint grey/muted), secondary (outline, hover = accent border+text, focus = accent ring via `box-shadow`), ghost (text-only, hover = subtle background).
 - **Copy-to-clipboard** — pinned button, default/hover/copied (checkmark icon, "Copied" text, reverts after ~2s).
 - **Favorite star** — idle (outline)/hover (accent-tinted outline)/favorited (solid fill + soft accent-tinted ring).
-- **Chip** — category/tag variant (accent-tinted, uppercase, bold, 4px radius); sequence variant (amber-tinted, same shape, always includes "step X of Y" text).
+- **Chip** — soft accent-tinted, uppercase, bold, 4px radius, used for tags/sequence badges in card grids (always includes "step X of Y" text on sequence badges — never color alone). The prompt detail page's category badge is a separate solid-fill component — see §9's "Category badge colors."
 - **Search field** — pill-shaped, persistently visible in nav (not icon-triggered), focus state = accent border + soft ring.
 - **Nav strip** — logo (bold uppercase display face), links (active = accent underline), search field, favorites count.
 - **Prompt card** — see §8 anatomy above; `shadow-sm` at rest, lifts to `shadow` + `translateY(-2px)` on hover.
+
+---
+
+## 9a. Layout & Depth Pass (new — in progress, started after §9's retheme shipped)
+
+A second design pass, separate from and later than the §9 retheme, focused on layout/structure/interactivity rather than color/type. Status as of the most recent work:
+
+**Done:**
+- Prompt detail page rebuilt as the single-column bento layout described in §8 — went through several mockup rounds (6 broad layout directions → narrowed to bento vs. single-card → refined into the current two-box version) before implementation.
+- Category badge color system (§9) introduced as part of this pass.
+
+**Explicitly open / not yet touched by this pass** — the color/font retheme (§9) recolored these in place without redesigning their structure:
+- **Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.
+- **Filter rail** (category/search pages, §8) — still the original layout.
+- **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign).
+- **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored. Every other page still uses the pre-existing shadow/card treatment untouched.
+- **Quick-view / reduced back-and-forth** between a list (browse/search) and the detail page — flagged during the detail-page mockup rounds as worth prototyping once this pass reaches interactivity, not designed yet.
+- **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); tags/models may return with their own design treatment, complexity is judged not worth detail-page space, source was tried and rejected.
+
+Design references cited going into this pass: Amplified Thinker (sibling site, same teal/sage identity) and MasterClass (clean, modern, easy to navigate) — originally cited for the §9 color/font work, carried forward as a general quality bar rather than a literal reference for layout.
 
 ---
 
@@ -320,4 +364,4 @@ Single-weight outline icons, `stroke-width: 1.6`, rounded caps/joins, no fill ex
 
 ---
 
-*This brief reflects a completed design session — palette, type, component states, IA, and the sequencing/favorites mechanics are all decided. Nothing here should be re-litigated from scratch; treat deviations as a deliberate change to flag, not an open question. The stack change documented in this v2 (Astro → custom static build script, Pagefind → Fuse.js) was discussed and approved explicitly; it is itself locked, not open for re-derivation.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited.*
