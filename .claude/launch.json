@@ -5,7 +5,8 @@
       "name": "promptly",
       "runtimeExecutable": "node",
       "runtimeArgs": ["scripts/dev-server.mjs"],
-      "port": 4173
+      "port": 4173,
+      "autoPort": true
     }
   ]
 }

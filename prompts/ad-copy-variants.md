@@ -1,10 +1,7 @@
 ---
 title: Ad copy variants
 categories: [marketing]
-tags: [draft, single-shot, claude, gpt]
 purpose: Generate multiple short ad copy variants for A/B testing from one product description.
-models: [claude, gpt]
-complexity: simple
 example_output: /assets/examples/ad-copy-variants.svg
 notes: Good for quick variant generation, not a substitute for a full campaign brief.
 added: 2026-03-20

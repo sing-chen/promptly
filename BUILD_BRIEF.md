@@ -18,7 +18,7 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 - **Static site** — no server, no database, no login/accounts. Built for single-author editing; viewing may extend to invited teammates (see §0).
 - **Stack**: no site-generator framework (Astro dropped). A small custom Node.js build script (`scripts/build.mjs`) reads `/prompts`, validates frontmatter, and statically pre-renders every page in the sitemap as real `.html` files at build time. Output uses `/prompt/<slug>/index.html`-style directories so Vercel serves clean URLs natively — no rewrites needed.
 - **The build script fully clears and regenerates `dist/` on every run** (no incremental build) — required so a prompt deleted via bulk admin (§4a) doesn't leave an orphaned page live on the site.
-- Content still lives as one Markdown file per prompt in a `/prompts` folder, YAML frontmatter. The build script generates all pages (category, tag, detail, sequence, etc.) from that folder at build time — same principle as the original brief, just without a framework runtime.
+- Content still lives as one Markdown file per prompt in a `/prompts` folder, YAML frontmatter. The build script generates all pages (category, detail, sequence, etc.) from that folder at build time — same principle as the original brief, just without a framework runtime.
 - Shared markup (nav, prompt card, chip, filter rail) is implemented as plain JS template functions invoked by the build script — not framework components — mirroring how `nav.js` works in amplified thinker.
 - "Submitting a prompt" = adding a file and rebuilding — there is no live submission form or moderation queue.
 - Search moves from Pagefind to a build-time-generated Fuse.js index (see §7).
@@ -40,10 +40,8 @@ Personal-use AI prompt catalog, with planned future access for teammates as read
 Home                              /
 Browse                            (category hub)
   Category page                   /browse/[category]
-  Tag page                        /tag/[tag]
   Collection page                 /collections/[slug]
-Search                            /search  (?q=&tag=&category=&model=)
-  Zero-result state — suggests nearest tags, never a dead end
+Search                            /search  (?q=&category=)
 Prompt detail                     /prompt/[slug]
   Example output (tab/section on the page)
 Sequences                         /sequences  (index of all chains)
@@ -63,10 +61,9 @@ Every route above is emitted as a real static HTML file by the build script (e.g
 
 ## 3. Content / Taxonomy Schema
 
-Three distinct axes — do not conflate them:
+**`models`, `complexity`, and `tags` are no longer captured, as of the field-reduction pass (§9c) — at least for now.** The two axes below are what's left; §9c has the full rationale and what was removed as a result.
 
 - **category** — multi-select as of the §9b tabular-browse pass (was single-select; most prompts still carry just one in practice), structural (where a prompt lives). Set: `writing`, `code`, `marketing`, `research`, `data-analysis`, `product`, `education`, `creative`, `ops-admin`. Frontmatter field is `categories: [...]` (array, 1+ entries) — see §9b.
-- **tags** — multi-select, descriptive (how it's found). Facets: task type (debug/draft/summarize/translate…), format (single-shot/chained/agentic), model (claude/gpt/gemini/model-agnostic), tone, skill level. Controlled vocabulary — new tags should route through a review step conceptually, not sprawl freely.
 - **sequence** — relational, *not* a tag. See §4.
 
 ### Frontmatter shape (per prompt file)
@@ -75,7 +72,6 @@ Three distinct axes — do not conflate them:
 ---
 title: Post-meeting follow-up
 categories: [writing]            # array, 1+ entries — see §3 note on the §9b multi-category change
-tags: [sales-outreach, follow-up, claude, gpt]
 sequence: client-onboarding      # optional
 sequence_step: 2                 # optional, only if sequence is set
 depends_on: draft-the-brief      # optional, for forked chains
@@ -84,7 +80,7 @@ example_output: /assets/examples/follow-up.png   # optional
 Prompt body goes here, with {{variable_placeholders}} in double braces.
 ```
 
-- The build script's validation step checks: required fields present (title, category, ≥1 tag), no duplicate slugs, before allowing a build to complete.
+- The build script's validation step checks: required fields present (title, ≥1 category), no duplicate slugs, before allowing a build to complete.
 - `example_output` renders contextually on the detail page: image → inline preview + lightbox; other file types → filename/type/download card; long text → expandable block.
 
 ---
@@ -114,7 +110,7 @@ A drag-and-drop authoring tool, separate from the deployed site:
 
 - Multi-select prompt deletion and re-categorization are added to the **same Sequence Builder tool** (`tools/sequence-builder/`) — not a new tool, and not a capability on the deployed site. The tool already has File System Access API read/write access to `/prompts`; extending it keeps all local, file-mutating admin actions in one place, consistent with "no live submission form."
 - **Multi-select delete**: select N prompt cards → confirm → tool deletes the corresponding `.md` files from `/prompts`, with an on-screen confirmation (same pattern as the existing sequence_step-rewrite "saved" indicator). Since `/prompts` is git-tracked, an accidental delete is recoverable via `git checkout` as long as it hasn't been committed and pushed over — that's the safety net, not an in-tool undo.
-- **Multi-select re-categorize**: select N prompt cards → choose a new `category` (and optionally add/remove tags) → tool rewrites frontmatter across all selected files.
+- **Multi-select re-categorize**: select N prompt cards → choose a new `category` → tool rewrites frontmatter across all selected files. (Bulk add/remove-tag controls existed here too; removed in §9c along with the `tags` field itself.)
 - A prompt removed here that was a sequence member is handled the same way a manual removal would be — no special-cased cleanup beyond what already exists.
 
 ---
@@ -140,11 +136,10 @@ A drag-and-drop authoring tool, separate from the deployed site:
 ## 7. Search (revised)
 
 - Built at **build time** by the custom build script into a static JSON index (Fuse.js-compatible, replacing Pagefind) — same approach as amplified thinker's `search-index.json` + `fuse.min.js`. Queried entirely client-side, no server round trip.
-- Weighting: tags & category weighted highest, title/purpose line next, full prompt body lowest — configured via Fuse's weighted `keys` option.
+- Weighting: category weighted highest, title/purpose line next, full prompt body lowest — configured via Fuse's weighted `keys` option. (Tags were weighted highest alongside category; dropped along with the field in §9c.)
 - Sequence membership is indexed too — searching a chain's topic should surface every step in it.
 - Typo tolerance via Fuse's fuzzy matching (threshold-tuned); basic synonym mapping (e.g. "email" ↔ "outreach") is hand-rolled logic layered on top of the index — same effort this would've taken under Pagefind.
-- Facets (category, tag, model, complexity) narrow results in real time without a full reload.
-- Zero-result state suggests the 3 nearest tags — never a dead end.
+- The **category** facet narrows results in real time without a full reload. (Tag/model/complexity facets and the zero-result "nearest tags" suggestion existed here too; removed in §9c along with those fields.)
 - Client-side querying needs a browser build of Fuse.js (a vendored `fuse.min.js`, same pattern as amplified thinker) — the build-time index generation itself only needs to emit structured JSON, not Fuse as an npm dependency.
 
 ---
@@ -152,15 +147,15 @@ A drag-and-drop authoring tool, separate from the deployed site:
 ## 8. Page Templates (layout specs)
 
 ### Homepage `/`
-Top to bottom: nav (logo, **always-visible** search field — never hidden behind an icon, Sequences link, favorites count) → one-line framing stat ("128 prompts across 9 categories, organized into 6 sequences") → category tile grid (icon + name + count) alongside a secondary "browse by use case" tile set (task-oriented: "Debugging," "First drafts") → one featured/curated collection rail → "recently added" rail of prompt cards → a quiet single-line contribute note (not a banner).
+Top to bottom: nav (logo, **always-visible** search field — never hidden behind an icon, Sequences link, favorites count) → one-line framing stat ("128 prompts across 9 categories, organized into 6 sequences") → category tile grid (icon + name + count) → one featured/curated collection rail → "recently added" rail of prompt cards → a quiet single-line contribute note (not a banner). (A secondary "browse by use case" tile set — task-oriented: "Debugging," "First drafts" — sat here too, keyed off `tags`; removed in §9c along with that field.)
 
-### Category page `/browse/[category]`
-Breadcrumb (Home / Browse / [Category]) → sticky left filter rail: **Model**, **Complexity** (Simple/Multi-step/Agentic), **Chain** (All prompts / In a sequence only), **Sort** → result grid of prompt cards → load-more pagination (not numbered pages, to preserve filter state).
+### Category page `/browse/[category]` (revised — see §9a/§9c)
+Breadcrumb (Home / Browse / [Category]) → filter toolbar: **Chain** (All prompts / In a sequence only), **Sort** → result table (§9b) with quick-view modal. (Model and Complexity pills sat in this toolbar too, per the original §9a rail spec below; removed in §9c along with those fields.)
 
-**Prompt card anatomy** (used everywhere — homepage rails, category grid, search results, favorites):
+**Prompt card anatomy** (used everywhere a card grid still renders — homepage rails, collections, sequences, favorites card view):
 - Title (bold display weight)
 - Purpose line — one sentence: what it's for, not what it says
-- Tag chips (soft accent tint; sequence badge uses the same single accent, always includes literal text like "step 2 of 4" — never color alone)
+- Category chips (soft accent tint; sequence badge uses the same single accent, always includes literal text like "step 2 of 4" — never color alone). Tag chips sat alongside these too; removed in §9c.
 - Favorite star + copy icon, top-right, always visible (not hover-only)
 - Footer: updated date, small icon if an example output is attached
 
@@ -174,8 +169,7 @@ Single-column, two-box **bento** layout — deliberately mobile-first, no side r
 
 **Deliberately cut from this page for now** (flagged as reintroduce-later, not a final decision):
 - **Related prompts module** — removed entirely, including its query-time computation. If reintroduced, needs its own design pass, not a straight port of the old card-grid rail.
-- **Tags** and **compatible models** — no longer surfaced on the detail page. Still fully present in frontmatter and still used for search/filtering.
-- **Complexity** — removed from the detail page specifically (reasoning: it's a *pre-click* filtering signal for browse/search results, not something a reader needs once they've already opened the prompt). Still used in the category/search filter rail (§8, category page spec) and in `lib/schema.mjs`'s `COMPLEXITY_LEVELS` — this is a display-only cut, not a data model change.
+- **Tags**, **compatible models**, and **complexity** — originally just hidden from the detail page while staying in frontmatter/search (this was a display-only cut). As of §9c, all three are no longer captured at all — a full data-model removal, not a display cut.
 - **Source / attribution link** — considered during the layout session, explicitly decided against. Not implemented.
 
 **Standing open item, not yet designed**: browsing a list and opening a prompt is still a full navigation away from results — no quick-view/slide-over/prev-next-through-results exists yet. Flagged during the layout session as something to prototype once the depth/interactivity pass (§9a) is scoped, not forgotten.
@@ -328,11 +322,11 @@ A second design pass, separate from and later than the §9 retheme, focused on l
 
 **Explicitly open / not yet touched by this pass** — the color/font retheme (§9) recolored these in place without redesigning their structure:
 - **Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.
-- **Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.
-- **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign).
+- ~~**Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.~~ Resolved: swapped for the live pill toolbar, then simplified further — see §9c.
+- **Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign). Moot for tags specifically as of §9c (field removed); category chip style is still open.
 - **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.
 - **Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.
-- **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); tags/models may return with their own design treatment, complexity is judged not worth detail-page space, source was tried and rejected.
+- **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); source was tried and rejected. Tags/models/complexity superseded by §9c: no longer a display cut, the fields themselves aren't captured.
 
 Design references cited going into this pass: Amplified Thinker (sibling site, same teal/sage identity) and MasterClass (clean, modern, easy to navigate) — originally cited for the §9 color/font work, carried forward as a general quality bar rather than a literal reference for layout.
 
@@ -346,22 +340,46 @@ Third design pass, addressing the "quick-view / reduced back-and-forth" item fla
 
 **Table layout**:
 - Columns: **Category** (badges) · **Title** (with purpose subline stacked underneath, and a sequence-step pill inline when chained) · **Updated** · row actions (Favorite/Copy, icon-only, visible on hover/focus).
-- No separate Tags/Models columns — matches their removal from the detail page (§8).
+- No separate Tags/Models columns — matched their removal from the detail page (§8) at the time; as of §9c those fields are gone entirely, not just hidden from this table.
 - Purpose stays stacked under the title rather than its own column: a dedicated column would need a fixed width for text of very different lengths (misaligned truncation, or a wide column forcing horizontal scroll). Stacked, title+purpose read as one unit — the same idiom GitHub's issue list and Linear's list view use for a title/description pair.
 - **Comfortable density** locked in (a denser "compact" variant was mocked and rejected in favor of comfortable).
 - Category uses the **solid badge** treatment (ported from the detail page's `pd-cat-badge` / §9's fixed-hex hues) rather than a soft chip or dot+label — chosen specifically because it scales cleanly to multi-category (below), where a plain dot or soft chip reads weakly with 2+ per row.
 
 **Multi-category** (see §3): a prompt can now belong to more than one category. Rendering rule: no "primary" category is picked — every category badge shows, in category order. The table cell wraps and caps at 2 visible badges + a neutral "+N" overflow badge to protect row height; the detail-page header has no cap since it isn't space-constrained the same way.
 
-**Live filter pills**: one pill per category (`renderCategoryFilterBar`, controller in `categoryPills.js`), positioned above the table, colored to match its badge hue (soft outline unselected, solid fill + white text selected), each showing a live count. Multi-select, OR logic within category (selecting Marketing + Product shows anything tagged with either). Filtering is instant client-side, no page reload; a result-count line and a "Clear filters" control (appears only once ≥1 pill is active) sit just above the table. **Shipped on Search and Favorites only** — Category and Tag pages already scope the listing by category/tag, so pills there were judged redundant for now and were left on the existing filter rail (model/complexity/chain) instead; revisit if multi-category makes that feel incomplete.
+**Live filter pills**: one pill per category (`renderCategoryFilterBar`, controller in `categoryPills.js`), positioned above the table, colored to match its badge hue (soft outline unselected, solid fill + white text selected), each showing a live count. Multi-select, OR logic within category (selecting Marketing + Product shows anything tagged with either). Filtering is instant client-side, no page reload; a result-count line and a "Clear filters" control (appears only once ≥1 pill is active) sit just above the table. **Shipped on Search and Favorites only** at the time — Category and Tag pages already scope the listing by category/tag, so pills there were judged redundant for now and were left on the existing filter rail (model/complexity/chain) instead. Superseded by §9c: the checkbox filter rail itself was later swapped for the same live-pill pattern (generalized to non-category facets) on Category and Search; Tag pages no longer exist.
 
 **Quick-view modal**: clicking a row opens the **full detail-page content** (§8's exact structure — header with title + category badges + purpose, the two-box bento with Prompt box and Notes box, sequence stepper, Created/Modified) inside a modal shell (`renderQuickViewModal`, controller in `quickview.js`), not a condensed summary. Modal chrome adds: prev/next chevrons + a position counter ("3 / 7") that step through the **currently filtered/visible** result set (not the whole catalog), an "Open full page ↗" link that really navigates to `/prompt/[slug]/`, and a close control. Static pages (Category/Tag/Favorites) embed each row's full data as a JSON script tag at build time; the Search page (client-rendered results) feeds the modal live Fuse match objects instead and resolves sequence prev/next from the flat search index on the fly (`resolveSeqInfoFlat` in `quickview.js`) since it has no per-page precomputed sequence data.
 
 **Row selection persists**, deliberately not a brief flash: opening a row gives it a held highlight (tinted background + left rail) behind the modal; stepping prev/next in the modal moves the highlight to match in real time; closing the modal (Esc or backdrop click) leaves the highlight in place until a different row is opened. Chosen over a timed flash because a flash still requires guessing "how long is long enough" — a held state removes the question and directly answers the original ask: comparing several candidate prompts without losing your place or round-tripping through the full detail page each time.
 
 **Still open / deliberately deferred**:
-- Whether the filter-pill pattern should also replace the filter rail's implicit category scoping on Category/Tag pages, or the two stay split as they are now.
+- ~~Whether the filter-pill pattern should also replace the filter rail's implicit category scoping on Category/Tag pages, or the two stay split as they are now.~~ Resolved in §9c: filter rail replaced by pills on Category/Search; Tag pages removed outright.
 - Card/chip treatment for Home, Sequences, and Collections, which stay card-based (§9a card/chip directions were mocked but never decided).
+
+---
+
+## 9c. Field Reduction Pass (new) — `models`/`complexity`/`tags` capture paused
+
+Two changes landed back-to-back and are documented together since the second immediately superseded parts of the first:
+
+**1. Filter rail → live pill toolbar** (the §9a item flagged above): the checkbox-based filter rail on Category, Tag, and Search pages was replaced with the same live, multi-select pill pattern §9b shipped for categories — one pill per facet value, instant client-side filtering, a "Clear filters" control, and (on Category/Tag) a result-count line. Implemented in `renderFilterToolbar`/`initFilterToolbar`/`initTableFilterToolbar` (`lib/render.mjs`, `public/scripts/filters.js`), replacing `renderFilterRail`/`renderSearchFilterRail`. Search's separate category-pill bar and facet checkboxes merged into one toolbar.
+
+**2. `models`, `complexity`, and `tags` stopped being captured on prompts, at least for now.** Decision, not a bug fix — the facets weren't earning their maintenance cost for a single-author catalog this size. This is a full data-model removal, not a display cut (contrast with tags/models/complexity's earlier detail-page-only removal in §8/§9a).
+
+**What that removed, concretely**:
+- `lib/schema.mjs`'s `MODELS` and `COMPLEXITY_LEVELS` vocab, and `lib/content.mjs`'s validation requiring ≥1 tag / a valid `complexity` value.
+- The **Tag page route** (`/tag/[tag]`) entirely — `renderTagPage`, its `scripts/build.mjs` route loop, and `data.tags` in the build data model.
+- The homepage's **"Browse by use case" section** and `lib/useCases.mjs` (it was a hand-picked tag → tile mapping with no other reason to exist).
+- **Model/Complexity pills** from the Category page's filter toolbar (now just Chain + Sort) and from Search's toolbar (now just Category); Search's **tag pill group** and its zero-result **"nearest tags" suggestion** (`tagFuse` in `search.js`) are gone too.
+- **Tag chips** on prompt cards (`renderPromptCard`); `data-model`/`data-complexity` attributes on cards and table rows.
+- The Sequence Builder tool's (`tools/sequence-builder/`) bulk **add/remove-tag** controls — bulk re-categorize now only sets `category`.
+- The dead, tag-dependent `getRelatedPrompts` in `lib/sequences.mjs` (already unused — related prompts were cut back in §8 — but it still referenced `p.tags`, so removed while touching this area).
+- `models`/`complexity`/`tags` lines from every prompt's frontmatter (`/prompts/*.md`) and from the contributing-page example snippet.
+
+**What stayed**: `categories` (still captured, filtered, and badge-colored), `sequence`/`sequence_step`/`depends_on` (the Chain filter and sequence stepper are untouched — chain-ness is derived from `sequence`, never from the removed fields), Favorites, quick-view, and search by title/purpose/body/category.
+
+**Reversibility**: nothing here was a one-way door — re-adding `tags` means restoring the schema/validation/build-data pieces above plus the Tag route and its filter-pill group; re-adding `models`/`complexity` is narrower (just the two pill groups and their data attributes). If reintroduced, revisit the design rather than reverting wholesale — the pill toolbar pattern this pass landed didn't exist the first time these fields were designed.
 
 ---
 
@@ -391,4 +409,4 @@ Third design pass, addressing the "quick-view / reduced back-and-forth" item fla
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision.*

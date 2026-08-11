@@ -40,10 +40,10 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 - `scripts/validate-prompts.mjs` — standalone content validation (required fields, duplicate slugs)
 - `lib/render.mjs` — HTML template functions for every page type; also reused client-side by `search.js` (it's plain browser-safe JS)
 - `lib/content.mjs` — frontmatter loading/validation, the derived data model, and the search index shape
-- `lib/schema.mjs` — controlled category/complexity vocabulary
-- `lib/sequences.mjs`, `lib/collections.mjs`, `lib/useCases.mjs` — sequence/related-prompt/collection/use-case logic
+- `lib/schema.mjs` — controlled category vocabulary
+- `lib/sequences.mjs`, `lib/collections.mjs` — sequence and collection logic
 - `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal")
-- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard), `filters.js` (category/tag page facets), `search.js` (Fuse-powered search page)
+- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard), `filters.js` (live pill filter toolbar), `search.js` (Fuse-powered search page)
 - `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete/re-categorize)
 
 ## Status

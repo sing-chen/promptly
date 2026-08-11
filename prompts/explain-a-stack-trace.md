@@ -1,10 +1,7 @@
 ---
 title: Explain a stack trace
 categories: [code]
-tags: [debug, single-shot, claude, model-agnostic]
 purpose: Get a plain-language explanation of an error and likely fix, from a raw stack trace.
-models: [claude, gpt, gemini]
-complexity: simple
 notes: Works best with the full trace pasted in, not just the last line. For flaky/intermittent bugs, use a dedicated debugging-agent prompt instead.
 added: 2026-05-10
 updated: 2026-05-10

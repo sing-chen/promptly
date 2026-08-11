@@ -1,13 +1,10 @@
 ---
 title: Post-meeting follow-up
 categories: [writing, product]
-tags: [sales-outreach, follow-up, claude, gpt]
 purpose: Turn raw meeting notes into a clean follow-up email.
 sequence: client-onboarding
 sequence_step: 2
 depends_on: draft-the-brief
-models: [claude, gpt]
-complexity: simple
 notes: Best used within a few hours of the meeting, while notes are still fresh. Not a substitute for a formal recap doc on large deals.
 added: 2026-06-01
 updated: 2026-07-15

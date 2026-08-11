@@ -1,10 +1,7 @@
 ---
 title: Summarize a research paper
 categories: [research]
-tags: [summarize, single-shot, claude, model-agnostic]
 purpose: Condense an academic paper into a skimmable summary with key findings and limitations.
-models: [claude, gemini]
-complexity: simple
 notes: Works well for papers under ~30 pages pasted directly. For very long papers, chunk by section first.
 added: 2026-04-02
 updated: 2026-04-02

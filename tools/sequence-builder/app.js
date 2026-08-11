@@ -292,11 +292,9 @@ async function applyBulkRecategorize() {
   const count = selected.size;
   if (count === 0) return;
   const category = document.getElementById('bulk-category').value;
-  const addTag = document.getElementById('bulk-add-tag').value.trim();
-  const removeTag = document.getElementById('bulk-remove-tag').value.trim();
 
-  if (!category && !addTag && !removeTag) {
-    alert('Choose a category and/or a tag to add/remove first.');
+  if (!category) {
+    alert('Choose a category first.');
     return;
   }
 
@@ -305,24 +303,11 @@ async function applyBulkRecategorize() {
     const entry = files.find(f => f.name === name);
     if (!entry) continue;
 
-    const keysToSet = {};
-    if (category) {
-      entry.data.category = category;
-      keysToSet.category = category;
-    }
-    if (addTag || removeTag) {
-      let tags = Array.isArray(entry.data.tags) ? [...entry.data.tags] : [];
-      if (addTag && !tags.includes(addTag)) tags.push(addTag);
-      if (removeTag) tags = tags.filter(t => t !== removeTag);
-      entry.data.tags = tags;
-      keysToSet.tags = tags;
-    }
-    await writeFile(entry, keysToSet);
+    entry.data.category = category;
+    await writeFile(entry, { category });
   }
 
   document.getElementById('bulk-category').value = '';
-  document.getElementById('bulk-add-tag').value = '';
-  document.getElementById('bulk-remove-tag').value = '';
   flashStatus(`Re-categorized ${count} file(s) ✓`);
   render();
 }
