@@ -430,15 +430,10 @@ button.nav-toggle { display: none; }
 .pd-notes-divider { height: 1px; background: var(--line-soft); margin: 14px 0; }
 
 .pd-seq-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.pd-seq-current {
-  font-size: 11.5px;
-  color: var(--seq);
-  font-weight: 700;
-  background: var(--seq-soft);
-  border-radius: var(--radius-sm);
-  padding: 5px 9px;
-  white-space: nowrap;
-}
+/* Typography/color come from .chip.chip-seq (base "Chip" component, §9) -
+   this just adds the nowrap this one needs since it carries a chain name
+   as well as the step count ("Client Onboarding · Step 1 of 2"). */
+.pd-seq-current { white-space: nowrap; }
 .pd-seq-nav { display: flex; gap: 14px; font-size: 12px; }
 .pd-seq-nav a { color: var(--ink-soft); font-weight: 600; display: inline-flex; align-items: center; gap: 3px; }
 .pd-seq-nav a.next { color: var(--seq); }
@@ -494,7 +489,9 @@ button.nav-toggle { display: none; }
 .cat-cell .cat-badge.cat-overflow { font-size: 9.5px; }
 
 .title-cell { font-family: var(--display); font-weight: 700; font-size: 13.5px; }
-.title-cell .seq-tag { display: inline-flex; align-items: center; margin-left: 8px; font-family: var(--sans); font-weight: 700; font-size: 10px; color: var(--seq); background: var(--seq-soft); padding: 2px 7px; border-radius: 999px; vertical-align: middle; }
+/* Typography/color come from .chip.chip-seq - this just positions it inline
+   next to the title text within the table cell. */
+.title-cell .seq-tag { margin-left: 8px; vertical-align: middle; }
 .purpose-line { display: block; font-family: var(--sans); font-weight: 400; font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .1s ease; }
