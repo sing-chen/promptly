@@ -26,6 +26,7 @@
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
   --shadow: 0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
+  --shadow-lg: 0 8px 16px rgba(20,16,8,.14), 0 28px 56px rgba(20,16,8,.20);
 
   /* Solid category badge hues - fixed hex, not theme-dependent, so a category's
      color stays put across light/dark instead of flipping shade. */
@@ -58,6 +59,7 @@
     --danger-soft: #3A1F1B;
     --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
     --shadow: 0 3px 6px rgba(0,0,0,.28), 0 16px 40px rgba(0,0,0,.36);
+    --shadow-lg: 0 10px 20px rgba(0,0,0,.34), 0 30px 60px rgba(0,0,0,.44);
   }
 }
 
@@ -81,6 +83,7 @@
   --danger-soft: #3A1F1B;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
   --shadow: 0 3px 6px rgba(0,0,0,.28), 0 16px 40px rgba(0,0,0,.36);
+  --shadow-lg: 0 10px 20px rgba(0,0,0,.34), 0 30px 60px rgba(0,0,0,.44);
 }
 
 :root[data-theme="light"] {
@@ -103,6 +106,7 @@
   --danger-soft: #F1DAD3;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
   --shadow: 0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
+  --shadow-lg: 0 8px 16px rgba(20,16,8,.14), 0 28px 56px rgba(20,16,8,.20);
 }
 
 @media (prefers-reduced-motion: reduce) {

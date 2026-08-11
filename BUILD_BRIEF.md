@@ -324,7 +324,7 @@ A second design pass, separate from and later than the §9 retheme, focused on l
 - ~~**Sequence-rail treatment** on other pages (the `/sequence/[slug]` flow view, `/sequences` index) — still the original box/connector treatment.~~ Resolved in §9e: vertical connected rail (option A of three mocked directions).
 - ~~**Filter rail** (category/search pages, §8) — still the original layout; the live filter-pill pattern designed in §9b is a candidate replacement, not yet decided.~~ Resolved: swapped for the live pill toolbar, then simplified further — see §9c.
 - ~~**Chip/tag visual style** in card grids generally (as opposed to the detail-page category badge, which this pass did redesign).~~ Moot for tags as of §9c (field removed); category chip style resolved in §9d (solid badge).
-- **Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.
+- ~~**Depth and interactivity** — shadows, possible flip-card or modal patterns, are unexplored for the card grid specifically (the quick-view modal pattern below covers the table view). Every other page still uses the pre-existing shadow/card treatment untouched.~~ Resolved in §9f: richer hover depth (option C of three mocked directions).
 - ~~**Prompt card + Chip redesign** — three directions mocked (soft chip pill / solid badge / dot+label eyebrow); not decided, superseded in relevance by the §9b tabular direction for browse-heavy pages but still the open question for Home/Sequences, which stay card-based.~~ Resolved in §9d: solid badge (option B) chosen, ported to `renderPromptCard`.
 - **Tags, compatible models, complexity, and source/attribution on the detail page** — all explicitly considered and cut for now (§8); source was tried and rejected. Tags/models/complexity superseded by §9c: no longer a display cut, the fields themselves aren't captured.
 
@@ -407,6 +407,18 @@ Resolves the §9a "Sequence-rail treatment" open item: the `/sequence/[slug]` fl
 
 ---
 
+## 9f. Card Depth Decision (new) — richer hover (option C)
+
+Resolves §9a's last open item: "shadows, possible flip-card or modal patterns, unexplored for the card grid." Worth noting first that the card grid already had a baseline hover treatment (2px lift + shadow escalation, `.surface`/`.prompt-card` from before the §9 retheme) — this was never actually in question, so the exploration was about what to add on top of it, including the legitimate option of leaving it alone.
+
+Three directions were mocked live (real hover/click behavior, not static comparisons) against the real "Draft the brief" / "Post-meeting follow-up" cards: quick-view for cards (reusing the §9b modal instead of navigating straight to the full page — the only option that changes behavior, not just visuals, but requires wiring the embedded-JSON-payload pattern the table pages carry and cards don't), and a flip-card reveal (hover/focus flips the card to show notes on the back).
+
+**Decision**: richer hover depth — bigger shadow (`--shadow-lg`, new token in `tokens.css`), a slight scale (`scale(1.015)`) alongside the existing lift, and the card's border (transparent at rest, to avoid a layout shift) picks up `--accent` on hover. `.prompt-card:hover` in `styles/base.css`.
+
+**Why not the others**: flip-card was rejected specifically for the reason this doc has favored the plainer option every time it came up (solid badge over dot+label in §9d, vertical rail over a fancier horizontal stepper in §9e) — a flip reveal is the most "designed" and performative of the three, with real accessibility snags (no hover on touch; screen readers need the back content exposed some other way), and the read going in was that the novelty wears off fast on a personal catalog someone opens daily. Quick-view for cards is the most defensible runner-up (it's genuinely new capability, not just polish, and reuses proven infrastructure) — not chosen now, but not rejected on merits either; revisit if round-tripping to the full page from Home/Collections starts to feel slow in practice.
+
+---
+
 ## 10. Build Order (revised)
 
 1. ~~Scaffold custom build script + `/prompts` folder~~ — done.
@@ -433,4 +445,4 @@ Resolves the §9a "Sequence-rail treatment" open item: the `/sequence/[slug]` fl
 
 ---
 
-*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9a's one remaining open item is "Depth and interactivity" for the card grid (shadows/flip-card/modal patterns) — not yet touched by any pass.*
+*IA, the sequencing/favorites mechanics, and the stack change (Astro → custom static build script, Pagefind → Fuse.js) are locked from the original design session; nothing there should be re-litigated from scratch. §9 (palette/type) is locked as of commit `d90c04b`. §9a (layout/depth) is an active, still-partial pass — its "Done" items are locked, its "explicitly open" items are not yet designed and should be treated as open questions, not oversights, until §9a is revisited. §9b (tabular browse + quick-view) is implemented and locked. §9c (filter rail → pills, `models`/`complexity`/`tags` capture paused) is implemented and locked — but explicitly reversible "for now," not a permanent taxonomy decision. §9d (card chip = solid badge) is implemented and locked, closing out §9a's card/chip question. §9e (sequence rail = vertical connected rail, new `handoff` field) is implemented and locked, closing out §9a's sequence-rail question. §9f (card depth = richer hover, option C) is implemented and locked, closing out §9a's depth/interactivity question — §9a has no remaining open items as of §9f.*

@@ -183,15 +183,22 @@ button { font-family: var(--sans); }
   gap: 16px;
 }
 
-/* Prompt card */
+/* Prompt card - hover depth (§9f): a stronger physical lift than the base
+   .surface treatment, on top of it rather than replacing it. Border is
+   transparent at rest so picking up --accent on hover doesn't shift layout. */
 .prompt-card {
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   cursor: pointer;
+  border: 1px solid transparent;
 }
-.prompt-card:hover { transform: translateY(-2px); }
+.prompt-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent);
+}
 .card-top {
   display: flex;
   justify-content: space-between;
