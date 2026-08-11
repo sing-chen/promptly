@@ -367,16 +367,6 @@ button.nav-toggle { display: none; }
   letter-spacing: .05em;
   color: var(--ink-faint);
 }
-.filter-toolbar .filter-sort {
-  font-size: 12.5px;
-  font-weight: 600;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1.5px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-soft);
-}
-
 .breadcrumb {
   font-size: 12px;
   color: var(--ink-faint);

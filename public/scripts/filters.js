@@ -6,11 +6,10 @@
 // (DOM rows here, a live Fuse index on the search page).
 export function initFilterToolbar(toolbarId, { onChange } = {}) {
   const bar = document.getElementById(toolbarId);
-  if (!bar) return { getActive: () => new Set(), getSort: () => 'newest', setResultText() {}, setCounts() {} };
+  if (!bar) return { getActive: () => new Set(), setResultText() {}, setCounts() {} };
 
   const active = {};
   const clearBtn = bar.querySelector('[data-role="clear-pills"]');
-  const sortSelect = bar.querySelector('.filter-sort');
   const resultEl = document.getElementById(`${toolbarId}-result-count`);
 
   function activeSet(group) {
@@ -44,11 +43,8 @@ export function initFilterToolbar(toolbarId, { onChange } = {}) {
     onChange?.();
   });
 
-  sortSelect?.addEventListener('change', () => onChange?.());
-
   return {
     getActive: (group) => active[group] || new Set(),
-    getSort: () => sortSelect?.value || 'newest',
     setResultText: (text) => { if (resultEl) resultEl.textContent = text; },
     // Overrides server-rendered (whole-catalog) counts with page-specific ones,
     // keyed "group:value" - e.g. Search shows how many *matching* prompts fall
@@ -105,13 +101,6 @@ export function initTableFilterToolbar(toolbarId, gridId) {
       card.hidden = !visible;
       if (visible) visibleCount++;
     }
-
-    const sortValue = toolbar.getSort();
-    const sorted = cards.slice().sort((a, b) => {
-      if (sortValue === 'az') return a.dataset.title.localeCompare(b.dataset.title);
-      return new Date(b.dataset.updated || 0) - new Date(a.dataset.updated || 0);
-    });
-    sorted.forEach(card => grid.appendChild(card));
 
     toolbar.setResultText(cards.length ? `${visibleCount} of ${cards.length} shown` : '');
     emptyMsg.hidden = visibleCount !== 0;
