@@ -37,8 +37,8 @@ export function exportFavorites() {
 }
 
 function updateNavCount() {
-  const el = document.getElementById('nav-fav-count');
-  if (el) el.textContent = `☆ ${getFavorites().length}`;
+  const el = document.getElementById('nav-fav-count-num');
+  if (el) el.textContent = String(getFavorites().length);
 }
 
 function initStars(root) {
@@ -158,10 +158,32 @@ function initThemeToggle() {
   });
 }
 
+function initNavToggle() {
+  const nav = document.querySelector('.nav');
+  const btn = document.getElementById('nav-menu-toggle');
+  if (!nav || !btn) return;
+  btn.addEventListener('click', () => {
+    const open = nav.classList.toggle('menu-open');
+    btn.setAttribute('aria-expanded', String(open));
+    btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  });
+  // Collapsing back to desktop width with the menu left open would otherwise
+  // strand aria-expanded="true" on a toggle whose panel is force-hidden by
+  // the media query kicking back in.
+  window.matchMedia('(min-width: 681px)').addEventListener('change', (e) => {
+    if (e.matches) {
+      nav.classList.remove('menu-open');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.setAttribute('aria-label', 'Open menu');
+    }
+  });
+}
+
 updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
   initInteractive(document);
   initFavoritesGrid();
   initExportButton();
   initThemeToggle();
+  initNavToggle();
 });

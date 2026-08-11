@@ -114,13 +114,15 @@ button { font-family: var(--sans); }
   color: var(--seq);
 }
 
-/* Nav */
+/* Nav - a surface like every other raised element (§9 elevation rule: nothing
+   sits flush with --paper), not the page background it was flush with before. */
 .nav {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--paper);
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
 }
 .nav-inner {
   display: flex;
@@ -133,23 +135,60 @@ button { font-family: var(--sans); }
   font-weight: 700;
   font-size: 15px;
   white-space: nowrap;
+  order: 1;
 }
 .nav-links {
   display: flex;
   gap: 18px;
   font-size: 13px;
   font-weight: 600;
+  order: 2;
 }
 .nav-links a { color: var(--ink-soft); padding-bottom: 2px; border-bottom: 2px solid transparent; }
 .nav-links a[aria-current="page"] { color: var(--accent); border-color: var(--accent); }
 .nav-search {
   flex: 1;
   max-width: 420px;
+  order: 3;
 }
 .nav-fav-count {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 12px;
+  font-weight: 600;
   color: var(--ink-faint);
   white-space: nowrap;
+  order: 4;
+}
+.nav-fav-count:hover { color: var(--accent); }
+.theme-toggle { order: 5; }
+.nav-toggle { order: 6; }
+button.nav-toggle { display: none; }
+
+/* Mobile nav collapse - the nav has no other breakpoint handling site-wide,
+   but this one was measured overflowing (423px of content in a 375px
+   viewport) so it gets a dedicated fix. Search stays always-visible (locked
+   decision) by wrapping to its own full-width row rather than collapsing;
+   only Browse/Sequences hide behind the toggle. */
+@media (max-width: 680px) {
+  .nav-inner { flex-wrap: wrap; row-gap: 10px; }
+  .nav-fav-count { order: 2; }
+  .theme-toggle { order: 3; }
+  button.nav-toggle { order: 4; display: inline-flex; }
+  .nav-search { order: 5; flex: 1 1 100%; max-width: none; }
+  .nav-links {
+    order: 6;
+    flex: 1 1 100%;
+    flex-direction: column;
+    gap: 2px;
+    display: none;
+    border-top: 1px solid var(--line-soft);
+    padding-top: 10px;
+  }
+  .nav-links a { padding: 8px 2px; border-bottom: none; }
+  .nav-links a[aria-current="page"] { background: var(--accent-soft); border-radius: var(--radius-sm); padding-left: 8px; }
+  .nav.menu-open .nav-links { display: flex; }
 }
 
 /* Search field */
@@ -258,6 +297,13 @@ button { font-family: var(--sans); }
 .theme-toggle .icon-moon { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
 :root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+
+/* nav hamburger: shows the icon for the action you'd take (open/close) -
+   same swap pattern as the theme toggle above */
+.nav-toggle { flex-shrink: 0; }
+.nav-toggle .icon-menu-close { display: none; }
+.nav.menu-open .nav-toggle .icon-menu-open { display: none; }
+.nav.menu-open .nav-toggle .icon-menu-close { display: block; }
 
 /* filter toolbar (§9a filter-rail -> §9b pill pattern swap, see .filter-pill
    below for the pill itself) - a horizontal, wrapping row of pill groups
@@ -535,9 +581,23 @@ button { font-family: var(--sans); }
 }
 
 footer.site-footer {
+  background: var(--surface);
   border-top: 1px solid var(--line-soft);
-  padding: 24px 0;
+  padding: 20px 0;
   font-size: 12px;
   color: var(--ink-faint);
-  text-align: center;
 }
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.footer-logo {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+.footer-links a:hover { color: var(--accent); }
