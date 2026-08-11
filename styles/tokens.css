@@ -36,6 +36,22 @@
   --cat-plum: #7A4780;
   --cat-moss: #566627;
   --cat-rose: #8A3B4E;
+
+  /* Soft tints of the hues above, for filter-pill rest state (§9k) - unlike
+     the solid hues these DO vary by theme (a light pastel in light mode
+     would be wrong in dark mode), so each is redefined in the theme blocks
+     below, same pattern as --accent-soft. */
+  --cat-clay-soft: #F1E1D6;
+  --cat-ochre-soft: #EDE6D2;
+  --cat-blue-soft: #DCE6EA;
+  --cat-plum-soft: #EADEEC;
+  --cat-moss-soft: #E3E7D6;
+  --cat-rose-soft: #EFDCE1;
+
+  /* "New" status color (§9k) - separate from --accent, same idea as
+     --danger: a semantic color, not the brand accent. */
+  --new: #B8891E;
+  --new-soft: #FBF0DA;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +73,14 @@
     --seq-soft: #1B3530;
     --danger: #E2948A;
     --danger-soft: #3A1F1B;
+    --cat-clay-soft: #2B2019;
+    --cat-ochre-soft: #29230F;
+    --cat-blue-soft: #16262B;
+    --cat-plum-soft: #26192A;
+    --cat-moss-soft: #1E2416;
+    --cat-rose-soft: #291A1F;
+    --new: #E0B152;
+    --new-soft: #3A2E13;
     --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
     --shadow: 0 3px 6px rgba(0,0,0,.28), 0 16px 40px rgba(0,0,0,.36);
     --shadow-lg: 0 10px 20px rgba(0,0,0,.34), 0 30px 60px rgba(0,0,0,.44);
@@ -81,6 +105,14 @@
   --seq-soft: #1B3530;
   --danger: #E2948A;
   --danger-soft: #3A1F1B;
+  --cat-clay-soft: #2B2019;
+  --cat-ochre-soft: #29230F;
+  --cat-blue-soft: #16262B;
+  --cat-plum-soft: #26192A;
+  --cat-moss-soft: #1E2416;
+  --cat-rose-soft: #291A1F;
+  --new: #E0B152;
+  --new-soft: #3A2E13;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
   --shadow: 0 3px 6px rgba(0,0,0,.28), 0 16px 40px rgba(0,0,0,.36);
   --shadow-lg: 0 10px 20px rgba(0,0,0,.34), 0 30px 60px rgba(0,0,0,.44);
@@ -104,6 +136,14 @@
   --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
+  --cat-clay-soft: #F1E1D6;
+  --cat-ochre-soft: #EDE6D2;
+  --cat-blue-soft: #DCE6EA;
+  --cat-plum-soft: #EADEEC;
+  --cat-moss-soft: #E3E7D6;
+  --cat-rose-soft: #EFDCE1;
+  --new: #B8891E;
+  --new-soft: #FBF0DA;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);
   --shadow: 0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
   --shadow-lg: 0 8px 16px rgba(20,16,8,.14), 0 28px 56px rgba(20,16,8,.20);
