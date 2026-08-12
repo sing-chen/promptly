@@ -10,6 +10,9 @@ function setNavAccountState(session) {
   // anonymous visitors (the majority) never see a flash of it before this
   // runs.
   document.getElementById('new-prompt-btn')?.toggleAttribute('hidden', !session);
+  // Same reasoning as New Prompt - collections are per-user, no admin
+  // concept (db.js's createCollection() has no admin check either).
+  document.getElementById('new-collection-btn')?.toggleAttribute('hidden', !session);
 
   const adminLink = document.getElementById('nav-admin-link');
   if (!adminLink) return;

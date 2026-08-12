@@ -206,7 +206,13 @@ button { font-family: var(--sans); }
   align-self: flex-start;
   width: 240px;
   flex: 0 0 240px;
+  /* Flex items default to min-width:auto (their content's intrinsic width),
+     which silently blocks flex-basis/width from ever animating down to 0
+     for the collapse transition below - overflow-x:hidden alone wasn't
+     enough to suppress it in practice. */
+  min-width: 0;
   height: 100vh;
+  overflow-x: hidden;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -214,7 +220,9 @@ button { font-family: var(--sans); }
   padding: 20px 16px;
   background: var(--surface);
   border-right: 1px solid var(--line);
+  transition: flex-basis .2s ease, width .2s ease, padding-left .2s ease, padding-right .2s ease, border-color .2s ease;
 }
+.sidebar-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -222,15 +230,22 @@ button { font-family: var(--sans); }
   font-family: var(--display);
   font-weight: 700;
   font-size: 15px;
+  min-width: 0;
+  white-space: nowrap;
 }
-.sidebar-new-btn { width: 100%; justify-content: center; }
+.sidebar-brand img { border-radius: var(--radius-sm); flex-shrink: 0; }
+#sidebar-collapse-toggle { flex-shrink: 0; }
+.icon-panel-expand { display: none; }
+:root[data-sidebar-collapsed="true"] #sidebar-collapse-toggle .icon-panel-collapse { display: none; }
+:root[data-sidebar-collapsed="true"] #sidebar-collapse-toggle .icon-panel-expand { display: block; }
+
+.sidebar-new-btn { width: 100%; justify-content: center; border-radius: 999px; }
 
 .sidebar-primary-links, .sidebar-section-list { display: flex; flex-direction: column; gap: 1px; }
 .sidebar-primary-links a, .sidebar-section-list a {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 9px;
   padding: 8px 10px;
   border-radius: var(--radius-sm);
   color: var(--ink-soft);
@@ -242,6 +257,9 @@ button { font-family: var(--sans); }
   background: var(--accent-soft);
   color: var(--accent);
 }
+.nav-icon { display: flex; flex-shrink: 0; color: var(--ink-faint); }
+.sidebar-primary-links a[aria-current="page"] .nav-icon, .sidebar-section-list a[aria-current="page"] .nav-icon { color: var(--accent); }
+.nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-badge {
   font-size: 11px;
   font-weight: 700;
@@ -249,11 +267,15 @@ button { font-family: var(--sans); }
   background: var(--well);
   border-radius: 999px;
   padding: 1px 7px;
+  flex-shrink: 0;
 }
 .sidebar-section-list a { font-weight: 500; }
-.sidebar-section-list .count { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.sidebar-section-list .count { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+.sidebar-divider { height: 1px; background: var(--line-soft); flex-shrink: 0; margin: 0 2px; }
 
 .sidebar-section { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+.sidebar-section-label-row { display: flex; align-items: center; justify-content: space-between; padding-right: 2px; }
 .sidebar-section-label {
   font-family: var(--mono);
   text-transform: uppercase;
@@ -262,7 +284,33 @@ button { font-family: var(--sans); }
   color: var(--ink-faint);
   padding: 0 10px;
 }
+.sidebar-section-add { width: 22px; height: 22px; color: var(--ink-faint); }
+.sidebar-section-add:hover { color: var(--accent); background: var(--well); }
 .sidebar-section-list { overflow-y: auto; }
+
+.sidebar-view-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--well);
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.view-toggle-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 6px 0;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+.view-toggle-btn:hover { color: var(--ink); }
+.view-toggle-btn.is-active { background: var(--paper); color: var(--accent); box-shadow: var(--shadow-sm); }
 
 .sidebar-footer-row {
   margin-top: auto;
@@ -276,6 +324,28 @@ button { font-family: var(--sans); }
 }
 .sidebar-footer-row #nav-account-link { color: var(--ink-soft); }
 .sidebar-footer-row #nav-account-link[aria-current="page"] { color: var(--accent); }
+
+/* Desktop sidebar collapse (public/scripts/sidebarCollapse.js) - the mobile
+   off-canvas drawer below has its own independent open/close mechanics
+   (menu-open), untouched by this. Collapsing shrinks the sidebar's flex box
+   to zero instead of toggling display, so main reflows to fill the
+   reclaimed width, animated by the same transition - a "slide" in the sense
+   of the content sliding into the reclaimed space, not the sidebar itself
+   sliding off over the content (which the mobile drawer does instead, via
+   position:fixed - a different mechanism for a different reason: there,
+   main never had that space to reclaim in the first place). `inert` (set
+   alongside the class in JS) keeps the sidebar's now-clipped contents out
+   of tab order and the accessibility tree while collapsed, since
+   overflow:hidden alone doesn't do that. */
+@media (min-width: 901px) {
+  .app-shell.sidebar-collapsed .sidebar {
+    flex-basis: 0;
+    width: 0;
+    padding-left: 0;
+    padding-right: 0;
+    border-right-color: transparent;
+  }
+}
 
 /* Mobile top bar + off-canvas sidebar drawer - the sidebar needs real
    horizontal room a phone/narrow-tablet viewport doesn't have, so below
@@ -311,6 +381,12 @@ button { font-family: var(--sans); }
 button.nav-toggle { display: none; }
 
 @media (max-width: 900px) {
+  /* The desktop collapse feature (flex-basis shrink) has no CSS effect
+     below this breakpoint - the mobile drawer already has its own
+     open/close affordance (the hamburger). Without this, tapping it would
+     still set the sidebar `inert` (public/scripts/sidebarCollapse.js),
+     soft-locking the open drawer's contents with no visible change. */
+  #sidebar-collapse-toggle { display: none; }
   .mobile-topbar { display: flex; }
   .sidebar {
     position: fixed;

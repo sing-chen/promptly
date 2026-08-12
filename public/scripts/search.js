@@ -1,8 +1,21 @@
 import Fuse from '/scripts/fuse.min.mjs';
-import { renderPromptTableRows } from '/scripts/lib/render.mjs';
+import { renderPromptTableRows, renderPromptCard } from '/scripts/lib/render.mjs';
 import { initInteractive } from '/scripts/favorites.js';
 import { initFilterToolbar } from '/scripts/filters.js';
 import { initQuickView } from '/scripts/quickview.js';
+
+// Read directly rather than waiting on viewToggle.js's 'promptly:viewmode'
+// event for the *initial* render - script tag order isn't guaranteed to put
+// this module's DOMContentLoaded listener after viewToggle.js's, so relying
+// on the event alone could miss the first dispatch. The event is still used
+// below for live toggle clicks after both scripts are loaded.
+function readViewMode() {
+  try {
+    return localStorage.getItem('promptly:viewMode') === 'grid' ? 'grid' : 'table';
+  } catch {
+    return 'table';
+  }
+}
 
 const SYNONYMS = {
   email: ['outreach'],
@@ -15,12 +28,16 @@ const SYNONYMS = {
 
 const resultsEl = document.getElementById('search-results');
 const resultsWrapEl = document.getElementById('search-results-wrap');
+const cardsEl = document.getElementById('search-results-cards');
 const summaryEl = document.getElementById('search-summary');
 const filtersEl = document.getElementById('search-filters');
 const navInput = document.querySelector('.sidebar-search input[name="q"]');
 
 if (resultsEl && filtersEl) {
   const index = await fetch('/search-index.json').then(r => r.json());
+  let viewMode = readViewMode();
+  let lastMatches = [];
+  let lastQuery = '';
 
   const fuse = new Fuse(index.prompts, {
     keys: [
@@ -53,17 +70,29 @@ if (resultsEl && filtersEl) {
   }
 
   function render(matches, q) {
+    lastMatches = matches;
+    lastQuery = q;
     quickView.update(matches);
     if (matches.length === 0) {
       resultsEl.innerHTML = '';
+      if (cardsEl) cardsEl.innerHTML = '';
       resultsWrapEl.hidden = true;
+      if (cardsEl) cardsEl.hidden = true;
       summaryEl.textContent = q ? `No results for "${q}".` : 'Start typing above to search prompts.';
       return;
     }
     summaryEl.textContent = `${matches.length} result${matches.length === 1 ? '' : 's'}`;
-    resultsWrapEl.hidden = false;
-    resultsEl.innerHTML = renderPromptTableRows(matches, { sequenceTotals: index.sequenceTotals });
-    initInteractive(resultsEl);
+    if (viewMode === 'grid' && cardsEl) {
+      resultsWrapEl.hidden = true;
+      cardsEl.hidden = false;
+      cardsEl.innerHTML = matches.map(p => renderPromptCard(p, { sequenceTotals: index.sequenceTotals })).join('');
+      initInteractive(cardsEl);
+    } else {
+      resultsWrapEl.hidden = false;
+      if (cardsEl) cardsEl.hidden = true;
+      resultsEl.innerHTML = renderPromptTableRows(matches, { sequenceTotals: index.sequenceTotals });
+      initInteractive(resultsEl);
+    }
   }
 
   function runSearch() {
@@ -110,6 +139,11 @@ if (resultsEl && filtersEl) {
     // same URL; live filtering already runs on every keystroke.
     navInput.closest('form')?.addEventListener('submit', e => e.preventDefault());
   }
+
+  document.addEventListener('promptly:viewmode', (e) => {
+    viewMode = e.detail.mode;
+    render(lastMatches, lastQuery);
+  });
 
   runSearch();
 }
