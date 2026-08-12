@@ -347,6 +347,33 @@ button { font-family: var(--sans); }
   }
 }
 
+/* The re-expand affordance (public/scripts/sidebarCollapse.js toggles its
+   `hidden` attribute - a plain CSS selector can't win here, since the
+   global `[hidden] { display: none !important; }` rule always would).
+   Deliberately NOT inside .sidebar - the button that lives there
+   (#sidebar-collapse-toggle) disappears along with everything else once
+   collapsed, so this is the only way back. position:fixed keeps it out of
+   .app-shell's flex flow entirely (it'd otherwise claim its own flex slot
+   as a sibling of .sidebar and main). */
+#sidebar-expand-toggle {
+  position: fixed;
+  top: 18px;
+  left: 14px;
+  z-index: 26;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+}
+#sidebar-expand-toggle:hover { color: var(--accent); border-color: var(--accent); }
+
 /* Mobile top bar + off-canvas sidebar drawer - the sidebar needs real
    horizontal room a phone/narrow-tablet viewport doesn't have, so below
    900px it becomes a slide-in drawer (same off-canvas-plus-hamburger idea
