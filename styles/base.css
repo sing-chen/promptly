@@ -36,8 +36,15 @@ body {
 main {
   flex: 1 1 auto;
   min-width: 0;
-  padding-top: 32px;
 }
+/* This top breathing room used to live on `main` itself, back when page
+   content (an <h1>, directly) was always its first child. Now .main-header
+   always is instead, sitting flush at the very top of the viewport with its
+   own fixed 64px height/padding - the old padding-top just pushed the
+   header itself down, leaving a gap above it. Re-targeted to the container
+   that follows the header (every page's body starts with one) so it's the
+   *content* that gets the breathing room, not the header bar. */
+.main-header + .container { padding-top: 24px; }
 
 h1, h2, h3, .display {
   font-family: var(--display);
