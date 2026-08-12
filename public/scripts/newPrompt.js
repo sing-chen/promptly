@@ -11,6 +11,24 @@ function slugify(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+// No slug field in the form - it's generated from the title at submit time.
+// `slug` is only unique per-user (schema's `unique (user_id, slug)`), so the
+// only way to collide is the same signed-in user creating two prompts that
+// slugify to the same thing (e.g. two prompts both titled "Draft the
+// brief"). Postgres would reject that with a 23505 unique-violation - retry
+// with an incrementing numeric suffix instead of surfacing that raw error.
+async function createWithUniqueSlug(fields, createFn) {
+  const base = slugify(fields.title) || 'prompt';
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    const slug = attempt === 1 ? base : `${base}-${attempt}`;
+    try {
+      return await createFn({ ...fields, slug });
+    } catch (err) {
+      if (err?.code !== '23505' || attempt === 20) throw err;
+    }
+  }
+}
+
 function init() {
   const btn = document.getElementById('new-prompt-btn');
   const backdrop = document.getElementById('np-backdrop');
@@ -63,18 +81,8 @@ function init() {
     if (e.key === 'Escape' && !catPanel.hidden) { e.stopPropagation(); closeCatPanel(); catTrigger.focus(); }
   });
 
-  // Auto-fill the slug from the title until the user edits the slug field
-  // directly - mirrors the common "auto-slug" pattern without ever
-  // overwriting something the user typed on purpose.
-  let slugTouched = false;
-  form.slug.addEventListener('input', () => { slugTouched = true; });
-  form.title.addEventListener('input', () => {
-    if (!slugTouched) form.slug.value = slugify(form.title.value);
-  });
-
   function resetForm() {
     form.reset();
-    slugTouched = false;
     messageEl.hidden = true;
     form.hidden = false;
     successEl.hidden = true;
@@ -118,7 +126,6 @@ function init() {
     }
 
     const fields = {
-      slug: form.slug.value.trim(),
       title: form.title.value.trim(),
       categories,
       purpose: form.purpose.value.trim(),
@@ -133,7 +140,7 @@ function init() {
 
     submitBtn.disabled = true;
     try {
-      await (makeCurated ? createCuratedPrompt(fields) : createPrompt(fields));
+      await createWithUniqueSlug(fields, makeCurated ? createCuratedPrompt : createPrompt);
       form.hidden = true;
       successMessageEl.textContent = makeCurated
         ? 'Default prompt created as an unpublished draft — only visible to you until you publish it. Publish it from the Admin page.'
