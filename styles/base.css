@@ -96,6 +96,7 @@ main section > h2 { margin-bottom: 12px; }
 .new-callout a { color: var(--accent); font-weight: 700; text-decoration: none; margin-left: auto; white-space: nowrap; }
 .new-callout a:hover { text-decoration: underline; }
 tr.is-new-highlight { background: var(--new-soft); transition: background 1.2s ease; }
+.prompt-card.is-new-highlight { background: var(--new-soft); transition: background 1.2s ease; }
 
 a { color: inherit; text-decoration: none; }
 
@@ -293,6 +294,16 @@ main .container {
 
 .sidebar-section { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
 .sidebar-section-label-row { display: flex; align-items: center; justify-content: space-between; padding-right: 2px; }
+
+/* "(i)" explainer next to the Sequences nav link and Collections section
+   label - same .field-info/.field-hint idiom as the New Prompt modal, with
+   a narrower hint and downward opening so it doesn't get clipped by the
+   sidebar's own overflow-x:hidden. */
+.sidebar-nav-item-row { display: flex; align-items: center; gap: 2px; position: relative; }
+.sidebar-nav-item-row > a { flex: 1 1 auto; min-width: 0; }
+.sidebar-section-label-group { display: flex; align-items: center; gap: 4px; position: relative; min-width: 0; }
+.sidebar-info-btn { flex-shrink: 0; }
+.sidebar-info-hint { top: calc(100% + 6px); bottom: auto; left: 0; width: 190px; }
 .sidebar-section-label {
   font-family: var(--mono);
   text-transform: uppercase;
@@ -329,6 +340,25 @@ a.sidebar-section-label:hover { color: var(--accent); }
 }
 .view-toggle-btn:hover { color: var(--ink); }
 .view-toggle-btn.is-active { background: var(--paper); color: var(--accent); box-shadow: var(--shadow-sm); }
+
+/* Hover/focus tooltip for the header's view-toggle and theme-toggle buttons -
+   CSS-only, reads the existing `title` attribute so no markup duplication,
+   same visual language as .field-hint (dark bubble, light text). */
+.view-toggle-btn, #theme-toggle { position: relative; }
+.view-toggle-btn[title]::after, #theme-toggle[title]::after {
+  content: attr(title);
+  position: absolute; z-index: 20;
+  top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
+  background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
+  white-space: nowrap; padding: 4px 8px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  visibility: hidden; opacity: 0; transition: opacity .1s ease, transform .1s ease;
+  pointer-events: none;
+}
+.view-toggle-btn[title]:hover::after, .view-toggle-btn[title]:focus-visible::after,
+#theme-toggle[title]:hover::after, #theme-toggle[title]:focus-visible::after {
+  visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
+}
 
 .sidebar-footer-row {
   margin-top: auto;
@@ -602,7 +632,8 @@ button.nav-toggle { display: none; }
   content: attr(data-label);
   font-family: var(--mono);
   text-transform: uppercase;
-  font-size: 10.5px;
+  font-size: 13px;
+  font-weight: 600;
   letter-spacing: .05em;
   color: var(--ink-faint);
 }

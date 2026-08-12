@@ -6,11 +6,10 @@
 // (DOM rows here, a live Fuse index on the search page).
 export function initFilterToolbar(toolbarId, { onChange } = {}) {
   const bar = document.getElementById(toolbarId);
-  if (!bar) return { getActive: () => new Set(), setResultText() {}, setCounts() {} };
+  if (!bar) return { getActive: () => new Set(), setCounts() {} };
 
   const active = {};
   const clearBtn = bar.querySelector('[data-role="clear-pills"]');
-  const resultEl = document.getElementById(`${toolbarId}-result-count`);
 
   function activeSet(group) {
     return active[group] || (active[group] = new Set());
@@ -45,7 +44,6 @@ export function initFilterToolbar(toolbarId, { onChange } = {}) {
 
   return {
     getActive: (group) => active[group] || new Set(),
-    setResultText: (text) => { if (resultEl) resultEl.textContent = text; },
     // Overrides server-rendered (whole-catalog) counts with page-specific ones,
     // keyed "group:value" - e.g. Search shows how many *matching* prompts fall
     // in each category, not how many exist catalog-wide.
@@ -102,7 +100,6 @@ export function initTableFilterToolbar(toolbarId, gridId) {
       if (visible) visibleCount++;
     }
 
-    toolbar.setResultText(cards.length ? `${visibleCount} of ${cards.length} shown` : '');
     emptyMsg.hidden = visibleCount !== 0;
   }
 

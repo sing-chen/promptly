@@ -118,7 +118,6 @@ function initFavoritesGrid() {
     });
     pills.setCounts(catCounts);
     wrap.hidden = count === 0;
-    pills.setResultText(favs.length === 0 ? '' : `${count} of ${favs.length} favorite${favs.length === 1 ? '' : 's'} shown`);
     if (emptyEl) {
       emptyEl.textContent = favs.length === 0
         ? 'Nothing starred yet. Browse prompts and click the star to save one here.'

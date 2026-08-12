@@ -7,7 +7,7 @@
 import { CATEGORIES } from './lib/schema.mjs';
 import {
   renderPromptTableRows, renderPromptCard, renderFilterToolbar,
-  categoryHue, categoryLabel
+  categoryHue, categoryLabel, findNewPrompts, NEW_WINDOW_DAYS
 } from './lib/render.mjs';
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
@@ -93,6 +93,29 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     if (emptyEl) emptyEl.hidden = list.length !== 0;
 
     if (toolbarId) rebuildToolbar(list);
+    updateNewCallout(list);
+  }
+
+  // Home's "N new prompts" banner (lib/render.mjs's findNewPrompts) is
+  // server-rendered from the build-time (defaults-only) list - re-derive it
+  // from the merged, personalized list so a default the caller has since
+  // archived (by editing it - see supabase/README.md "Admin curation...")
+  // stops being announced to them, and drop the banner entirely once no
+  // unarchived new default is left to show. No-op on any page without the
+  // banner in the first place (Category, Search).
+  function updateNewCallout(list) {
+    const container = document.getElementById('new-callout');
+    if (!container) return;
+    const fresh = findNewPrompts(list);
+    if (!fresh.length) {
+      container.remove();
+      return;
+    }
+    container.dataset.newSlugs = JSON.stringify(fresh.map(p => p.slug));
+    const textEl = document.getElementById('new-callout-text');
+    if (textEl) {
+      textEl.innerHTML = `<strong>${fresh.length} new prompt${fresh.length === 1 ? '' : 's'}</strong> added in the last ${NEW_WINDOW_DAYS} days`;
+    }
   }
 
   function rebuildToolbar(list) {
@@ -102,7 +125,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
       .map(slug => ({ slug, count: list.filter(p => p.categories.includes(slug)).length }))
       .filter(c => c.count > 0)
       .map(c => ({ value: c.slug, label: categoryLabel(c.slug), count: c.count, hue: categoryHue(c.slug) }));
-    bar.outerHTML = renderFilterToolbar([{ key: 'category', label: 'Category', options }], { id: toolbarId, resultCount: true });
+    bar.outerHTML = renderFilterToolbar([{ key: 'category', label: 'Category Filter(s)', options }], { id: toolbarId });
     initTableFilterToolbar(toolbarId, gridId);
   }
 

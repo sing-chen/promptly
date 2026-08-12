@@ -7,7 +7,6 @@ export function initCategoryPillBar(barId, { onChange } = {}) {
 
   const active = new Set();
   const clearBtn = bar.querySelector('[data-role="clear-pills"]');
-  const resultEl = document.getElementById(`${barId}-result-count`);
 
   function updateClearVisibility() {
     if (clearBtn) clearBtn.classList.toggle('is-visible', active.size > 0);
@@ -36,7 +35,6 @@ export function initCategoryPillBar(barId, { onChange } = {}) {
 
   return {
     getActive: () => active,
-    setResultText: (text) => { if (resultEl) resultEl.textContent = text; },
     // Overrides the server-rendered (whole-catalog) counts with page-specific
     // ones - e.g. the Favorites page shows how many *favorited* prompts are
     // in each category, not how many exist catalog-wide.

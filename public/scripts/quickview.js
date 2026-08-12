@@ -104,11 +104,11 @@ export function initQuickView(gridId, opts = {}) {
   let currentItem = null;
 
   function visibleSlugsInOrder() {
-    return Array.from(tbody.querySelectorAll('tr[data-slug]:not([hidden])')).map(tr => tr.dataset.slug);
+    return Array.from(tbody.querySelectorAll('[data-slug]:not([hidden])')).map(tr => tr.dataset.slug);
   }
 
   function markSelectedRow() {
-    tbody.querySelectorAll('tr[data-slug]').forEach(tr => {
+    tbody.querySelectorAll('[data-slug]').forEach(tr => {
       tr.classList.toggle('is-selected', tr.dataset.slug === selectedSlug);
     });
   }
@@ -237,13 +237,18 @@ export function initQuickView(gridId, opts = {}) {
   }
 
   tbody.addEventListener('click', (e) => {
-    const tr = e.target.closest('tr[data-slug]');
+    const tr = e.target.closest('[data-slug]');
     if (!tr || e.target.closest('button')) return;
+    // A card can be a real <a href="/prompt/…/"> (e.g. the sequence rail,
+    // for no-JS/SEO) rather than a <tr> - stop the navigation so the click
+    // opens the modal instead. A no-op on a <tr>, which has no default
+    // navigation to prevent.
+    e.preventDefault();
     open(tr.dataset.slug);
   });
   tbody.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    const tr = e.target.closest('tr[data-slug]');
+    const tr = e.target.closest('[data-slug]');
     if (!tr) return;
     e.preventDefault();
     open(tr.dataset.slug);
