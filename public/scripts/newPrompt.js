@@ -81,6 +81,21 @@ function init() {
     if (e.key === 'Escape' && !catPanel.hidden) { e.stopPropagation(); closeCatPanel(); catTrigger.focus(); }
   });
 
+  // Cached from the last isAdmin() check (open()) so resetForm() - also
+  // called by "Create another", which doesn't re-check - can re-apply it
+  // without another round trip. Re-checked fresh on every open() itself,
+  // since admin status could change between sessions.
+  let isAdminUser = false;
+
+  function applyAdminState() {
+    adminRow.hidden = !isAdminUser;
+    // Defaults to checked for an admin - they're far more often making a
+    // default prompt than a personal one from this modal - but stays a
+    // plain checkbox, so unchecking it for a one-off personal prompt still
+    // works.
+    adminCheckbox.checked = isAdminUser;
+  }
+
   function resetForm() {
     form.reset();
     messageEl.hidden = true;
@@ -88,14 +103,12 @@ function init() {
     successEl.hidden = true;
     closeCatPanel();
     updateCatTriggerText();
+    applyAdminState();
   }
 
   function open() {
     resetForm();
-    // Checked fresh every open rather than cached - admin status could
-    // change between sessions and this is a cheap single-row read (db.js's
-    // isAdmin()).
-    isAdmin().then(admin => { adminRow.hidden = !admin; });
+    isAdmin().then(admin => { isAdminUser = admin; applyAdminState(); });
     backdrop.classList.add('is-open');
     form.title.focus();
   }

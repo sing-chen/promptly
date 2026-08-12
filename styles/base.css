@@ -829,6 +829,8 @@ label.np-admin-check {
 }
 .np-success-actions { display: flex; gap: 10px; margin-top: 4px; }
 #np-success p { color: var(--ink); font-size: 13.5px; }
+#np-message { font-size: 13px; color: var(--ink-soft); margin: 0; }
+#np-message[role="alert"] { color: var(--danger); }
 
 /* Categories dropdown (np-cat-dropdown) - a trigger button that reveals a
    checkbox panel, behavior in newPrompt.js. Checkboxes themselves are
