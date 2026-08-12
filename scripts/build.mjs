@@ -1,7 +1,8 @@
 import { existsSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadPrompts, validatePrompts, buildData, buildSearchIndex, PROMPTS_DIR, PUBLIC_DIR } from '../lib/content.mjs';
+import { validatePrompts, buildData, buildSearchIndex, PUBLIC_DIR } from '../lib/content.mjs';
+import { fetchPublishedPrompts } from '../lib/supabaseBuild.mjs';
 import {
   renderHomePage, renderCategoryPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
@@ -50,15 +51,28 @@ function versionAssetFiles(dir, buildId) {
   }
 }
 
-// Runs the full build once: validate -> data model -> clean-rebuild dist/.
-// Throws ValidationError on bad content rather than exiting the process, so
-// watch.mjs can catch it, report it, and keep watching instead of dying.
-export function runBuild() {
-  const prompts = loadPrompts(PROMPTS_DIR);
+// Runs the full build once: fetch -> validate -> data model -> clean-rebuild
+// dist/. Throws ValidationError on bad content rather than exiting the
+// process, so watch.mjs can catch it, report it, and keep watching instead
+// of dying. Async now (fetchPublishedPrompts is a network call) - the CLI
+// entrypoint and watch.mjs both await it.
+export async function runBuild() {
+  // Loaded once, up front - used both for the prompt fetch below and for
+  // generating dist/scripts/config.js further down.
+  const env = loadEnv();
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+    console.warn('SUPABASE_URL/SUPABASE_ANON_KEY not set - building with zero default prompts, and account-tier features (sign-in, admin authoring) will be inert in this build.');
+  }
+
+  // Default prompts now come from Supabase, not prompts/*.md
+  // (supabase/README.md "There is no markdown catalog") - only published
+  // (is_curated=true, published=true) rows, exactly what an anonymous
+  // visitor's own RLS-scoped read would return.
+  const prompts = await fetchPublishedPrompts(env);
   const errors = validatePrompts(prompts);
   if (errors.length > 0) throw new ValidationError(errors);
 
-  const data = buildData(PROMPTS_DIR);
+  const data = buildData(prompts);
 
   // One version stamp per build, applied to every /scripts and /styles
   // reference this build emits (see setAssetVersion/versionAssetFiles) -
@@ -97,10 +111,6 @@ export function runBuild() {
   // how public/scripts/supabaseClient.js gets them. Safe to bake the anon
   // key into a public static file: RLS is the real security boundary, not
   // key secrecy (supabase/README.md).
-  const env = loadEnv();
-  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
-    console.warn('SUPABASE_URL/SUPABASE_ANON_KEY not set - account-tier features (sign-in, admin authoring) will be inert in this build.');
-  }
   writeFileSync(join(DIST_DIR, 'scripts', 'config.js'), `// Generated at build time - do not edit by hand.
 export const SUPABASE_URL = ${JSON.stringify(env.SUPABASE_URL || '')};
 export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
@@ -148,7 +158,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
 const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isDirectRun) {
   try {
-    console.log(runBuild());
+    console.log(await runBuild());
   } catch (err) {
     console.error('\n' + err.message + '\n');
     process.exit(1);

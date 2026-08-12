@@ -4,14 +4,14 @@ import { runBuild } from './build.mjs';
 const WATCH_DIRS = ['prompts', 'lib', 'styles', 'public'];
 const DEBOUNCE_MS = 200;
 
-function build(reason) {
+async function build(reason) {
   const time = new Date().toLocaleTimeString();
   try {
-    const summary = runBuild();
+    const summary = await runBuild();
     console.log(`[${time}] ${reason ? reason + ' -> ' : ''}${summary}`);
   } catch (err) {
     // Print and keep watching - a bad edit (e.g. mid-save, invalid
-    // frontmatter) shouldn't kill the watcher.
+    // frontmatter, a Supabase fetch failure) shouldn't kill the watcher.
     console.error(`[${time}] Build failed:\n${err.message}\n`);
   }
 }

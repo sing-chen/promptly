@@ -155,9 +155,9 @@ Two other architectures were designed and explicitly **rejected** in favor of th
 - `public/scripts/db.js` — the full account-tier data layer (§6), including admin curate/publish, fork-on-edit, archive, favorites, collections CRUD.
 - Build-time cache-busting for `/scripts` and `/styles` references (not originally scoped in this document at all — caught during nav-rebuild testing).
 
-**Since built** (this section is otherwise historical — see `supabase/README.md` for current status): the "New Prompt" modal and an `/admin/` publish/unpublish page.
+**Since built** (this section is otherwise historical — see `supabase/README.md` for current status): the "New Prompt" modal, an `/admin/` publish/unpublish page, and `scripts/build.mjs` switched to read default prompts from Supabase instead of `prompts/*.md` (which is no longer read by the production build at all).
 
 **Not yet built:**
-- `scripts/build.mjs` switched to query Supabase for default prompts, and the Supabase→Vercel publish webhook (§9) — the static site still builds from `prompts/*.md`, which is planned to be retired but hasn't been yet.
+- The Supabase→Vercel publish webhook (§9) — publishing a default doesn't yet trigger an automatic rebuild for anonymous visitors.
 - `/library/` views + CRUD UI, variable-fill (§6.1), collections CRUD UI.
 - Everything in §7's open items list (still accurate/current).
