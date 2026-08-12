@@ -216,12 +216,13 @@ button { font-family: var(--sans); }
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   padding: 20px 16px;
   background: var(--surface);
   border-right: 1px solid var(--line);
   transition: flex-basis .2s ease, width .2s ease, padding-left .2s ease, padding-right .2s ease, border-color .2s ease;
 }
+.sidebar-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .sidebar-brand {
   display: flex;
   align-items: center;
@@ -233,9 +234,7 @@ button { font-family: var(--sans); }
   white-space: nowrap;
 }
 .sidebar-brand img { border-radius: var(--radius-sm); flex-shrink: 0; }
-.icon-panel-expand { display: none; }
-:root[data-sidebar-collapsed="true"] #sidebar-toggle .icon-panel-collapse { display: none; }
-:root[data-sidebar-collapsed="true"] #sidebar-toggle .icon-panel-expand { display: block; }
+#sidebar-collapse-btn { flex-shrink: 0; }
 
 .sidebar-new-btn { width: 100%; justify-content: center; border-radius: 999px; }
 
@@ -288,20 +287,20 @@ button { font-family: var(--sans); }
 
 .sidebar-view-toggle {
   display: flex;
-  gap: 2px;
-  padding: 2px;
+  gap: 0;
+  padding: 4px;
   background: var(--well);
-  border-radius: 999px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   flex-shrink: 0;
 }
 .view-toggle-btn {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
-  padding: 6px 0;
-  border-radius: 999px;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
   border: none;
   background: transparent;
   color: var(--ink-faint);
@@ -334,9 +333,10 @@ button { font-family: var(--sans); }
    main never had that space to reclaim in the first place). `inert` (set
    alongside the class in JS) keeps the sidebar's now-clipped contents out
    of tab order and the accessibility tree while collapsed, since
-   overflow:hidden alone doesn't do that. The toggle button itself lives in
-   .main-header, not .sidebar, so it stays reachable either way - see
-   .main-header below. */
+   overflow:hidden alone doesn't do that. The re-expand button
+   (#sidebar-expand-btn) lives in .main-header, not .sidebar, so it stays
+   reachable even once the sidebar (and its own #sidebar-collapse-btn) is
+   gone - see .main-header below. */
 @media (min-width: 901px) {
   .app-shell.sidebar-collapsed .sidebar {
     flex-basis: 0;
@@ -349,17 +349,19 @@ button { font-family: var(--sans); }
 
 /* Main-content header (renderMainHeader in lib/render.mjs) - sits above
    every page's own content, full-bleed within <main> (no .container max-width),
-   holding the sidebar toggle + page title/subtitle on the left and the
-   global controls (search, table/grid view, theme) that used to live in the
-   sidebar footer on the right, so they're reachable regardless of which
-   page you're on or whether the sidebar is collapsed. */
+   holding the sidebar re-expand button + page title/subtitle on the left
+   and the global controls (search, table/grid view, theme) that used to
+   live in the sidebar footer on the right, so they're reachable regardless
+   of which page you're on or whether the sidebar is collapsed. Fixed 64px
+   height (not padding-driven) to match the reference's compact profile -
+   the titles block just centers within it via align-items. */
 .main-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  flex-wrap: wrap;
-  padding: 18px 32px;
+  height: 64px;
+  padding: 0 24px;
   border-bottom: 1px solid var(--line-soft);
 }
 .main-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -368,28 +370,36 @@ button { font-family: var(--sans); }
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 19px;
+  font-size: 16px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.main-header-subtitle { margin: 2px 0 0; font-size: 13px; color: var(--ink-faint); }
+.main-header-subtitle {
+  margin: 1px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .main-header-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 /* Compound selector (not just .main-header-search) so this reliably beats
    .search-field's own `width: 100%` regardless of source order - same
    specificity otherwise, and .search-field is defined later in this file. */
 .search-field.main-header-search { width: 280px; }
-#sidebar-toggle { flex-shrink: 0; }
+#sidebar-expand-btn { flex-shrink: 0; }
 
 @media (max-width: 900px) {
   /* Keep the header itself (search/view-toggle/theme all need to stay
      reachable on mobile too - they used to live in the sidebar, which is
      itself reachable there via the hamburger drawer, but now only live
-     here) - just drop the desktop collapse button, which the drawer's own
-     hamburger already covers, and let the row wrap instead of overflowing
-     a narrow viewport. */
-  #sidebar-toggle { display: none; }
-  .main-header { padding: 14px 16px; }
+     here) - just drop the desktop expand button (its counterpart, the
+     collapse button, is inside .sidebar and already unreachable/irrelevant
+     below this breakpoint), and let the header grow past 64px if the
+     title/controls don't fit on one line rather than clipping either. */
+  #sidebar-expand-btn { display: none; }
+  .main-header { height: auto; min-height: 64px; flex-wrap: wrap; padding: 10px 16px; }
   .search-field.main-header-search { width: auto; flex: 1; min-width: 140px; }
 }
 
