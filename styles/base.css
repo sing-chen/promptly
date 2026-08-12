@@ -301,6 +301,7 @@ main .container {
   color: var(--ink-faint);
   padding: 0 10px;
 }
+a.sidebar-section-label:hover { color: var(--accent); }
 .sidebar-section-add { width: 22px; height: 22px; color: var(--ink-faint); }
 .sidebar-section-add:hover { color: var(--accent); background: var(--well); }
 .sidebar-section-list { overflow-y: auto; }
@@ -1030,3 +1031,47 @@ label.np-admin-check {
 }
 .admin-status-published { background: var(--accent-soft); color: var(--accent); }
 .admin-status-draft { background: var(--well); color: var(--ink-soft); }
+
+/* Collections page (/collections/, lib/render.mjs renderCollectionsPage,
+   behavior in public/scripts/collections.js) - wider than .account-page's
+   sign-in-form width for the same reason .admin-page is, plus its own
+   collection cards. (Class names keep their "lib-" prefix from when this
+   was part of a combined /library/ page - not worth a blind rename.) */
+.collections-page { max-width: 860px; }
+.lib-collection-list { display: flex; flex-direction: column; gap: 14px; }
+.lib-collection-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.lib-collection-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.lib-collection-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lib-collection-chip { display: inline-flex; align-items: center; gap: 6px; }
+.lib-chip-remove {
+  border: none; background: none; padding: 0; margin: 0; line-height: 1;
+  color: inherit; opacity: .6; cursor: pointer; font-size: 13px;
+}
+.lib-chip-remove:hover { opacity: 1; }
+.lib-collection-add { display: flex; gap: 8px; align-items: center; }
+.lib-collection-add select {
+  font: inherit; padding: 7px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink); flex: 1;
+}
+.sidebar-empty-note { font-size: 12.5px; color: var(--ink-faint); padding: 4px 10px; margin: 0; }
+
+/* Sidebar Collections section, signed out (renderNav's default - collections
+   are permanently user-generated only, no curated set exists to show
+   instead). Restored by collectionsNav.js on sign-out, replaced by a live
+   list on sign-in. */
+.sidebar-callout {
+  padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;
+}
+.sidebar-callout p { font-size: 12.5px; color: var(--ink-faint); margin: 0; line-height: 1.4; }
+.sidebar-callout a { font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.sidebar-callout a:hover { text-decoration: underline; }
+
+/* /why-sign-in/ page (lib/render.mjs renderWhySignInPage) */
+.why-sign-in-page { max-width: 680px; }
+.why-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.why-compare-col { padding: 18px 20px; }
+.why-compare-col h2 { font-family: var(--display); font-size: 14px; margin: 0 0 10px; }
+.why-compare-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--ink-soft); }
+@media (max-width: 640px) {
+  .why-compare { grid-template-columns: 1fr; }
+}

@@ -41,7 +41,7 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 - `lib/render.mjs` — HTML template functions for every page type; also reused client-side by `search.js` (it's plain browser-safe JS)
 - `lib/content.mjs` — frontmatter loading/validation, the derived data model, and the search index shape
 - `lib/schema.mjs` — controlled category vocabulary
-- `lib/sequences.mjs`, `lib/collections.mjs` — sequence and collection logic
+- `lib/sequences.mjs` — sequence logic (collections have no build-time equivalent - they're user-generated only, live in Supabase, see `supabase/README.md`)
 - `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal"), now including the sidebar nav layout
 - `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard + sidebar mobile-drawer toggle), `filters.js`/`categoryPills.js` (live pill filter toolbars), `quickview.js` (prompt quick-view modal), `search.js` (Fuse-powered search page), `auth.js` (sign-in/up UI + nav account state), `supabaseClient.js`/`db.js` (account-tier data layer)
 - `lib/env.mjs` — dependency-free `.env.local` loader used by `scripts/build.mjs`
@@ -52,4 +52,4 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 
 **Anonymous tier** (v3): content pipeline, full page generation, design system, search, favorites/copy, and Sequence Builder bulk admin are all built, verified, and deployed to Vercel production.
 
-**Account tier** (v4, in progress — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) and [supabase/README.md](./supabase/README.md) for current detail): Supabase schema/RLS, sign-in/up, and the account-tier data layer (`db.js`) are built and live in production. The site's nav was rebuilt as a left sidebar (replacing v3's top nav) as part of this work. Not yet built: the "New Prompt" creation UI, `build.mjs` reading default prompts from Supabase instead of `prompts/*.md`, and `/library/` (the signed-in user's own prompt views).
+**Account tier** (v4, in progress — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) and [supabase/README.md](./supabase/README.md), the up-to-date source of truth, for current status and what's still open): Supabase schema/RLS, sign-in/up, and the account-tier data layer (`db.js`) are built and live in production, including admin curation/publishing, per-user forks, and a signed-in user's own prompts blending directly into the same Home/Category/Search pages everyone browses (no separate "your prompts" page). The site's nav was rebuilt as a left sidebar (replacing v3's top nav) as part of this work.

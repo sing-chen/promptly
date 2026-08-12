@@ -99,24 +99,44 @@ export async function unpublishPrompt(id) {
 // marks the default as archived/superseded in the caller's own view. This
 // is what "editing a default" means in the app - there's no direct UPDATE
 // path for a row you don't own (RLS forbids it).
+//
+// The fork starts with the default's own slug (unlike createPrompt(), which
+// always generates one from the title) - that's what lets a fork's
+// /prompt/[slug]/-shaped identity line up with the default it came from. But
+// slug is only unique per-user, so if the caller already happens to own a
+// different prompt with that exact slug (a real, if uncommon, collision -
+// e.g. they independently titled something the same as a default they're
+// now forking), the insert 23505s. Retry with an incrementing numeric
+// suffix, same dedupe-on-collision approach as newPrompt.js's
+// createWithUniqueSlug, rather than surfacing the raw constraint error.
 export async function forkPrompt(defaultPrompt) {
   const user_id = await requireUserId();
-  const fork = unwrap(await supabase.from('prompts')
-    .insert({
-      user_id,
-      slug: defaultPrompt.slug,
-      title: defaultPrompt.title,
-      categories: defaultPrompt.categories,
-      purpose: defaultPrompt.purpose,
-      body: defaultPrompt.body,
-      notes: defaultPrompt.notes,
-      sequence: defaultPrompt.sequence,
-      sequence_step: defaultPrompt.sequence_step,
-      source_prompt_id: defaultPrompt.id,
-      is_curated: false,
-      published: false
-    })
-    .select().single());
+  const base = defaultPrompt.slug;
+  let fork;
+  for (let attempt = 1; attempt <= 20; attempt++) {
+    const slug = attempt === 1 ? base : `${base}-${attempt}`;
+    try {
+      fork = unwrap(await supabase.from('prompts')
+        .insert({
+          user_id,
+          slug,
+          title: defaultPrompt.title,
+          categories: defaultPrompt.categories,
+          purpose: defaultPrompt.purpose,
+          body: defaultPrompt.body,
+          notes: defaultPrompt.notes,
+          sequence: defaultPrompt.sequence,
+          sequence_step: defaultPrompt.sequence_step,
+          source_prompt_id: defaultPrompt.id,
+          is_curated: false,
+          published: false
+        })
+        .select().single());
+      break;
+    } catch (err) {
+      if (err?.code !== '23505' || attempt === 20) throw err;
+    }
+  }
 
   await supabase.from('prompt_overrides').upsert({
     user_id,

@@ -3,6 +3,8 @@ import { renderPromptTableRows, renderPromptCard } from '/scripts/lib/render.mjs
 import { initInteractive } from '/scripts/favorites.js';
 import { initFilterToolbar } from '/scripts/filters.js';
 import { initQuickView } from '/scripts/quickview.js';
+import { wireOwnerActions } from '/scripts/personalize.js';
+import { getPersonalization } from '/scripts/personalizeData.js';
 
 // Read directly rather than waiting on viewToggle.js's 'promptly:viewmode'
 // event for the *initial* render - script tag order isn't guaranteed to put
@@ -38,8 +40,14 @@ if (resultsEl && filtersEl) {
   let viewMode = readViewMode();
   let lastMatches = [];
   let lastQuery = '';
+  // Signed out (or before personalization resolves), this stays index.prompts
+  // (the static default catalog) - once signed in it becomes the merged
+  // catalog (personalizeData.js), same "no separate personal list" model as
+  // Home/Category (personalize.js).
+  let personalization = null;
+  let searchablePrompts = index.prompts;
 
-  const fuse = new Fuse(index.prompts, {
+  const fuse = new Fuse(searchablePrompts, {
     keys: [
       { name: 'categories', weight: 0.3 },
       { name: 'title', weight: 0.3 },
@@ -82,7 +90,7 @@ if (resultsEl && filtersEl) {
   function render(matches, q) {
     lastMatches = matches;
     lastQuery = q;
-    quickView.update(matches);
+    quickView.update(matches, personalization);
     if (matches.length === 0) {
       resultsEl.innerHTML = '';
       if (cardsEl) cardsEl.innerHTML = '';
@@ -92,16 +100,19 @@ if (resultsEl && filtersEl) {
       return;
     }
     summaryEl.textContent = `${matches.length} result${matches.length === 1 ? '' : 's'}`;
+    const ctx = { sequenceTotals: index.sequenceTotals, personalized: Boolean(personalization), currentUserId: personalization?.userId };
     if (viewMode === 'grid' && cardsEl) {
       resultsWrapEl.hidden = true;
       cardsEl.hidden = false;
-      cardsEl.innerHTML = matches.map(p => renderPromptCard(p, { sequenceTotals: index.sequenceTotals })).join('');
+      cardsEl.innerHTML = matches.map(p => renderPromptCard(p, ctx)).join('');
       initInteractive(cardsEl);
+      if (personalization) wireOwnerActions(cardsEl, matches, personalization);
     } else {
       resultsWrapEl.hidden = false;
       if (cardsEl) cardsEl.hidden = true;
-      resultsEl.innerHTML = renderPromptTableRows(matches, { sequenceTotals: index.sequenceTotals });
+      resultsEl.innerHTML = renderPromptTableRows(matches, ctx);
       initInteractive(resultsEl);
+      if (personalization) wireOwnerActions(resultsEl, matches, personalization);
     }
   }
 
@@ -122,13 +133,22 @@ if (resultsEl && filtersEl) {
       }
       matches = Array.from(best.values()).sort((a, b) => a.score - b.score).map(r => r.item);
     } else {
-      matches = index.prompts;
+      matches = searchablePrompts;
     }
 
     matches = matches.filter(p => categories.length === 0 || categories.some(c => p.categories.includes(c)));
 
     render(matches, q);
   }
+
+  async function loadPersonalization() {
+    personalization = await getPersonalization();
+    if (!personalization) return;
+    searchablePrompts = personalization.merged;
+    fuse.setCollection(searchablePrompts);
+    runSearch();
+  }
+  document.addEventListener('personalization:changed', loadPersonalization);
 
   // Prefill from the URL (shareable/deep-linkable search state) - clicking
   // the matching pill both sets toolbar state and (via onChange) re-runs the
@@ -156,4 +176,5 @@ if (resultsEl && filtersEl) {
   });
 
   runSearch();
+  loadPersonalization();
 }

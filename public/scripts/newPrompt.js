@@ -1,10 +1,25 @@
 // New Prompt modal behavior (BUILD_BRIEF_v4.md §6, supabase/README.md "Next
 // steps") - wires the sidebar's #new-prompt-btn (rendered hidden by
 // lib/render.mjs, toggled visible by auth.js for any signed-in user) to the
-// modal shell renderNewPromptModal() renders into every page. No /library/
-// view exists yet to send the user to on success, so a successful create
-// just shows an inline message inside the modal instead of redirecting.
-import { createPrompt, createCuratedPrompt, isAdmin } from './db.js';
+// modal shell renderNewPromptModal() renders into every page. A successful
+// create shows an inline message inside the modal rather than redirecting -
+// Home/Category/Search (public/scripts/personalize.js, search.js) are where
+// a created prompt actually shows up, since a signed-in user's own prompts
+// are blended straight into those pages rather than living on a separate
+// page. Both listen for this module's 'personalization:changed' event to
+// refresh themselves if they're the page that's open.
+//
+// This same modal doubles as the Edit form for ANY prompt in the merged
+// catalog, not just ones the caller already owns - personalize.js/search.js/
+// quickview.js's Edit buttons call personalizeData.js's
+// resolveOwnPromptForEdit() first (which transparently forks a default the
+// caller doesn't own yet, or reuses an existing fork) and only then dispatch
+// 'prompt:edit-request' with the *resulting* owned prompt row as `detail` -
+// by the time this module sees the event, forking has already happened and
+// there's nothing left here to know about it. Edit mode never touches
+// is_curated/published (the admin checkbox is hidden) or slug (kept stable
+// across an edit, unlike a fresh create) - it's a plain field update.
+import { createPrompt, createCuratedPrompt, updatePrompt, isAdmin } from './db.js';
 import { categoryLabel } from './lib/render.mjs';
 
 function slugify(str) {
@@ -41,6 +56,18 @@ function init() {
   const submitBtn = document.getElementById('np-submit-btn');
   const adminRow = document.getElementById('np-admin-row');
   const adminCheckbox = document.getElementById('np-admin-checkbox');
+  const titleEl = document.getElementById('np-title');
+  const createAnotherBtn = document.getElementById('np-create-another');
+
+  // Set by openForEdit(), cleared by resetForm() - the one piece of state
+  // that distinguishes "editing prompt X" from a fresh create.
+  let editingId = null;
+
+  function setModalMode(editing) {
+    titleEl.textContent = editing ? 'Edit Prompt' : 'New Prompt';
+    submitBtn.textContent = editing ? 'Save changes' : 'Create prompt';
+    createAnotherBtn.hidden = editing;
+  }
 
   // Category dropdown - a button that toggles a checkbox panel, rather than
   // a flat checkbox grid, since the vocabulary (lib/schema.mjs's CATEGORIES)
@@ -88,27 +115,53 @@ function init() {
   let isAdminUser = false;
 
   function applyAdminState() {
-    adminRow.hidden = !isAdminUser;
+    // Editing never changes curation status - only the admin-authored
+    // "make this a default prompt" checkbox (createCuratedPrompt) can set
+    // is_curated in the first place, and that's a create-time-only choice.
+    adminRow.hidden = !isAdminUser || editingId !== null;
     // Defaults to checked for an admin - they're far more often making a
     // default prompt than a personal one from this modal - but stays a
     // plain checkbox, so unchecking it for a one-off personal prompt still
     // works.
-    adminCheckbox.checked = isAdminUser;
+    adminCheckbox.checked = isAdminUser && editingId === null;
   }
 
   function resetForm() {
     form.reset();
+    editingId = null;
     messageEl.hidden = true;
     form.hidden = false;
     successEl.hidden = true;
     closeCatPanel();
     updateCatTriggerText();
     applyAdminState();
+    setModalMode(false);
   }
 
   function open() {
     resetForm();
     isAdmin().then(admin => { isAdminUser = admin; applyAdminState(); });
+    backdrop.classList.add('is-open');
+    form.title.focus();
+  }
+
+  // Triggered by 'prompt:edit-request' for a prompt the caller owns (see
+  // module header - forking, if needed, already happened before this fires)
+  // - prefills every field from the existing row instead of leaving them
+  // blank, and routes the submit handler below to updatePrompt() instead of
+  // create. Slug is intentionally left alone (see module header).
+  function openForEdit(prompt) {
+    resetForm();
+    editingId = prompt.id;
+    applyAdminState();
+    setModalMode(true);
+    form.title.value = prompt.title;
+    form.purpose.value = prompt.purpose || '';
+    form.body.value = prompt.body;
+    form.notes.value = prompt.notes || '';
+    const cats = new Set(prompt.categories || []);
+    catCheckboxes.forEach(c => { c.checked = cats.has(c.value); });
+    updateCatTriggerText();
     backdrop.classList.add('is-open');
     form.title.focus();
   }
@@ -153,12 +206,20 @@ function init() {
 
     submitBtn.disabled = true;
     try {
-      await createWithUniqueSlug(fields, makeCurated ? createCuratedPrompt : createPrompt);
+      if (editingId) {
+        await updatePrompt(editingId, fields);
+        successMessageEl.textContent = 'Prompt updated.';
+      } else {
+        await createWithUniqueSlug(fields, makeCurated ? createCuratedPrompt : createPrompt);
+        successMessageEl.textContent = makeCurated
+          ? 'Default prompt created as an unpublished draft — only visible to you until you publish it. Publish it from the Admin page.'
+          : 'Prompt created.';
+      }
       form.hidden = true;
-      successMessageEl.textContent = makeCurated
-        ? 'Default prompt created as an unpublished draft — only visible to you until you publish it. Publish it from the Admin page.'
-        : 'Prompt created.';
       successEl.hidden = false;
+      // Lets whichever page is open (Home/Category/Search) refresh its
+      // merged list instead of showing stale rows until reload.
+      document.dispatchEvent(new CustomEvent('personalization:changed'));
     } catch (err) {
       messageEl.textContent = err.message || 'Something went wrong.';
       messageEl.setAttribute('role', 'alert');
@@ -170,6 +231,8 @@ function init() {
 
   document.getElementById('np-create-another').addEventListener('click', resetForm);
   document.getElementById('np-done').addEventListener('click', close);
+
+  document.addEventListener('prompt:edit-request', (e) => openForEdit(e.detail));
 }
 
 document.addEventListener('DOMContentLoaded', init);

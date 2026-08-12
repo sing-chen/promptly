@@ -6,6 +6,8 @@
 // reused by whichever table on the page is currently active.
 import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
 import { isFavorite, toggleFavorite } from './favorites.js';
+import { deletePrompt } from './db.js';
+import { resolveOwnPromptForEdit } from './personalizeData.js';
 
 function readEmbedded(gridId) {
   const el = document.getElementById(`${gridId}-data`);
@@ -46,6 +48,14 @@ export function initQuickView(gridId, opts = {}) {
   let items = opts.data || readEmbedded(gridId);
   let sequenceTotals = opts.sequenceTotals || null;
   let allPrompts = opts.allPrompts || null;
+  // Set (and kept current via update()'s second argument) once a page's
+  // merged-catalog personalization resolves - the full object
+  // personalizeData.js's getPersonalization() returns, not just pieces of
+  // it, since resolveOwnPromptForEdit() below needs `.overrides` too.
+  // `.byId` covers every prompt the caller can see, including a default
+  // they've archived by forking it, which `items`/`allPrompts` deliberately
+  // exclude - that's what lets "View original" resolve a source_prompt_id.
+  let personalization = opts.personalization || null;
 
   // The catalog-wide search index, lazily fetched only the first time a
   // sequence Back/Next/Start/End target isn't among the prompts already on
@@ -83,11 +93,15 @@ export function initQuickView(gridId, opts = {}) {
     close: document.getElementById('qv-close'),
     fav: document.getElementById('qv-fav'),
     copy: document.getElementById('qv-copy'),
-    openFull: document.getElementById('qv-open-full')
+    edit: document.getElementById('qv-edit'),
+    delete: document.getElementById('qv-delete'),
+    openFull: document.getElementById('qv-open-full'),
+    viewOriginal: document.getElementById('qv-view-original')
   };
 
   let currentSlug = null;
   let selectedSlug = null;
+  let currentItem = null;
 
   function visibleSlugsInOrder() {
     return Array.from(tbody.querySelectorAll('tr[data-slug]:not([hidden])')).map(tr => tr.dataset.slug);
@@ -106,6 +120,7 @@ export function initQuickView(gridId, opts = {}) {
   }
 
   function populate(item) {
+    currentItem = item;
     els.title.textContent = item.title;
     els.catBadges.innerHTML = renderCatBadges(item.categories);
     els.purpose.textContent = item.purpose || '';
@@ -133,7 +148,27 @@ export function initQuickView(gridId, opts = {}) {
 
     els.fav.setAttribute('data-fav-slug', item.slug);
     syncFavButton(item.slug);
-    els.openFull.href = `/prompt/${item.slug}/`;
+    // Every build-time item has a real /prompt/[slug]/ page (undefined
+    // is_curated/published - see toQuickViewItem in lib/render.mjs). A
+    // personalized item that's explicitly is_curated=false or published=false
+    // (a personal prompt, an unpublished draft, or a fork) has no static
+    // page to open, so hide the link rather than send someone to a 404.
+    const hasStaticPage = item.is_curated !== false && item.published !== false;
+    els.openFull.hidden = !hasStaticPage;
+    if (hasStaticPage) els.openFull.href = `/prompt/${item.slug}/`;
+
+    // Edit is available on anything in a personalized (merged-catalog) view,
+    // regardless of ownership - clicking it on a default is what forks it
+    // (see els.edit's click handler below). Delete only for a row the caller
+    // actually owns. "View original" only for a fork whose source default is
+    // still resolvable via `byId` (it always should be - every published
+    // default stays in `byId` even after being forked/archived).
+    const isOwn = Boolean(personalization) && item.user_id === personalization.userId && !item.is_curated;
+    els.edit.hidden = !personalization;
+    els.delete.hidden = !isOwn;
+    const original = personalization && item.source_prompt_id ? personalization.byId.get(item.source_prompt_id) : null;
+    els.viewOriginal.hidden = !original;
+    els.viewOriginal.dataset.targetId = original ? original.id : '';
 
     // A sequence neighbor opened via fallback fetch (see ensureIndex) may not
     // be one of the rows on this page at all - stepping through "the list"
@@ -162,6 +197,18 @@ export function initQuickView(gridId, opts = {}) {
     return items.find(p => p.slug === slug) || allPrompts?.find(p => p.slug === slug);
   }
 
+  // Shared by open() (below) and "View original" - the latter shows an
+  // archived default that isn't in `items`/`allPrompts` (by design, see
+  // `byId` above) and has no row of its own, so it deliberately leaves
+  // `selectedSlug` untouched: it's a side-trip from the currently selected
+  // row, not a change of which row that is.
+  function showItem(item) {
+    currentSlug = item.slug;
+    populate(item);
+    markSelectedRow();
+    backdrop.classList.add('is-open');
+  }
+
   // Async because a sequence neighbor might not be among the prompts this
   // page already has - in that case ensureIndex() fetches the catalog-wide
   // index once before opening. Callers don't need to await this; it's safe
@@ -170,11 +217,8 @@ export function initQuickView(gridId, opts = {}) {
     let item = findItem(slug);
     if (!item) item = (await ensureIndex())?.find(p => p.slug === slug);
     if (!item) return;
-    currentSlug = slug;
     selectedSlug = slug;
-    populate(item);
-    markSelectedRow();
-    backdrop.classList.add('is-open');
+    showItem(item);
   }
 
   function step(delta) {
@@ -224,12 +268,42 @@ export function initQuickView(gridId, opts = {}) {
     syncFavButton(currentSlug);
   });
   els.copy.addEventListener('click', async () => {
-    const item = findItem(currentSlug);
-    if (!item) return;
-    try { await navigator.clipboard.writeText(item.body); } catch { /* clipboard unavailable */ }
+    if (!currentItem) return;
+    try { await navigator.clipboard.writeText(currentItem.body); } catch { /* clipboard unavailable */ }
     const original = els.copy.innerHTML;
     els.copy.textContent = 'Copied';
     setTimeout(() => { els.copy.innerHTML = original; }, 2000);
+  });
+  els.edit.addEventListener('click', async () => {
+    if (!currentItem || !personalization) return;
+    els.edit.disabled = true;
+    try {
+      const target = await resolveOwnPromptForEdit(personalization, currentItem);
+      document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: target }));
+    } catch (err) {
+      alert(err.message || 'Something went wrong.');
+    } finally {
+      els.edit.disabled = false;
+    }
+  });
+  els.delete.addEventListener('click', async () => {
+    if (!currentItem) return;
+    if (!confirm(`Delete "${currentItem.title}"? This can't be undone.`)) return;
+    els.delete.disabled = true;
+    try {
+      await deletePrompt(currentItem.id);
+      document.dispatchEvent(new CustomEvent('personalization:changed'));
+      close();
+    } catch (err) {
+      alert(err.message || 'Something went wrong.');
+    } finally {
+      els.delete.disabled = false;
+    }
+  });
+  els.viewOriginal.addEventListener('click', (e) => {
+    e.preventDefault();
+    const original = personalization?.byId.get(els.viewOriginal.dataset.targetId);
+    if (original) showItem(original);
   });
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
   document.addEventListener('keydown', (e) => {
@@ -246,8 +320,9 @@ export function initQuickView(gridId, opts = {}) {
   });
 
   return {
-    update(newItems) {
+    update(newItems, newPersonalization) {
       items = newItems;
+      if (newPersonalization !== undefined) personalization = newPersonalization;
       if (selectedSlug) markSelectedRow();
     },
     // Exposed so a card-grid view (viewToggle.js, search.js), which isn't

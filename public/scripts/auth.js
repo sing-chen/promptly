@@ -13,6 +13,10 @@ function setNavAccountState(session) {
   // Same reasoning as New Prompt - collections are per-user, no admin
   // concept (db.js's createCollection() has no admin check either).
   document.getElementById('new-collection-btn')?.toggleAttribute('hidden', !session);
+  // Library is per-user content with no meaningful signed-out state - hide
+  // rather than send an anonymous visitor to a page that just tells them
+  // to sign in.
+  document.getElementById('nav-library-link')?.toggleAttribute('hidden', !session);
 
   const adminLink = document.getElementById('nav-admin-link');
   if (!adminLink) return;

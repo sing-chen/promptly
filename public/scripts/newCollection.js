@@ -71,6 +71,7 @@ function init() {
       await createWithUniqueSlug(fields);
       form.hidden = true;
       successEl.hidden = false;
+      document.dispatchEvent(new CustomEvent('collections:changed'));
     } catch (err) {
       messageEl.textContent = err.message || 'Something went wrong.';
       messageEl.setAttribute('role', 'alert');
