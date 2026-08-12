@@ -6,7 +6,7 @@ Nothing here is provisioned yet. Steps to stand up the backend:
 2. In the Supabase dashboard's SQL Editor, run [`migrations/0001_init_schema.sql`](migrations/0001_init_schema.sql). It creates `admins`, `prompts`, `prompt_overrides`, `collections`, `collection_prompts`, `favorites`, and RLS policies.
    - **Already ran an earlier version of 0001 against this project?** `0001_init_schema.sql` has been rewritten several times since (admin curation, forks, `prompt_overrides` all landed after the first run). Don't re-run it — instead run [`migrations/0002_admin_curation_and_forks.sql`](migrations/0002_admin_curation_and_forks.sql), which is an idempotent patch that brings any earlier revision up to the current schema, whichever version you happened to run.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
-4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — used by the not-yet-built `public/scripts/db.js` client layer, and by `scripts/build.mjs` once it's switched over (see below).
+4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs` today (only to write that config file — `build.mjs` itself doesn't query Supabase for content yet, see below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
 6. **Sign up for an account in the app once auth exists**, then in the SQL Editor run:
    ```sql
@@ -47,11 +47,18 @@ Anonymous visitors stay on the existing static site rather than reading Supabase
 
 `prompts_categories_valid` hardcodes the `CATEGORIES` vocabulary from [`lib/schema.mjs`](../lib/schema.mjs). If a category is ever added/removed there, add a migration updating this `check` constraint to match — the two lists must stay identical since v4 mirrors the frontmatter shape field-for-field (§4).
 
-## Open items
+## Status (last updated after the sidebar nav rebuild + cache-busting work, deployed to production)
 
-- **Env vars are stored but not yet consumed anywhere.** `.env.local` (local) and Vercel's Production environment (Preview/Development not yet added — see step 4 above) both have `SUPABASE_URL`/`SUPABASE_ANON_KEY` set, but no code reads them yet. Wiring them up is part of two not-yet-built pieces: loading `.env.local` in Node (a small `dotenv` import) for `scripts/build.mjs`, and injecting the URL/key into a small generated config so client-side JS in the browser can use them (`public/scripts/db.js`) — browsers can't read `.env` files or `process.env` directly. Nothing to do here until those two pieces get built.
-- **Vercel env vars are Production-only for now.** Preview and Development environments don't have `SUPABASE_URL`/`SUPABASE_ANON_KEY` set (the Environments dropdown wasn't cooperating in the dashboard). Fine until preview-branch deployments or `vercel env pull` are actually used — add them then.
+**Built:**
+- Schema + RLS (`0001_init_schema.sql`, patched onto the live project via `0002_admin_curation_and_forks.sql`) — admin curation/publish/fork model described above, live in Supabase.
+- `lib/env.mjs` (build-time `.env.local` loader, no `dotenv` dependency) → `scripts/build.mjs` writes `dist/scripts/config.js` from `SUPABASE_URL`/`SUPABASE_ANON_KEY` every build.
+- `public/scripts/supabaseClient.js` (client, loaded from the esm.sh CDN — not vendored, no bundler in this project) and `public/scripts/db.js` (full data layer: prompts CRUD, admin curate/publish, fork-on-edit, archive, favorites, collections).
+- `public/scripts/auth.js` + `/account/` page — email/password sign-in/up/out, wired into the sidebar nav's account link and "New Prompt" button visibility.
+- Verified end-to-end against the real Supabase project (admin seeded, sign-in tested, `isAdmin()`/`loadPrompts()` confirmed live) and confirmed live in the Vercel production build (`config.js` response inspected in prod DevTools).
+
+**Open items:**
+- Vercel env vars are **Production-only** — Preview/Development don't have `SUPABASE_URL`/`SUPABASE_ANON_KEY` set (the Environments dropdown wasn't cooperating in the dashboard when this was set up). Fine until preview-branch deployments or `vercel env pull` are actually used — add them then.
 
 ## Next steps
 
-Roughly: auth UI + nav → `public/scripts/db.js` client layer (§6, reads the env vars above) → admin "create prompt" UI (is_curated/published) → `scripts/build.mjs` switched to query Supabase (also reads the env vars above) + webhook wiring (above) → `/library/` views + CRUD (including fork-on-edit, archive, favorites, collections) → variable-fill (§6.1) → open items (§7).
+Auth UI + nav and `db.js` are done. Remaining, roughly in order: **"New Prompt" button behavior** (create-prompt modal, open to any signed-in user, with an admin-only "make this a default prompt" checkbox — the button already exists in the sidebar, hidden until signed in, but has no click handler yet) → `scripts/build.mjs` switched to query Supabase for default prompts instead of `prompts/*.md`, + the Supabase→Vercel publish webhook → `/library/` views + CRUD (fork-on-edit, archive, favorites, collections UI) → variable-fill (§6.1) → open items (BUILD_BRIEF_v4.md §7).

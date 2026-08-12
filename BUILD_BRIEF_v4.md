@@ -1,6 +1,6 @@
 # Promptly — Build Brief v4: Two-Tier Supabase Architecture
 
-**Status: proposed, not yet implemented.** This document is a plan, produced from a design conversation — nothing described here has been built. Nothing in [`BUILD_BRIEF.md`](./BUILD_BRIEF.md) (v3) has been changed or built against yet either; v3 remains the accurate description of the site as it exists today.
+**Status: partially implemented — this document is now historical for §4/§5/§11, not current.** It was originally a plan produced from a design conversation; real implementation has since diverged from and extended what's written below (an admin curation/publish/fork model, no markdown catalog for default prompts, and a full sidebar nav rebuild replacing v3's top nav — none of which this document originally specified). **[`supabase/README.md`](supabase/README.md) is the up-to-date source of truth** for the actual schema and what's built vs. pending; read this document for the original *why* (§1, §2, §7, §10 still hold), not for current implementation detail in §4/§5/§11. v3's static content pipeline, taxonomy, and design system remain unchanged except for the nav (see below).
 
 This document does not replace v3 — it **extends** it. v3's static site (content model, sitemap, design system, taxonomy, sequencing, page templates) stays exactly as-is and becomes the **Anonymous tier** described below, unchanged in code or product decisions. v4 adds a second, optional **Account tier** on top, backed by Supabase, for visitors who want to create, edit, delete, and permanently keep their own prompts. Read v3 first — this document assumes it and doesn't re-explain what's unchanged.
 
@@ -145,4 +145,16 @@ Two other architectures were designed and explicitly **rejected** in favor of th
 
 ## 11. Status
 
-Nothing in this document is built. Recommended build order, roughly matching the numbered sections above: Supabase schema + RLS (§4) → auth UI + nav (§8/§9) → starter-catalog seeding + favorites migration (§5) → `db.js` client layer (§6) → `/library/` views + CRUD (§6) → variable-fill, shipped to both tiers simultaneously (§6.1) → collections CRUD → open items (§7) triaged before or after initial launch as separately scoped work.
+**Superseded by [`supabase/README.md`](supabase/README.md)** — read that for current schema and next steps. Summary as of the last update here:
+
+**Built and deployed to production:**
+- Supabase project provisioned; schema + RLS live (`supabase/migrations/`) — extended well beyond §4's original table shapes with an admin curation/publish/fork model (`admins`, `prompts.is_curated`/`published`/`source_prompt_id`/`edited_from_source`/`is_archived`, `prompt_overrides`) — §4/§5 above no longer describe the actual schema or seeding model.
+- Auth UI (email/password sign-in/up, `/account/`) wired into a **left sidebar nav that replaced v3's top nav site-wide** — a bigger change than §8's "nav integration" implied, decided separately (a "New Prompt" reference screenshot prompted reconsidering the whole nav, not just adding an account link).
+- `public/scripts/db.js` — the full account-tier data layer (§6), including admin curate/publish, fork-on-edit, archive, favorites, collections CRUD.
+- Build-time cache-busting for `/scripts` and `/styles` references (not originally scoped in this document at all — caught during nav-rebuild testing).
+
+**Not yet built:**
+- The "New Prompt" button's actual behavior (create-prompt modal) — it's rendered in the sidebar (hidden until signed in) but has no click handler yet.
+- `scripts/build.mjs` switched to query Supabase for default prompts, and the Supabase→Vercel publish webhook (§9) — the static site still builds from `prompts/*.md`, which is planned to be retired but hasn't been yet.
+- `/library/` views + CRUD UI, variable-fill (§6.1), collections CRUD UI.
+- Everything in §7's open items list (still accurate/current).

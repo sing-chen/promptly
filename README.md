@@ -1,6 +1,6 @@
 # Promptly
 
-Personal-use, static prompt catalog. Static HTML/CSS/vanilla JS, no framework, no backend, no database — see [BUILD_BRIEF.md](./BUILD_BRIEF.md) for the full spec.
+Personal-use, static prompt catalog. Static HTML/CSS/vanilla JS, no framework — see [BUILD_BRIEF.md](./BUILD_BRIEF.md) for the anonymous-tier spec. An account tier (Supabase-backed sign-in, per-user prompts, admin-curated defaults) is in progress on top of that — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) for the *why* and [supabase/README.md](./supabase/README.md) for current schema/status.
 
 ## Setup
 
@@ -42,10 +42,14 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 - `lib/content.mjs` — frontmatter loading/validation, the derived data model, and the search index shape
 - `lib/schema.mjs` — controlled category vocabulary
 - `lib/sequences.mjs`, `lib/collections.mjs` — sequence and collection logic
-- `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal")
-- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard), `filters.js` (live pill filter toolbar), `search.js` (Fuse-powered search page)
+- `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal"), now including the sidebar nav layout
+- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard + sidebar mobile-drawer toggle), `filters.js`/`categoryPills.js` (live pill filter toolbars), `quickview.js` (prompt quick-view modal), `search.js` (Fuse-powered search page), `auth.js` (sign-in/up UI + nav account state), `supabaseClient.js`/`db.js` (account-tier data layer)
+- `lib/env.mjs` — dependency-free `.env.local` loader used by `scripts/build.mjs`
+- `supabase/` — account-tier schema/RLS migrations + setup docs (see [supabase/README.md](./supabase/README.md))
 - `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete/re-categorize)
 
 ## Status
 
-Rewrite per `BUILD_BRIEF.md` v3 (Astro → custom static build script, Pagefind → Fuse.js) is functionally complete: content pipeline, full page generation, design system, search, favorites/copy, and Sequence Builder bulk admin are all built and verified. Remaining: deploy to Vercel, and a final accessibility QA pass.
+**Anonymous tier** (v3): content pipeline, full page generation, design system, search, favorites/copy, and Sequence Builder bulk admin are all built, verified, and deployed to Vercel production.
+
+**Account tier** (v4, in progress — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) and [supabase/README.md](./supabase/README.md) for current detail): Supabase schema/RLS, sign-in/up, and the account-tier data layer (`db.js`) are built and live in production. The site's nav was rebuilt as a left sidebar (replacing v3's top nav) as part of this work. Not yet built: the "New Prompt" creation UI, `build.mjs` reading default prompts from Supabase instead of `prompts/*.md`, and `/library/` (the signed-in user's own prompt views).
