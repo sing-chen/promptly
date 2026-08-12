@@ -51,6 +51,8 @@ Anonymous visitors stay on the existing static site rather than reading Supabase
 2. Add a migration that updates `prompts_categories_valid`'s `check` constraint to match — the two lists must stay identical since v4 mirrors the frontmatter shape field-for-field (§4). A renamed/removed category also needs a data migration for any existing rows still using the old value (the `check` constraint will otherwise reject their next update).
 3. Rebuild (`npm run build`) — the New Prompt modal's category dropdown, category pages, and filter pills all regenerate from step 1's array automatically.
 
+A real admin screen for this (add/rename/remove without a code change) is on the backlog — BUILD_BRIEF_v4.md §7 has the scoping note (it's a real architecture change: categories would need to move into a DB table and `scripts/build.mjs`'s static per-category page generation would need to read from it, not just a form).
+
 ## Deferred: `example_output`
 
 The v3-era "attach an example output image, shown on the prompt detail page" feature (`prompts.example_output`, plus the matching frontmatter field and detail-page section) has been **removed from the shipped product**, not carried forward into the account tier. It may come back as a real feature later — if so, redesign it rather than resurrecting the column, since the old shape (a single image URL) was a v3-era placeholder, not a considered account-tier design. Tracked in BUILD_BRIEF_v4.md §7 and noted in BUILD_BRIEF.md. [`migrations/0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) drops the column from the live project (and updates `mark_edited_from_source`, which used to check it).
