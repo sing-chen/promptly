@@ -112,7 +112,6 @@ export async function forkPrompt(defaultPrompt) {
       notes: defaultPrompt.notes,
       sequence: defaultPrompt.sequence,
       sequence_step: defaultPrompt.sequence_step,
-      example_output: defaultPrompt.example_output,
       source_prompt_id: defaultPrompt.id,
       is_curated: false,
       published: false

@@ -2,6 +2,8 @@
 
 Personal-use AI prompt catalog, with planned future access for teammates as read-only viewers. Static site, no accounts/login/auth, no backend, no database. Everything below is locked from a design session — build against it directly rather than re-deriving decisions.
 
+**Status note:** the `example_output` field this document specifies (§ mentions below) has since been **removed from the shipped product** — it's not part of the account-tier schema either (BUILD_BRIEF_v4.md §7, `supabase/README.md`). It may return as a redesigned feature later; treat every `example_output` reference below as historical, not current behavior.
+
 **This version supersedes the original Astro/Pagefind-based brief.** It realigns the stack to match the [amplified thinker](../amplified%20thinker) site — static HTML/CSS/vanilla JS, deployed to Vercel — while preserving every product decision from the original brief (sitemap, taxonomy, sequencing model, favorites, copy-to-clipboard, page templates, design system, accessibility baseline). v3 adds site identity (naming, logo, nav), bulk admin, and crawlability, on top of v2's stack change. Sections changed are marked **(revised)** or **(new)**; everything else is unchanged.
 
 ---

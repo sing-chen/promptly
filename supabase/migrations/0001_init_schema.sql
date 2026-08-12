@@ -61,7 +61,6 @@ create table prompts (
   sequence           text,
   sequence_step      int,
   depends_on         uuid references prompts (id) on delete set null,
-  example_output     text,
   is_curated         boolean not null default false,
   published          boolean not null default false,
   source_prompt_id   uuid references prompts (id) on delete set null,
@@ -166,7 +165,6 @@ begin
       or new.purpose is distinct from old.purpose
       or new.body is distinct from old.body
       or new.notes is distinct from old.notes
-      or new.example_output is distinct from old.example_output
     then
       new.edited_from_source = true;
     end if;

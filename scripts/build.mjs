@@ -6,7 +6,7 @@ import {
   renderHomePage, renderCategoryPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
-  renderAboutPage, renderAccountPage, setAssetVersion
+  renderAboutPage, renderAccountPage, renderAdminPage, setAssetVersion
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -121,6 +121,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('search', renderSearchPage(data));
   writeRoute('about', renderAboutPage(data));
   writeRoute('account', renderAccountPage(data));
+  writeRoute('admin', renderAdminPage(data));
 
   for (const category of data.categories) {
     const inCategory = data.prompts.filter(p => p.categories.includes(category.slug));

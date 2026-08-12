@@ -1,14 +1,23 @@
 import { supabase } from './supabaseClient.js';
+import { isAdmin } from './db.js';
 
 function setNavAccountState(session) {
   const link = document.getElementById('nav-account-link');
   if (link) link.textContent = session ? session.user.email : 'Sign in';
   // Open to any signed-in user (db.js's createPrompt() has no admin check) -
-  // only a future in-modal "make this a default prompt" checkbox is
+  // the New Prompt modal's own "make this a default prompt" checkbox is
   // admin-gated, not the button itself. Starts hidden server-side so
   // anonymous visitors (the majority) never see a flash of it before this
   // runs.
   document.getElementById('new-prompt-btn')?.toggleAttribute('hidden', !session);
+
+  const adminLink = document.getElementById('nav-admin-link');
+  if (!adminLink) return;
+  if (!session) { adminLink.hidden = true; return; }
+  // Async, so this can only ever add the link back after the page's initial
+  // signed-out render (hidden by default in lib/render.mjs) - never remove
+  // it early and cause a flash of admin nav for a non-admin.
+  isAdmin().then(admin => { adminLink.hidden = !admin; });
 }
 
 function renderSignedIn(root, session) {

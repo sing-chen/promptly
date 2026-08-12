@@ -814,18 +814,71 @@ footer.site-footer {
 }
 .np-field { display: flex; flex-direction: column; gap: 6px; }
 .np-field-label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
-.np-cat-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 /* label.___ (not just .___) to match .account-form label's own (type+class)
    specificity - a bare class selector here would lose that tie-break and
    the flex-direction:column/gap:6px it sets would leak through. */
 label.np-cat-check {
-  display: inline-flex; flex-direction: row; align-items: center; gap: 6px;
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 400; color: var(--ink);
-  text-transform: none;
+  text-transform: none; padding: 6px 4px;
 }
+label.np-cat-check:hover { background: var(--well); border-radius: var(--radius-sm); }
 label.np-admin-check {
   display: flex; flex-direction: row; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; color: var(--ink-soft);
 }
 .np-success-actions { display: flex; gap: 10px; margin-top: 4px; }
 #np-success p { color: var(--ink); font-size: 13.5px; }
+
+/* Categories dropdown (np-cat-dropdown) - a trigger button that reveals a
+   checkbox panel, behavior in newPrompt.js. Checkboxes themselves are
+   unchanged from the old flat grid; only the reveal mechanism differs. */
+.np-dropdown { position: relative; }
+.np-dropdown-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font: inherit; text-align: left;
+  padding: 9px 12px; border-radius: var(--radius-sm); border: 1px solid var(--line);
+  background: var(--paper); color: var(--ink); cursor: pointer;
+}
+.np-dropdown-trigger:focus { outline: none; border-color: var(--accent); }
+.np-dropdown-trigger svg { flex-shrink: 0; color: var(--ink-faint); }
+#np-cat-trigger-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-dropdown-panel {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 3;
+  display: flex; flex-direction: column; gap: 1px;
+  max-height: 220px; overflow-y: auto;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); padding: 6px;
+}
+
+/* Field-info tooltip ("(i)" next to a label, e.g. Slug) - hover/focus reveal,
+   no JS needed to show/hide. aria-describedby + role="tooltip" so it's
+   reachable by keyboard/screen readers, unlike a bare `title` attribute. */
+.np-label-row { display: inline-flex; align-items: center; gap: 5px; position: relative; }
+.field-info {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; border: none; border-radius: 50%;
+  background: var(--well); color: var(--ink-faint); cursor: help;
+}
+.field-info:hover, .field-info:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.field-hint {
+  visibility: hidden; opacity: 0; position: absolute; z-index: 4;
+  bottom: calc(100% + 6px); left: 0; width: 240px;
+  background: var(--ink); color: var(--paper); font-size: 12px; font-weight: 400;
+  text-transform: none; line-height: 1.4; padding: 8px 10px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); transition: opacity .1s ease;
+}
+.field-info:hover + .field-hint, .field-info:focus-visible + .field-hint { visibility: visible; opacity: 1; }
+
+/* Admin page (/admin/, lib/render.mjs renderAdminPage, behavior in
+   public/scripts/admin.js) - wider than the sign-in form's .account-page,
+   since it holds a table. */
+.admin-page { max-width: 760px; }
+.admin-row-cats { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+.admin-status {
+  display: inline-flex; align-items: center; font-family: var(--display); font-weight: 700;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .02em;
+  padding: 3px 8px; border-radius: 999px;
+}
+.admin-status-published { background: var(--accent-soft); color: var(--accent); }
+.admin-status-draft { background: var(--well); color: var(--ink-soft); }

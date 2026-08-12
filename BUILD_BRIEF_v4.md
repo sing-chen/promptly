@@ -58,7 +58,7 @@ prompts
   id uuid pk, user_id uuid fk -> auth.users, slug text,
   title text, categories text[], purpose text, body text,
   notes text, sequence text, sequence_step int, depends_on uuid,
-  example_output text, added timestamptz, updated timestamptz
+  added timestamptz, updated timestamptz
   unique (user_id, slug)
 
 collections
@@ -114,6 +114,7 @@ Mirroring v3's convention of flagging what's deliberately undecided rather than 
 - **Terms of Service / Privacy Policy** — becomes necessary, not optional, once real emails and personal libraries are being stored. Not yet drafted.
 - **Rate limiting / sign-up abuse protection** — Supabase has some baseline protection; whether it's sufficient at whatever scale this reaches is unassessed.
 - **OAuth providers** — decided: Google sign-in is a confirmed **nice-to-have**, not required for v1. Email/password (already built and working) is the v1 baseline; add Google once core account-tier features (admin authoring, `/library/`, forks) are further along. Needs a Google Cloud Console OAuth client + consent screen + redirect URI, then wiring the provider in Supabase's Auth settings — real setup overhead, which is why it's deferred rather than bundled into the initial auth work.
+- **Example output** — v3 had a `prompts.example_output` field (a single attached image, shown on the prompt detail page). Removed from the account-tier schema entirely rather than carried forward (`supabase/migrations/0003_remove_example_output.sql`) — the New Prompt modal never offered it. May return as a real, redesigned feature later (the old single-image-URL shape wasn't reconsidered for the account tier, just dropped); if it does, treat it as new design work, not a resurrection of the old column.
 
 ---
 
@@ -153,8 +154,9 @@ Two other architectures were designed and explicitly **rejected** in favor of th
 - `public/scripts/db.js` — the full account-tier data layer (§6), including admin curate/publish, fork-on-edit, archive, favorites, collections CRUD.
 - Build-time cache-busting for `/scripts` and `/styles` references (not originally scoped in this document at all — caught during nav-rebuild testing).
 
+**Since built** (this section is otherwise historical — see `supabase/README.md` for current status): the "New Prompt" modal and an `/admin/` publish/unpublish page.
+
 **Not yet built:**
-- The "New Prompt" button's actual behavior (create-prompt modal) — it's rendered in the sidebar (hidden until signed in) but has no click handler yet.
 - `scripts/build.mjs` switched to query Supabase for default prompts, and the Supabase→Vercel publish webhook (§9) — the static site still builds from `prompts/*.md`, which is planned to be retired but hasn't been yet.
 - `/library/` views + CRUD UI, variable-fill (§6.1), collections CRUD UI.
 - Everything in §7's open items list (still accurate/current).

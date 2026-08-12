@@ -5,6 +5,7 @@
 // view exists yet to send the user to on success, so a successful create
 // just shows an inline message inside the modal instead of redirecting.
 import { createPrompt, createCuratedPrompt, isAdmin } from './db.js';
+import { categoryLabel } from './lib/render.mjs';
 
 function slugify(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -23,6 +24,45 @@ function init() {
   const adminRow = document.getElementById('np-admin-row');
   const adminCheckbox = document.getElementById('np-admin-checkbox');
 
+  // Category dropdown - a button that toggles a checkbox panel, rather than
+  // a flat checkbox grid, since the vocabulary (lib/schema.mjs's CATEGORIES)
+  // has grown enough that all-checkboxes-always-visible ate too much of the
+  // modal. The checkboxes underneath are unchanged; this only changes how
+  // they're revealed and how the selection is summarized.
+  const catDropdown = document.getElementById('np-cat-dropdown');
+  const catTrigger = document.getElementById('np-cat-trigger');
+  const catTriggerText = document.getElementById('np-cat-trigger-text');
+  const catPanel = document.getElementById('np-cat-panel');
+  const catCheckboxes = [...catPanel.querySelectorAll('input[name=categories]')];
+
+  function updateCatTriggerText() {
+    const checked = catCheckboxes.filter(c => c.checked);
+    catTriggerText.textContent = checked.length === 0
+      ? 'Select categories…'
+      : checked.map(c => categoryLabel(c.value)).join(', ');
+  }
+
+  function openCatPanel() {
+    catPanel.hidden = false;
+    catTrigger.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeCatPanel() {
+    catPanel.hidden = true;
+    catTrigger.setAttribute('aria-expanded', 'false');
+  }
+
+  catTrigger.addEventListener('click', () => {
+    if (catPanel.hidden) openCatPanel(); else closeCatPanel();
+  });
+  catCheckboxes.forEach(c => c.addEventListener('change', updateCatTriggerText));
+  document.addEventListener('click', (e) => {
+    if (!catPanel.hidden && !catDropdown.contains(e.target)) closeCatPanel();
+  });
+  catDropdown.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !catPanel.hidden) { e.stopPropagation(); closeCatPanel(); catTrigger.focus(); }
+  });
+
   // Auto-fill the slug from the title until the user edits the slug field
   // directly - mirrors the common "auto-slug" pattern without ever
   // overwriting something the user typed on purpose.
@@ -38,6 +78,8 @@ function init() {
     messageEl.hidden = true;
     form.hidden = false;
     successEl.hidden = true;
+    closeCatPanel();
+    updateCatTriggerText();
   }
 
   function open() {
@@ -66,11 +108,12 @@ function init() {
     e.preventDefault();
     messageEl.hidden = true;
 
-    const categories = [...form.querySelectorAll('input[name=categories]:checked')].map(c => c.value);
+    const categories = catCheckboxes.filter(c => c.checked).map(c => c.value);
     if (categories.length === 0) {
       messageEl.textContent = 'Choose at least one category.';
       messageEl.setAttribute('role', 'alert');
       messageEl.hidden = false;
+      openCatPanel();
       return;
     }
 
@@ -80,8 +123,7 @@ function init() {
       categories,
       purpose: form.purpose.value.trim(),
       body: form.body.value,
-      notes: form.notes.value.trim() || null,
-      example_output: form.example_output.value.trim() || null
+      notes: form.notes.value.trim() || null
     };
 
     // Only actually curated if the checkbox is both checked and visible -
@@ -94,7 +136,7 @@ function init() {
       await (makeCurated ? createCuratedPrompt(fields) : createPrompt(fields));
       form.hidden = true;
       successMessageEl.textContent = makeCurated
-        ? 'Default prompt created as an unpublished draft — only visible to you until you publish it.'
+        ? 'Default prompt created as an unpublished draft — only visible to you until you publish it. Publish it from the Admin page.'
         : 'Prompt created.';
       successEl.hidden = false;
     } catch (err) {
