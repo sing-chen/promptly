@@ -784,3 +784,48 @@ footer.site-footer {
 .account-form button[type="submit"] { margin-top: 4px; justify-content: center; }
 #auth-message { font-size: 13px; color: var(--ink-soft); margin: 0; }
 #auth-message[role="alert"] { color: var(--danger); }
+
+/* New Prompt modal (renderNewPromptModal in lib/render.mjs, behavior in
+   public/scripts/newPrompt.js) - reuses .backdrop/.qv-chrome/.qv-close-btn
+   from the quick-view modal for the dialog frame, .account-form for
+   label/input styling, and adds its own rules only for what's actually new
+   here (textarea, category checkboxes, admin checkbox, success actions). */
+.np-modal {
+  background: var(--paper); border-radius: var(--radius-lg); box-shadow: var(--shadow);
+  width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto; position: relative;
+}
+.np-modal-title { margin: 0; font-family: var(--display); font-size: 15px; font-weight: 700; }
+.np-page { padding: 20px 22px 26px; }
+.np-form textarea {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  resize: vertical;
+}
+.np-form textarea:focus { outline: none; border-color: var(--accent); }
+/* .account-form input's padded/bordered "text field" look is wrong for a
+   checkbox - reset the box model back to a normal checkbox control. */
+.np-form input[type="checkbox"] {
+  width: 15px; height: 15px; padding: 0; border-radius: 3px;
+  accent-color: var(--accent); flex-shrink: 0;
+}
+.np-field { display: flex; flex-direction: column; gap: 6px; }
+.np-field-label { font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+.np-cat-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+/* label.___ (not just .___) to match .account-form label's own (type+class)
+   specificity - a bare class selector here would lose that tie-break and
+   the flex-direction:column/gap:6px it sets would leak through. */
+label.np-cat-check {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 400; color: var(--ink);
+  text-transform: none;
+}
+label.np-admin-check {
+  display: flex; flex-direction: row; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+}
+.np-success-actions { display: flex; gap: 10px; margin-top: 4px; }
+#np-success p { color: var(--ink); font-size: 13.5px; }
