@@ -1,6 +1,6 @@
 # Supabase setup (account tier, BUILD_BRIEF_v4.md + default-prompt catalog)
 
-Nothing here is provisioned yet. Steps to stand up the backend:
+Already provisioned and live in production — see "Status" below for what's actually built. Steps below are what stands up a fresh project from scratch (useful for a new environment, or if you're verifying/reproducing the existing one):
 
 1. Create a project at [supabase.com](https://supabase.com) (free tier is fine at this project's size — see BUILD_BRIEF_v4.md §1).
 2. In the Supabase dashboard's SQL Editor, run [`migrations/0001_init_schema.sql`](migrations/0001_init_schema.sql). It creates `admins`, `prompts`, `prompt_overrides`, `collections`, `collection_prompts`, `favorites`, and RLS policies.
