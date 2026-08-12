@@ -1,4 +1,4 @@
-import { existsSync, rmSync, mkdirSync, writeFileSync, cpSync } from 'node:fs';
+import { existsSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync, cpSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPrompts, validatePrompts, buildData, buildSearchIndex, PROMPTS_DIR, PUBLIC_DIR } from '../lib/content.mjs';
@@ -6,8 +6,9 @@ import {
   renderHomePage, renderCategoryPage,
   renderCollectionPage, renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
-  renderAboutPage
+  renderAboutPage, renderAccountPage, setAssetVersion
 } from '../lib/render.mjs';
+import { loadEnv } from '../lib/env.mjs';
 
 const DIST_DIR = 'dist';
 
@@ -24,6 +25,31 @@ function writeRoute(routePath, html) {
   writeFileSync(join(dir, 'index.html'), html);
 }
 
+// Cache-busting for cross-file import specifiers inside our own JS/CSS
+// (e.g. favorites.js importing './categoryPills.js', base.css importing
+// './tokens.css') - without this, a browser that already cached an old
+// version of one of these files keeps using it even after a fresh deploy,
+// since none of these URLs are otherwise versioned or hashed. Safe to do as
+// a blind regex here specifically because every file under dist/scripts and
+// dist/styles is developer-authored or vendored (Fuse.js), never prompt/
+// user content - unlike rendered HTML pages, which embed untrusted prompt
+// JSON and get versioned via lib/render.mjs's explicit av() instead.
+function versionScriptRefs(text, buildId) {
+  return text.replace(
+    /(["'])((?:\/scripts\/|\/styles\/|\.\/)[^"'?]+?\.(?:m?js|css)|\/search-index\.json)\1/g,
+    (match, quote, path) => `${quote}${path}?v=${buildId}${quote}`
+  );
+}
+
+function versionAssetFiles(dir, buildId) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) versionAssetFiles(full, buildId);
+    else if (/\.(m?js|css)$/.test(entry.name)) writeFileSync(full, versionScriptRefs(readFileSync(full, 'utf8'), buildId));
+  }
+}
+
 // Runs the full build once: validate -> data model -> clean-rebuild dist/.
 // Throws ValidationError on bad content rather than exiting the process, so
 // watch.mjs can catch it, report it, and keep watching instead of dying.
@@ -33,6 +59,12 @@ export function runBuild() {
   if (errors.length > 0) throw new ValidationError(errors);
 
   const data = buildData(PROMPTS_DIR);
+
+  // One version stamp per build, applied to every /scripts and /styles
+  // reference this build emits (see setAssetVersion/versionAssetFiles) -
+  // doesn't need to be a content hash, just needs to differ build-to-build.
+  const BUILD_ID = Date.now().toString(36);
+  setAssetVersion(BUILD_ID);
 
   // clean-rebuild dist/ (no incremental build, so bulk-deleted prompts
   // never leave an orphaned page behind)
@@ -59,6 +91,27 @@ export function runBuild() {
   cpSync('lib/sequences.mjs', join(DIST_DIR, 'scripts', 'lib', 'sequences.mjs'));
   cpSync('lib/schema.mjs', join(DIST_DIR, 'scripts', 'lib', 'schema.mjs'));
 
+  // Account-tier config, generated fresh every build from SUPABASE_URL/
+  // SUPABASE_ANON_KEY (read from .env.local locally, or real env vars in
+  // Vercel) - browsers can't read either of those directly, so this file is
+  // how public/scripts/supabaseClient.js gets them. Safe to bake the anon
+  // key into a public static file: RLS is the real security boundary, not
+  // key secrecy (supabase/README.md).
+  const env = loadEnv();
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+    console.warn('SUPABASE_URL/SUPABASE_ANON_KEY not set - account-tier features (sign-in, admin authoring) will be inert in this build.');
+  }
+  writeFileSync(join(DIST_DIR, 'scripts', 'config.js'), `// Generated at build time - do not edit by hand.
+export const SUPABASE_URL = ${JSON.stringify(env.SUPABASE_URL || '')};
+export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
+`);
+
+  // Cache-bust every cross-file import inside our own dist/scripts and
+  // dist/styles files now that they're all in place (must run after every
+  // copy/write above, and before any HTML references them).
+  versionAssetFiles(join(DIST_DIR, 'scripts'), BUILD_ID);
+  versionAssetFiles(join(DIST_DIR, 'styles'), BUILD_ID);
+
   writeFileSync(join(DIST_DIR, 'search-index.json'), JSON.stringify(buildSearchIndex(data)));
 
   // --- pages ---
@@ -66,7 +119,8 @@ export function runBuild() {
   writeRoute('sequences', renderSequencesIndex(data));
   writeRoute('favorites', renderFavoritesPage(data));
   writeRoute('search', renderSearchPage(data));
-  writeRoute('about', renderAboutPage());
+  writeRoute('about', renderAboutPage(data));
+  writeRoute('account', renderAccountPage(data));
 
   for (const category of data.categories) {
     const inCategory = data.prompts.filter(p => p.categories.includes(category.slug));
@@ -78,7 +132,7 @@ export function runBuild() {
   }
 
   for (const sequence of data.sequences) {
-    writeRoute(`sequence/${sequence.slug}`, renderSequencePage(sequence));
+    writeRoute(`sequence/${sequence.slug}`, renderSequencePage(sequence, data));
   }
 
   for (const prompt of data.prompts) {

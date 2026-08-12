@@ -159,23 +159,32 @@ function initThemeToggle() {
 }
 
 function initNavToggle() {
-  const nav = document.querySelector('.nav');
+  const shell = document.querySelector('.app-shell');
   const btn = document.getElementById('nav-menu-toggle');
-  if (!nav || !btn) return;
-  btn.addEventListener('click', () => {
-    const open = nav.classList.toggle('menu-open');
+  const backdrop = document.getElementById('sidebar-backdrop');
+  const sidebar = document.getElementById('sidebar');
+  if (!shell || !btn) return;
+
+  function setOpen(open) {
+    shell.classList.toggle('menu-open', open);
     btn.setAttribute('aria-expanded', String(open));
     btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+
+  btn.addEventListener('click', () => setOpen(!shell.classList.contains('menu-open')));
+  backdrop?.addEventListener('click', () => setOpen(false));
+  // Off-canvas drawer only exists below the sidebar's breakpoint - a link
+  // click there should close it so the drawer doesn't stay open over the
+  // page it just navigated away from (moot once navigation completes, but
+  // matters if the click ever doesn't navigate, e.g. a same-page anchor).
+  sidebar?.addEventListener('click', (e) => {
+    if (e.target.closest('a') && window.matchMedia('(max-width: 900px)').matches) setOpen(false);
   });
   // Collapsing back to desktop width with the menu left open would otherwise
   // strand aria-expanded="true" on a toggle whose panel is force-hidden by
   // the media query kicking back in.
-  window.matchMedia('(min-width: 681px)').addEventListener('change', (e) => {
-    if (e.matches) {
-      nav.classList.remove('menu-open');
-      btn.setAttribute('aria-expanded', 'false');
-      btn.setAttribute('aria-label', 'Open menu');
-    }
+  window.matchMedia('(min-width: 901px)').addEventListener('change', (e) => {
+    if (e.matches) setOpen(false);
   });
 }
 

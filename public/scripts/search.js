@@ -17,7 +17,7 @@ const resultsEl = document.getElementById('search-results');
 const resultsWrapEl = document.getElementById('search-results-wrap');
 const summaryEl = document.getElementById('search-summary');
 const filtersEl = document.getElementById('search-filters');
-const navInput = document.querySelector('.nav-search input[name="q"]');
+const navInput = document.querySelector('.sidebar-search input[name="q"]');
 
 if (resultsEl && filtersEl) {
   const index = await fetch('/search-index.json').then(r => r.json());

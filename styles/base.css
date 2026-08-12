@@ -2,6 +2,13 @@
 
 * { box-sizing: border-box; }
 
+/* Defensive: any element styled with display:flex/inline-flex etc. (e.g.
+   .btn) silently defeats the UA stylesheet's [hidden]{display:none} once
+   an author rule sets its own display value - author CSS always wins over
+   UA CSS regardless of specificity. Caught on #new-prompt-btn (.btn
+   .sidebar-new-btn hidden) rendering visible when it shouldn't. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;
@@ -21,8 +28,14 @@ body {
   flex-direction: column;
   min-height: 100vh;
 }
-main {
+.app-shell {
+  display: flex;
+  align-items: flex-start;
   flex: 1 0 auto;
+}
+main {
+  flex: 1 1 auto;
+  min-width: 0;
   padding-top: 32px;
 }
 
@@ -181,83 +194,136 @@ button { font-family: var(--sans); }
   color: var(--seq);
 }
 
-/* Nav - a raised surface (§9 elevation rule: nothing sits flush with
-   --paper), tinted with --accent-soft rather than plain --surface white -
-   the same soft-brand tone used for chip backgrounds/hover states
-   throughout, so the nav reads as branded chrome rather than a plain box. */
-.nav {
+/* Sidebar (replaces the old top nav bar - whole-site rebuild). A raised
+   surface (§9 elevation rule: nothing sits flush with --paper), same
+   --surface treatment as .surface elsewhere rather than plain --paper, so
+   it reads as chrome distinct from the page content next to it. Sticky +
+   100vh height so it scrolls independently and stays pinned while the main
+   column scrolls past it. */
+.sidebar {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: var(--accent-soft);
-  border-bottom: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
+  align-self: flex-start;
+  width: 240px;
+  flex: 0 0 240px;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 16px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
 }
-.nav-inner {
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 14px 0;
-}
-.nav-logo {
+  gap: 8px;
   font-family: var(--display);
   font-weight: 700;
   font-size: 15px;
-  white-space: nowrap;
-  order: 1;
 }
-.nav-links {
-  display: flex;
-  gap: 18px;
-  font-size: 13px;
-  font-weight: 600;
-  order: 2;
-}
-.nav-links a { color: var(--ink-soft); padding-bottom: 2px; border-bottom: 2px solid transparent; }
-.nav-links a[aria-current="page"] { color: var(--accent); border-color: var(--accent); }
-.nav-search {
-  flex: 1;
-  max-width: 420px;
-  order: 3;
-}
-.nav-fav-count {
+.sidebar-new-btn { width: 100%; justify-content: center; }
+
+.sidebar-primary-links, .sidebar-section-list { display: flex; flex-direction: column; gap: 1px; }
+.sidebar-primary-links a, .sidebar-section-list a {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  font-size: 13.5px;
   font-weight: 600;
-  color: var(--ink-faint);
-  white-space: nowrap;
-  order: 4;
 }
-.nav-fav-count:hover { color: var(--accent); }
-.theme-toggle { order: 5; }
-.nav-toggle { order: 6; }
+.sidebar-primary-links a:hover, .sidebar-section-list a:hover { background: var(--well); color: var(--ink); }
+.sidebar-primary-links a[aria-current="page"], .sidebar-section-list a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.sidebar-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  background: var(--well);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.sidebar-section-list a { font-weight: 500; }
+.sidebar-section-list .count { font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+.sidebar-section { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
+.sidebar-section-label {
+  font-family: var(--mono);
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: .05em;
+  color: var(--ink-faint);
+  padding: 0 10px;
+}
+.sidebar-section-list { overflow-y: auto; }
+
+.sidebar-footer-row {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+.sidebar-footer-row #nav-account-link { color: var(--ink-soft); }
+.sidebar-footer-row #nav-account-link[aria-current="page"] { color: var(--accent); }
+
+/* Mobile top bar + off-canvas sidebar drawer - the sidebar needs real
+   horizontal room a phone/narrow-tablet viewport doesn't have, so below
+   900px it becomes a slide-in drawer (same off-canvas-plus-hamburger idea
+   as amplified thinker's mobile nav, applied to a left sidebar instead of
+   a top bar) toggled by the hamburger in a slim always-visible top bar. */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.mobile-topbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 15px;
+}
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 8, .4);
+  z-index: 24;
+}
 button.nav-toggle { display: none; }
 
-/* Mobile nav collapse - the nav has no other breakpoint handling site-wide,
-   but this one was measured overflowing (423px of content in a 375px
-   viewport) so it gets a dedicated fix. Search stays always-visible (locked
-   decision) by wrapping to its own full-width row rather than collapsing;
-   only Browse/Sequences hide behind the toggle. */
-@media (max-width: 680px) {
-  .nav-inner { flex-wrap: wrap; row-gap: 10px; }
-  .nav-fav-count { order: 2; }
-  .theme-toggle { order: 3; }
-  button.nav-toggle { order: 4; display: inline-flex; }
-  .nav-search { order: 5; flex: 1 1 100%; max-width: none; }
-  .nav-links {
-    order: 6;
-    flex: 1 1 100%;
-    flex-direction: column;
-    gap: 2px;
-    display: none;
-    border-top: 1px solid var(--line-soft);
-    padding-top: 10px;
+@media (max-width: 900px) {
+  .mobile-topbar { display: flex; }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 25;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    box-shadow: var(--shadow-lg);
   }
-  .nav-links a { padding: 8px 2px; border-bottom: none; }
-  .nav-links a[aria-current="page"] { background: var(--accent-soft); border-radius: var(--radius-sm); padding-left: 8px; }
-  .nav.menu-open .nav-links { display: flex; }
+  .app-shell.menu-open .sidebar { transform: translateX(0); }
+  .app-shell.menu-open .sidebar-backdrop { display: block; }
+  button.nav-toggle { display: inline-flex; }
 }
 
 /* Search field */
@@ -377,8 +443,8 @@ button.nav-toggle { display: none; }
    same swap pattern as the theme toggle above */
 .nav-toggle { flex-shrink: 0; }
 .nav-toggle .icon-menu-close { display: none; }
-.nav.menu-open .nav-toggle .icon-menu-open { display: none; }
-.nav.menu-open .nav-toggle .icon-menu-close { display: block; }
+.app-shell.menu-open .nav-toggle .icon-menu-open { display: none; }
+.app-shell.menu-open .nav-toggle .icon-menu-close { display: block; }
 
 /* filter toolbar (§9a filter-rail -> §9b pill pattern swap, see .filter-pill
    below for the pill itself) - a horizontal, wrapping row of pill groups
@@ -692,3 +758,29 @@ footer.site-footer {
   color: var(--ink-faint);
 }
 .footer-links a:hover { color: var(--accent); }
+
+/* Account page (sign-in/up form + signed-in state, rendered client-side by
+   auth.js into #account-root - see lib/render.mjs renderAccountPage) */
+.account-page { max-width: 380px; padding-top: 8px; }
+.account-tabs { margin: 16px 0; }
+.account-form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.account-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+.account-form input {
+  font: inherit;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+.account-form input:focus { outline: none; border-color: var(--accent); }
+.account-form button[type="submit"] { margin-top: 4px; justify-content: center; }
+#auth-message { font-size: 13px; color: var(--ink-soft); margin: 0; }
+#auth-message[role="alert"] { color: var(--danger); }
