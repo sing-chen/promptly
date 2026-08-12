@@ -69,7 +69,6 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 **Open items:**
 - Vercel env vars are **Production-only** — Preview/Development don't have `SUPABASE_URL`/`SUPABASE_ANON_KEY` set (the Environments dropdown wasn't cooperating in the dashboard when this was set up). Fine until preview-branch deployments or `vercel env pull` are actually used — add them then.
 - The New Prompt modal's regular- and admin-curated signed-in create paths, and the `/admin/` page's publish/unpublish buttons, were built and exercised for open/close/validation/error-path behavior in a browser preview signed **out**, but not end-to-end signed **in** — that needs a real account and wasn't done in that session since it would write real rows to the production database. Verify both before relying on this further: create a regular prompt, create+publish a default prompt, then confirm it's visible signed-out (once `scripts/build.mjs` reads from Supabase — see below — or via a direct RLS-scoped read today).
-- Migration `0003_remove_example_output.sql` needs to actually be run against the live project (SQL Editor) — writing it doesn't apply it.
 
 ## Next steps
 
