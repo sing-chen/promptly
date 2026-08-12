@@ -31,7 +31,7 @@ const resultsWrapEl = document.getElementById('search-results-wrap');
 const cardsEl = document.getElementById('search-results-cards');
 const summaryEl = document.getElementById('search-summary');
 const filtersEl = document.getElementById('search-filters');
-const navInput = document.querySelector('.sidebar-search input[name="q"]');
+const navInput = document.querySelector('.main-header-search input[name="q"]');
 
 if (resultsEl && filtersEl) {
   const index = await fetch('/search-index.json').then(r => r.json());
@@ -53,6 +53,16 @@ if (resultsEl && filtersEl) {
 
   const toolbar = initFilterToolbar('search-filters', { onChange: runSearch });
   const quickView = initQuickView('search-results', { data: [], sequenceTotals: index.sequenceTotals, allPrompts: index.prompts });
+
+  // Cards open the same quick-view modal a table row does, instead of
+  // navigating away - bound once on the container (event delegation), since
+  // render() replaces cardsEl's innerHTML on every keystroke.
+  cardsEl?.addEventListener('click', (e) => {
+    const card = e.target.closest('[data-slug]');
+    if (!card) return;
+    e.preventDefault();
+    quickView.open(card.dataset.slug);
+  });
 
   function expandQuery(q) {
     const words = q.toLowerCase().split(/\s+/).filter(Boolean);

@@ -16,6 +16,7 @@
 //   and redraws itself in the current mode directly.
 import { renderPromptCard } from './lib/render.mjs';
 import { initInteractive } from './favorites.js';
+import { getQuickView } from './quickViewRegistry.js';
 
 const KEY = 'promptly:viewMode';
 
@@ -66,6 +67,20 @@ function setupStaticBlock(block) {
     tableWrap.after(cardGrid);
     initInteractive(cardGrid);
     mirrorHiddenState();
+
+    // Cards open the same quick-view modal a table row does, instead of
+    // navigating away - matches the table's own click behavior. Only
+    // intercepts plain clicks on the card itself, not its fav/copy buttons
+    // (those already stopPropagation in favorites.js's initInteractive).
+    const quickView = getQuickView(gridId);
+    if (quickView) {
+      cardGrid.addEventListener('click', (e) => {
+        const card = e.target.closest('[data-slug]');
+        if (!card) return;
+        e.preventDefault();
+        quickView.open(card.dataset.slug);
+      });
+    }
 
     // Whatever the page's own filter script hides/shows on the table rows
     // (a category pill, the favorites filter) gets mirrored onto the

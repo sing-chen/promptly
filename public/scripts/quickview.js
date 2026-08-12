@@ -249,6 +249,10 @@ export function initQuickView(gridId, opts = {}) {
     update(newItems) {
       items = newItems;
       if (selectedSlug) markSelectedRow();
-    }
+    },
+    // Exposed so a card-grid view (viewToggle.js, search.js), which isn't
+    // the tbody this instance is bound to, can still open the same modal on
+    // a card click - see quickViewRegistry.js.
+    open
   };
 }

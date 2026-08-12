@@ -5,17 +5,19 @@
 // (initNavToggle in favorites.js) - this only has any visual effect at
 // >=901px (styles/base.css's `.app-shell.sidebar-collapsed` rule is scoped
 // to that breakpoint), so the two never fight over the same state.
+//
+// #sidebar-toggle lives in the main-content header (renderMainHeader in
+// lib/render.mjs), not inside .sidebar itself - unlike an earlier version of
+// this feature, that means it stays reachable regardless of collapsed state,
+// so a single button handles both directions; no separate "how do I get it
+// back" affordance is needed.
 const KEY = 'promptly:sidebarCollapsed';
 const desktopMq = window.matchMedia('(min-width: 901px)');
 
 export function initSidebarCollapse() {
   const shell = document.querySelector('.app-shell');
   const sidebar = document.getElementById('sidebar');
-  const btn = document.getElementById('sidebar-collapse-toggle');
-  // Lives outside .sidebar entirely (see its CSS comment) - the button
-  // above disappears along with the rest of the sidebar once collapsed, so
-  // without this there'd be no way back in.
-  const expandBtn = document.getElementById('sidebar-expand-toggle');
+  const btn = document.getElementById('sidebar-toggle');
   if (!shell || !sidebar || !btn) return;
 
   function setCollapsed(collapsed) {
@@ -37,10 +39,6 @@ export function initSidebarCollapse() {
     btn.setAttribute('aria-pressed', String(effective));
     btn.setAttribute('aria-label', effective ? 'Expand sidebar' : 'Collapse sidebar');
     btn.title = effective ? 'Expand sidebar' : 'Collapse sidebar';
-    // The global [hidden]{display:none!important} rule always wins over a
-    // plain CSS visibility selector, so this has to be a real attribute
-    // toggle, not just a class the stylesheet reacts to.
-    if (expandBtn) expandBtn.hidden = !effective;
     try { localStorage.setItem(KEY, String(collapsed)); } catch {
       // localStorage unavailable, ignore - collapse state just won't persist
     }
@@ -52,7 +50,6 @@ export function initSidebarCollapse() {
   setCollapsed(document.documentElement.hasAttribute('data-sidebar-collapsed'));
 
   btn.addEventListener('click', () => setCollapsed(!shell.classList.contains('sidebar-collapsed')));
-  expandBtn?.addEventListener('click', () => setCollapsed(false));
 
   // Crossing back up to desktop width with a persisted collapsed
   // preference should re-apply it (it was inert-suppressed, not cleared,
