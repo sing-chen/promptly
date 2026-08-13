@@ -26,11 +26,6 @@ Already provisioned and live in production — see "Status" below for what's act
    - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks) and
      [`verify_0005.sql`](verify_0005.sql) (8 checks); all should read PASS, except
      0005's hook-URL check until step 7 below.
-7. **Auto-rebuild for anonymous visitors** (optional but recommended): in Vercel,
-   Project Settings → Git → Deploy Hooks, create a hook for `main`, then run
-   `select set_deploy_hook_url('<the URL>');` in the SQL editor. Without this,
-   publishing or editing a catalog prompt won't reach anonymous visitors until
-   someone redeploys by hand. Signed-in users are unaffected either way.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -40,6 +35,11 @@ Already provisioned and live in production — see "Status" below for what's act
    select id from auth.users where email = 'you@example.com';
    ```
    This makes you the admin — the only role allowed to set `prompts.is_curated = true`.
+7. **Auto-rebuild for anonymous visitors** (optional but recommended): in Vercel,
+   Project Settings → Git → Deploy Hooks, create a hook for `main`, then run
+   `select set_deploy_hook_url('<the URL>');` in the SQL editor. Without this,
+   publishing or editing a catalog prompt won't reach anonymous visitors until
+   someone redeploys by hand. Signed-in users are unaffected either way.
 
 ## There is no markdown catalog
 
