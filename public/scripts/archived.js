@@ -17,7 +17,7 @@ import { renderCatBadges, esc, fmtDate } from './lib/render.mjs';
 function renderRow(p) {
   return `
 <tr data-id="${esc(p.id)}">
-  <td><span class="cat-cell">${renderCatBadges(p.categories, { max: 2 })}</span></td>
+  <td class="col-category"><span class="cat-cell">${renderCatBadges(p.categories, { max: 2 })}</span></td>
   <td class="title-cell">${esc(p.title)}<span class="purpose-line">${esc(p.purpose || '')}</span></td>
   <td class="col-updated">${esc(fmtDate(p.updated || p.added))}</td>
   <td>
@@ -35,7 +35,7 @@ function renderList(root, prompts) {
 <div class="table-wrap">
   <table class="browse-table comfortable">
     <thead>
-      <tr><th style="width:180px;">Category</th><th>Title</th><th class="col-updated">Updated</th><th style="width:110px;"></th></tr>
+      <tr><th class="col-category">Category</th><th>Title</th><th class="col-updated">Updated</th><th style="width:110px;"></th></tr>
     </thead>
     <tbody>${prompts.map(renderRow).join('')}</tbody>
   </table>

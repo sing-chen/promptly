@@ -649,6 +649,25 @@ a.sidebar-section-label:hover { color: var(--accent); }
   #sidebar-expand-btn { display: none; }
   .main-header { height: auto; min-height: 64px; flex-wrap: wrap; padding: 10px 16px; }
   .search-field.main-header-search { width: auto; flex: 1; min-width: 140px; }
+
+  /* Two things stopped the wrap above from ever happening, and every page
+     scrolled sideways ~146px at phone widths as a result.
+
+     1. .main-header-right is `flex-shrink: 0` (correct on desktop, so a long
+        page title can't squash the controls). Below this breakpoint that
+        made the group rigid at its content width, and since .main-header-left
+        *can* shrink, the browser shrank the title instead of wrapping the
+        controls onto their own line - so the group simply ran off the right
+        edge.
+     2. The `min-width: 140px` above looks like it lets the field get small,
+        but it's a floor, not a ceiling. The real floor was the <input>: it's
+        a flex item inside .search-field, so its automatic content-based
+        minimum (~172px for a text input) applied, holding the field at 225px
+        no matter what the field's own min-width said.
+
+     Both need fixing together - either alone leaves the overflow. */
+  .main-header-right { flex-shrink: 1; min-width: 0; }
+  .main-header-search input { min-width: 0; }
 }
 
 /* Mobile top bar + off-canvas sidebar drawer - the sidebar needs real
@@ -686,6 +705,31 @@ button.nav-toggle { display: none; }
 
 @media (max-width: 900px) {
   .mobile-topbar { display: flex; }
+
+  /* .app-shell is a ROW flex container - on desktop that's sidebar | main.
+     .mobile-topbar is a sibling inside it, so the moment it becomes visible
+     here it joins that row as a second column and takes horizontal space
+     from main rather than sitting above it. Measured at a 375px viewport:
+     the topbar took 166px and main was left with 209px, so every fixed-width
+     control inside main (the header's search field, the view toggle) ran off
+     the right edge and the whole document scrolled sideways by ~146px. It
+     looked like a header bug and was not one - the header was simply the
+     first thing wide enough to notice.
+
+     Wrapping the shell and giving both the topbar and main a full-width line
+     restores the stacked layout the topbar was always meant to have.
+
+     align-content: flex-start is not optional alongside the wrap: a
+     multi-line flex container stretches its lines to fill its height by
+     default, and .app-shell is `flex: 1 0 auto` inside a min-height:100vh
+     body - so the topbar's line stretched to ~290px and opened a large empty
+     gap above the content. */
+  .app-shell { flex-wrap: wrap; align-content: flex-start; }
+  .mobile-topbar { flex: 0 0 100%; }
+  /* min-width: 0 as well as the basis: without it main keeps a content-based
+     minimum and can still be pushed wider than its line by a wide child. */
+  main { flex: 0 0 100%; min-width: 0; }
+
   .sidebar {
     /* position/top/left already set by the shared desktop rule above (it's
        fixed there too now) - just the off-canvas-specific bits here. */
@@ -1051,6 +1095,35 @@ button.nav-toggle { display: none; }
   font-variant-numeric: tabular-nums;
   width: 118px;
   white-space: nowrap;
+}
+/* Was an inline width:180px on the <th> only. Moved here and given the cells
+   a class so the column can be addressed as a unit - which the mobile rule
+   below needs, and which matches how col-updated already worked. */
+.browse-table th.col-category, .browse-table td.col-category { width: 180px; }
+
+/* Phone widths: drop the two secondary columns rather than letting the table
+   overflow the viewport.
+
+   `table-layout: fixed` (§9q) means the columns can't reflow - Category 180 +
+   Updated 118 + Actions 200 is 498px of fixed width before Title gets
+   anything, so at 360px the table ran ~164px past the screen edge and took
+   the whole document with it.
+
+   Hiding beats the two alternatives. A horizontal scroll container would
+   undo §9q's reason for removing overflow-x from .table-wrap in the first
+   place, and shrinking the columns would leave a category badge and a date
+   competing for ~40px each. Title and the row actions are what the table is
+   actually for; category is still reachable through the filter pills above
+   it, and "Updated" is secondary on a phone.
+
+   Applies to every .browse-table - Home, Category, Favorites, Search,
+   /archived/ and /admin/ (which has no Category column but the same
+   too-wide Updated one). */
+@media (max-width: 700px) {
+  .browse-table th.col-category, .browse-table td.col-category,
+  .browse-table th.col-updated, .browse-table td.col-updated {
+    display: none;
+  }
 }
 .browse-table tbody tr {
   cursor: pointer; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent;
@@ -1673,6 +1746,14 @@ tr.is-flash, .prompt-card.is-flash {
    them - the direct counterpart to /collections/, and reusing its
    .account-page container and .surface panels rather than inventing a
    second page idiom. */
+/* Wider than .account-page's 380px sign-in-form width, which this page
+   inherits by reusing that class - same override .admin-page (760) and
+   .collections-page (860) already carry, and for the same reason. Missing it
+   squeezed the description column to a two-character ellipsis. 900 rather
+   than 860: these rows carry one more column than a collection card
+   (badge + description + count + two buttons on a single line). */
+.categories-page { max-width: 900px; }
+
 .cat-page-head { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 
 .cat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }

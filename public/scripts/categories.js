@@ -64,7 +64,7 @@ function rowView(c, counts) {
 <li class="cat-row surface" data-id="${esc(c.id)}" draggable="true">
   <span class="cat-drag" aria-hidden="true" title="Drag to reorder">⋮⋮</span>
   <span class="cat-badge" style="${catColorVars(c)}">${esc(categoryName(c))}</span>
-  <span class="cat-row-desc">${esc(c.description || '')}</span>
+  <span class="cat-row-desc" title="${esc(c.description || '')}">${esc(c.description || '')}</span>
   <span class="cat-row-count">${used} prompt${used === 1 ? '' : 's'}</span>
   <span class="cat-row-actions">
     <button type="button" class="btn btn-ghost" data-edit="${esc(c.id)}">Edit</button>
