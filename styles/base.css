@@ -92,7 +92,10 @@ main section > h2 { margin-bottom: 12px; }
   border: none;
   height: 1px;
   background: var(--line-soft);
-  margin: 32px 0 24px;
+  /* Bottom margin matches .filter-toolbar's padding-bottom (12px) below the
+     pills, so the pill row sits centered between this divider and the
+     toolbar's own border-bottom rather than closer to one than the other. */
+  margin: 32px 0 12px;
 }
 
 /* "What's New" callout (§9k) - only rendered server-side when there's
