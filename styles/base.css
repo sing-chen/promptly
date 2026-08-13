@@ -370,6 +370,25 @@ main .container {
   color: var(--accent);
 }
 .nav-icon { display: flex; flex-shrink: 0; color: var(--ink-faint); }
+/* Category rows carry a filled dot in the category's own colour instead of
+   the shared folder glyph (BUILD_BRIEF_v6.md §6.5). The dot itself is 10px,
+   centred in a box sized to match the real icons so every sidebar label
+   shares one left edge.
+
+   16px, not 18: ICON.* declare width="18" height="18" on the <svg>, but the
+   icons actually lay out at 16px, so an 18px box here pushed every category
+   label 2px right of the primary nav's. Measured, not assumed - the SVG
+   attribute is the misleading number. */
+.nav-cat-dot {
+  width: 16px; height: 16px;
+  align-items: center; justify-content: center;
+}
+.nav-cat-dot::before {
+  content: '';
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--cat, var(--ink-faint));
+}
 .sidebar-primary-links a[aria-current="page"] .nav-icon, .sidebar-section-list a[aria-current="page"] .nav-icon { color: var(--accent); }
 .nav-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar-badge {
@@ -855,15 +874,15 @@ button.nav-toggle { display: none; }
   letter-spacing: .05em;
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  color: #FFFFFF;
   white-space: nowrap;
+  /* --cat / --cat-ink are set inline per element by lib/render.mjs's
+     catColorVars() - see tokens.css. Six per-hue rules used to live here;
+     one rule reading the element's own colour replaces all of them, and it
+     works for a colour the user invented five seconds ago. The fallbacks
+     keep a badge legible if the attribute is ever missing. */
+  background: var(--cat, var(--well));
+  color: var(--cat-ink, #FFFFFF);
 }
-.cat-badge.cat-clay { background: var(--cat-clay); }
-.cat-badge.cat-ochre { background: var(--cat-ochre); }
-.cat-badge.cat-blue { background: var(--cat-blue); }
-.cat-badge.cat-plum { background: var(--cat-plum); }
-.cat-badge.cat-moss { background: var(--cat-moss); }
-.cat-badge.cat-rose { background: var(--cat-rose); }
 .cat-badge.cat-overflow { background: var(--well); color: var(--ink-faint); }
 
 .pd-bento {
@@ -968,30 +987,38 @@ button.nav-toggle { display: none; }
   box-shadow: 0 0 0 1px var(--paper), 0 0 0 3px var(--accent), var(--shadow-sm);
 }
 .filter-pill.is-active .count { opacity: .85; }
-/* Rest-state background matches the category's badge hue (soft tint, §9k) -
-   text stays neutral ink rather than hue-colored, since --cat-* is a fixed
-   value across themes (§9's category-badge rationale) and isn't guaranteed
-   enough contrast as *text* against a dark-mode tinted background the way
-   it is as white-on-solid-fill. The .is-active rules (solid fill, white
-   text, higher specificity via the third class) are unchanged and still win. */
-.filter-pill.cat-clay { background: var(--cat-clay-soft); }
-.filter-pill.cat-ochre { background: var(--cat-ochre-soft); }
-.filter-pill.cat-blue { background: var(--cat-blue-soft); }
-.filter-pill.cat-plum { background: var(--cat-plum-soft); }
-.filter-pill.cat-moss { background: var(--cat-moss-soft); }
-.filter-pill.cat-rose { background: var(--cat-rose-soft); }
-/* Full-strength count (not the base rule's .65 fade) - the pastel/dark
-   tinted backgrounds above need the guaranteed contrast, not a dimmed one. */
-.filter-pill.cat-clay .count, .filter-pill.cat-ochre .count, .filter-pill.cat-blue .count,
-.filter-pill.cat-plum .count, .filter-pill.cat-moss .count, .filter-pill.cat-rose .count {
-  opacity: 1;
+/* Rest-state background is a soft tint of the category's own colour (§9k) -
+   text stays neutral ink rather than hue-colored, because a user-chosen
+   colour has no guarantee of contrast as *text* against a tinted background
+   the way it does as ink-on-solid-fill, where readableInk() picks the ink.
+
+   The tint is derived, not stored: color-mix against --paper, so the same
+   declaration produces a pale wash in light mode and a dark one in dark mode
+   (--cat-soft-mix carries the only per-theme number). The plain --surface
+   line before it is the fallback for a browser without color-mix, which
+   degrades to the pre-§9k neutral pill rather than to anything broken.
+
+   The label overrides the base rule's --ink-soft with the full-strength
+   --ink, and that is an accessibility fix rather than a style preference.
+   The old tints were hand-picked pastels, so a mid-grey label was always
+   safe against them; a user-chosen colour is not so obliging - a dark pick
+   mixes to a mid-tone that leaves --ink-soft at ~4.2:1, under AA, and pure
+   black reaches 3.3:1. Measured in-browser: --ink holds 8.3:1 against the
+   worst light-mode pick and 5.0:1 against the worst dark-mode one, which is
+   what lets the tint stay strong enough to actually see. */
+.filter-pill.is-hued { background: var(--surface); color: var(--ink); }
+@supports (background: color-mix(in oklab, red 10%, blue)) {
+  .filter-pill.is-hued {
+    background: color-mix(in oklab, var(--cat) var(--cat-soft-mix), var(--paper));
+  }
 }
-.filter-pill.cat-clay.is-active { background: var(--cat-clay); }
-.filter-pill.cat-ochre.is-active { background: var(--cat-ochre); }
-.filter-pill.cat-blue.is-active { background: var(--cat-blue); }
-.filter-pill.cat-plum.is-active { background: var(--cat-plum); }
-.filter-pill.cat-moss.is-active { background: var(--cat-moss); }
-.filter-pill.cat-rose.is-active { background: var(--cat-rose); }
+/* Full-strength count (not the base rule's .65 fade) - the tinted
+   backgrounds above need the guaranteed contrast, not a dimmed one. */
+.filter-pill.is-hued .count { opacity: 1; }
+.filter-pill.is-hued.is-active {
+  background: var(--cat);
+  color: var(--cat-ink, #FFFFFF);
+}
 .filter-clear { font-size: 12px; font-weight: 600; color: var(--ink-faint); background: none; border: none; cursor: pointer; padding: 6px 4px; display: none; }
 .filter-clear:hover { color: var(--ink); text-decoration: underline; }
 .filter-clear.is-visible { display: inline-flex; align-items: center; gap: 4px; }
@@ -1349,6 +1376,15 @@ label.np-cat-check {
   text-transform: none; padding: 6px 4px;
 }
 label.np-cat-check:hover { background: var(--well); border-radius: var(--radius-sm); }
+/* Colour swatch in the category picker, so the choice made on /categories/ is
+   visible at the point the category is actually used. Same 10px filled dot as
+   the sidebar, for the same reason - it reads as "this colour" at small size
+   where a tinted glyph doesn't. */
+.np-cat-swatch {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--cat, var(--ink-faint));
+}
 label.np-admin-check {
   display: flex; flex-direction: row; align-items: center; gap: 8px;
   font-size: 13px; font-weight: 600; color: var(--ink-soft);
@@ -1595,12 +1631,9 @@ tr.is-flash, .prompt-card.is-flash {
 .stat-bar-label { font-size: 12.5px; color: var(--ink-soft); text-align: right; }
 .stat-bar-track { background: var(--well); border-radius: 999px; height: 14px; overflow: hidden; }
 .stat-bar-fill { display: block; height: 100%; border-radius: 999px; }
-.stat-bar-fill.cat-clay  { background: var(--cat-clay); }
-.stat-bar-fill.cat-ochre { background: var(--cat-ochre); }
-.stat-bar-fill.cat-blue  { background: var(--cat-blue); }
-.stat-bar-fill.cat-plum  { background: var(--cat-plum); }
-.stat-bar-fill.cat-moss  { background: var(--cat-moss); }
-.stat-bar-fill.cat-rose  { background: var(--cat-rose); }
+/* Same inline --cat the badges use, so a bar and its badge are the same
+   colour without either knowing about the other. */
+.stat-bar-fill { background: var(--cat, var(--accent)); }
 .stat-bar-count { font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
 
 .stat-empty { color: var(--ink-faint); font-size: 13px; }
@@ -1624,9 +1657,82 @@ tr.is-flash, .prompt-card.is-flash {
 }
 .stat-stack-seg { display: block; height: 100%; }
 .seg-own       { background: var(--accent); }     /* fully yours */
-.seg-custom    { background: var(--cat-ochre); }  /* given, then adapted */
+/* Was --cat-ochre, which no longer exists - category colour is per-category
+   data now (BUILD_BRIEF_v6.md §6) and this segment isn't a category at all,
+   it's a status. --new is the existing warm status token (defined in both
+   themes) and stays distinct from --accent's teal and --ink-faint's grey. */
+.seg-custom    { background: var(--new); }        /* given, then adapted */
 .seg-untouched { background: var(--ink-faint); }  /* given, untouched */
 
 .stat-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
 .stat-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); }
 .stat-legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+/* ── /categories/ (BUILD_BRIEF_v6.md §4) ─────────────────────────────
+   Categories are user-owned, so this page is the management surface for
+   them - the direct counterpart to /collections/, and reusing its
+   .account-page container and .surface panels rather than inventing a
+   second page idiom. */
+.cat-page-head { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+
+.cat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cat-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+}
+.cat-row.is-dragging { opacity: .5; }
+/* `cursor: grab` on the handle only, not the row: the row carries buttons,
+   and a grab cursor over a button misreports what a click will do. */
+.cat-drag { cursor: grab; color: var(--ink-faint); letter-spacing: -2px; user-select: none; }
+.cat-row-desc { color: var(--ink-soft); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-row-count { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
+.cat-row-actions { display: inline-flex; gap: 4px; }
+
+.cat-editor { padding: 18px; border-radius: var(--radius); margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
+.cat-editor h2 { margin: 0; font-size: 16px; }
+.cat-editor label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+.cat-editor input[type="text"], .cat-editor select {
+  font-family: var(--sans); font-size: 14px; font-weight: 400; color: var(--ink);
+  text-transform: none; letter-spacing: normal;
+  padding: 9px 11px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper);
+}
+.cat-optional { font-weight: 400; text-transform: none; letter-spacing: normal; color: var(--ink-faint); }
+.cat-editor-actions { display: flex; gap: 8px; align-items: center; }
+.cat-slug-note { font-size: 12px; color: var(--ink-faint); margin: 0; }
+.cat-slug-note code { font-family: var(--mono, monospace); font-size: 11.5px; }
+
+.cat-color-field { display: flex; flex-direction: column; gap: 8px; }
+.cat-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.cat-swatch {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  background: var(--cat);
+}
+/* Ring rather than a border colour change, so the swatch's own colour is
+   never altered by being selected - same separation of "you picked this"
+   from "this is the colour" that §9l's filter-pill ring settled on. */
+.cat-swatch.is-selected { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--accent); }
+.cat-hex-label { max-width: 140px; }
+/* The live preview is the contrast affordance: a pale pick visibly flips its
+   own label to dark ink here, which explains the rule better than a warning
+   would (BUILD_BRIEF_v6.md §6.3). */
+.cat-preview {
+  align-self: flex-start;
+  display: inline-flex; align-items: center;
+  text-transform: uppercase; font-weight: 700; font-size: 10px; letter-spacing: .05em;
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  background: var(--cat); color: var(--cat-ink);
+}
+
+.cat-affected { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 13px; }
+.categories-callout { padding: 18px; border-radius: var(--radius); }
+
+@media (max-width: 700px) {
+  .cat-row { grid-template-columns: auto 1fr; grid-auto-rows: auto; }
+  .cat-row-desc, .cat-row-count { grid-column: 1 / -1; white-space: normal; }
+  .cat-row-actions { grid-column: 1 / -1; }
+}

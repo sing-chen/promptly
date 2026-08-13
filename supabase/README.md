@@ -14,18 +14,27 @@ Already provisioned and live in production — see "Status" below for what's act
    [`0002_admin_curation_and_forks.sql`](migrations/0002_admin_curation_and_forks.sql) →
    [`0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) →
    [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql) →
-   [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql).
+   [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql) →
+   [`0006_user_categories.sql`](migrations/0006_user_categories.sql).
    - 0001–0003 build up the *old* fork-based model, and 0004 then replaces it. That's
      wasteful on a fresh project but keeps one true migration history rather than a
      rewritten 0001 that no existing project matches. 0002 and 0003 are idempotent
      patches, so they're safe whichever revision of 0001 you happened to run.
-   - After 0004 the schema is: `admins`, `prompts`, `catalog_versions`,
-     `catalog_grants`, `collections`, `collection_prompts`, `favorites`, plus RLS
-     policies, the `ensure_seeded()` function and the `prompts_write_catalog_version`
-     trigger. `prompt_overrides` is dropped by 0004 — it belonged to the fork model.
-   - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks) and
-     [`verify_0005.sql`](verify_0005.sql) (8 checks); all should read PASS, except
-     0005's hook-URL check until step 7 below.
+   - After 0006 the schema is: `admins`, `prompts`, `catalog_versions`,
+     `catalog_grants`, `categories`, `prompt_categories`, `category_grants`,
+     `collections`, `collection_prompts`, `favorites`, plus RLS policies, the
+     `ensure_seeded()` and `delete_category()` functions and the
+     `prompts_write_catalog_version` trigger. `prompt_overrides` is dropped by 0004 —
+     it belonged to the fork model — and `prompts.categories` plus its CHECK
+     constraint by 0006.
+   - 0006 needs an admin row to exist first (it seeds the catalog categories to
+     them), so run it *after* step 6 below, not before. It raises rather than
+     seeding nothing if you forget.
+   - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks),
+     [`verify_0005.sql`](verify_0005.sql) (8 checks) and
+     [`verify_0006.sql`](verify_0006.sql) (27 checks); all should read PASS, except
+     0005's hook-URL check until step 7 below, and 0006's checks 12/13, which read
+     CHECK where the answer depends on what data the project happens to hold.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -121,15 +130,67 @@ Anonymous visitors stay on the existing static site rather than reading Supabase
 1. **`scripts/build.mjs` queries Supabase for published defaults** (`is_curated = true, published = true`) at build time (`lib/supabaseBuild.mjs`'s `fetchPublishedPrompts()`, a plain `fetch()` against PostgREST — no `@supabase/supabase-js` dependency needed for one GET request), using the `anon` key, instead of reading `prompts/*.md`. This is the only place `anon`'s `GRANT SELECT` actually gets used for anonymous traffic — real anonymous visitors hit pre-built HTML, not Supabase. If `SUPABASE_URL`/`SUPABASE_ANON_KEY` aren't set, the build proceeds with zero default prompts (a warning is logged) rather than failing.
 2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. Not yet configured — needs both a Vercel project (Deploy Hooks live under Project Settings → Git) and the webhook set up in the Supabase dashboard (Database → Webhooks) once the project exists. Until this is wired up, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
 
-## Keeping the schema in sync
+## Categories are user-owned too
 
-`prompts_categories_valid` hardcodes the `CATEGORIES` vocabulary from [`lib/schema.mjs`](../lib/schema.mjs). Categories are **not** admin-manageable through the app UI — deliberately kept as a plain hardcoded array rather than a database table, since category pages are statically generated per slug at build time (`scripts/build.mjs`), not queried live. To add, rename, or remove one:
+Specified in [BUILD_BRIEF_v6.md](../BUILD_BRIEF_v6.md) and applied by
+[`0006_user_categories.sql`](migrations/0006_user_categories.sql). Categories follow the
+same owned-copies model as prompts: an admin maintains a canonical `is_curated` set that
+feeds the static build and seeds new accounts, and every signed-in user holds their own
+rows and can diverge freely.
 
-1. Edit the `CATEGORIES` array (and `CATEGORY_DESCRIPTIONS`, if you want a description on the category page) in [`lib/schema.mjs`](../lib/schema.mjs).
-2. Add a migration that updates `prompts_categories_valid`'s `check` constraint to match — the two lists must stay identical since v4 mirrors the frontmatter shape field-for-field (§4). A renamed/removed category also needs a data migration for any existing rows still using the old value (the `check` constraint will otherwise reject their next update).
-3. Rebuild (`npm run build`) — the New Prompt modal's category dropdown, category pages, and filter pills all regenerate from step 1's array automatically.
+This replaced a hardcoded `CATEGORIES` array in `lib/schema.mjs` mirrored by a
+`prompts_categories_valid` CHECK constraint. **Both are gone**, along with
+`prompts.categories` (`text[]`) and `categoryHue()` — so the old "edit the array, then
+write a migration to match the constraint" procedure no longer applies, and there is no
+longer a code change involved in adding a category at all.
 
-A real admin screen for this (add/rename/remove without a code change) is on the backlog — BUILD_BRIEF_v4.md §7 has the scoping note (it's a real architecture change: categories would need to move into a DB table and `scripts/build.mjs`'s static per-category page generation would need to read from it, not just a form).
+| Table | Purpose |
+| --- | --- |
+| `categories` | One row per category per user. `is_curated` marks the admin's canonical set. Carries `name`, `description`, `color`, `position`. |
+| `prompt_categories` | Join table, keyed by category id. Replaces the `text[]` of slugs. |
+| `category_grants` | Private bookkeeping, mirroring `catalog_grants`: which catalog categories a user has received, and which of their rows it is. |
+
+Things worth knowing before touching any of it:
+
+- **A join table, not `text[]`.** The deciding case is a user who deletes a category and
+  is later granted a catalog prompt filed under it. Under `text[]` that copy arrives
+  carrying a slug matching nothing they own and *nothing rejects it*; under a foreign key
+  the insert can't happen, so `ensure_seeded()` is forced to state a policy (it re-grants
+  the category — v6 §7.2). Silent and latent becomes loud and handled.
+- **Slug is immutable; renaming changes `name`.** The slug is what seeding matches catalog
+  categories on and what `/browse/<slug>/` is built from. Same trade v5 §9 already took for
+  prompt slugs.
+- **Every prompt must keep at least one category.** Enforced on removal by the
+  `prompt_categories_assert_nonempty` statement-level trigger, and at creation by the app
+  (a prompt row is always inserted before its join rows, so the trigger can't cover that
+  end). Deleting a category is allowed *except* where it would strand a prompt — use the
+  `delete_category(p_category_id, p_reassign_to)` RPC, which files the replacement and
+  deletes in one transaction.
+- **Colour is one stored hex per category.** The soft pill tint and the dark-mode variant
+  are derived in CSS (`color-mix` against `--paper`), and badge text colour is computed
+  from luminance (`readableInk()`), so the 24 hand-tuned `--cat-*` token values are gone.
+  Two contrast numbers in `styles/tokens.css` and `styles/base.css` carry the measurements
+  behind them — re-measure rather than nudging them.
+- **Category pages stay catalog-only.** `/browse/<slug>/` is still statically generated per
+  catalog category. A user-created category has no page; signed-in sidebar links point at
+  `/?cat=<slug>` instead (v6 §5).
+- **Rebuilds.** `0006` moves the `0005` rebuild trigger onto the new tables, so an admin
+  renaming or recolouring a catalog category redeploys the static site. Without that, a
+  recolour would never reach anonymous visitors — and nothing would error.
+- **Table grants are not absent just because no `GRANT` was written.** Supabase ships
+  `alter default privileges in schema public grant all on tables to anon, authenticated`,
+  so every table created by a migration here arrives already granted to both roles. RLS
+  is still the real boundary, but `0006` now explicitly revokes `anon` on the three
+  bookkeeping tables (`category_grants`, `catalog_grants`, `catalog_versions`), which no
+  client reads. `authenticated` keeps `catalog_grants` — `db.js`'s `loadMyGrants()` needs
+  it for `/account/`. Caught by `verify_0006.sql` check 26 on the first live run; the
+  exposure on the two `0004` tables had gone unnoticed because `verify_0004.sql` never
+  tested for it.
+
+To add, rename, recolour or remove a category now: use `/categories/` in the app. As an
+admin, your library *is* the catalog, so your changes are the canonical set (and reach
+anonymous visitors on the next rebuild; existing users keep theirs — divergence is the
+point, so there is no notify-and-merge for categories).
 
 ## Deferred: `example_output`
 
@@ -138,6 +199,19 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 ## Status
 
 **Built - current model (BUILD_BRIEF_v5.md):**
+- Schema + RLS through [`0006_user_categories.sql`](migrations/0006_user_categories.sql):
+  `categories`, `prompt_categories`, `category_grants`, the
+  `prompt_categories_assert_nonempty` trigger enforcing "every prompt keeps at least
+  one category", `delete_category()`, and an `ensure_seeded()` that seeds categories
+  before prompts and maps each copied prompt onto the caller's own category rows.
+  `prompts.categories` and `prompts_categories_valid` are dropped; category colour is
+  a per-category hex with the soft/dark variants derived in CSS and badge ink computed
+  from luminance. See [BUILD_BRIEF_v6.md](../BUILD_BRIEF_v6.md) and BUILD_BRIEF.md §9s.
+- `/categories/` (`public/scripts/categories.js`) - create, rename, recolour, reorder
+  and delete your own categories, with a delete pre-flight that requires a replacement
+  only for prompts the category is the *sole* one on. Sidebar category rows carry a
+  colour dot; signed-in category links point at `/?cat=<slug>` since a user-created
+  category has no statically generated page.
 - Schema + RLS through [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql):
   `catalog_versions`, `catalog_grants`, `ensure_seeded()`, the
   `prompts_write_catalog_version` trigger. `prompt_overrides`, `source_prompt_id`,
@@ -183,6 +257,19 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   anonymous visitors after the resulting rebuild.
 
 **Built, but needs configuration to take effect:**
+- **`0006_user_categories.sql` is written but NOT YET APPLIED to the live project.**
+  There is no Supabase CLI here and `.env.local` holds only the anon key, so it has to
+  be pasted into the SQL Editor by hand (after the admin row exists — see setup step 2).
+  Until then the app code and the live schema disagree and the build fails at
+  `fetchPublishedPrompts()` with a PostgREST `PGRST200` "could not find a relationship
+  between 'prompts' and 'prompt_categories'" — which is the expected symptom, not a
+  separate bug. Run [`verify_0006.sql`](verify_0006.sql) afterwards; every row should
+  read PASS except checks 12 and 13, which report data-dependent counts.
+  The application half was verified against fixture data shaped like the post-migration
+  reads (every page renders; colour, contrast and sidebar alignment measured in-browser
+  in both themes), but the signed-in CRUD paths — seeding, category create/rename/
+  recolour/reorder, and the delete-with-reassignment RPC — have **not** been exercised
+  against a real database yet.
 - **Auto-rebuild on catalog change** (`0005_publish_webhook.sql`) is inert until a
   Deploy Hook URL is set - see setup step 7. Confirmed working once configured: an
   edit to a published catalog prompt produced a Vercel deployment. Without it, a
@@ -209,11 +296,7 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 2. **Notify-and-merge screen** (v5 §6) — the schema for it is already in place; build it
    before editing any published catalog prompt that users already hold.
 3. Clear test content and seed canonical prompts ([`reset_prompts.sql`](reset_prompts.sql)).
-4. **Categories redesign** — user-managed categories with editable colours. A real
-   architecture change: the vocabulary is a hardcoded array mirrored by a CHECK
-   constraint, and `/browse/<slug>/` pages are statically generated from it. Needs a
-   global-vs-per-user decision first, the same fork v5 resolved for prompts.
-5. Variable-fill, and the remaining open items above.
+4. Variable-fill, and the remaining open items above.
 
 Auto-rebuild on catalog change is **done** (`0005_publish_webhook.sql`) — it only
 needs the Deploy Hook URL wired up, setup step 7.

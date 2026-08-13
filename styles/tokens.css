@@ -28,25 +28,43 @@
   --shadow: 0 3px 6px rgba(20,16,8,.12), 0 16px 40px rgba(20,16,8,.16);
   --shadow-lg: 0 8px 16px rgba(20,16,8,.14), 0 28px 56px rgba(20,16,8,.20);
 
-  /* Solid category badge hues - fixed hex, not theme-dependent, so a category's
-     color stays put across light/dark instead of flipping shade. */
-  --cat-clay: #A8552A;
-  --cat-ochre: #8A6817;
-  --cat-blue: #34647F;
-  --cat-plum: #7A4780;
-  --cat-moss: #566627;
-  --cat-rose: #8A3B4E;
+  /* Category colour is DATA now, not tokens (BUILD_BRIEF_v6.md §6).
+     Twenty-four hand-tuned values used to live here: six hues x light/dark x
+     solid/soft. They are gone, because a user picks their own colour per
+     category and there is no fixed set left to name.
 
-  /* Soft tints of the hues above, for filter-pill rest state (§9k) - unlike
-     the solid hues these DO vary by theme (a light pastel in light mode
-     would be wrong in dark mode), so each is redefined in the theme blocks
-     below, same pattern as --accent-soft. */
-  --cat-clay-soft: #F1E1D6;
-  --cat-ochre-soft: #EDE6D2;
-  --cat-blue-soft: #DCE6EA;
-  --cat-plum-soft: #EADEEC;
-  --cat-moss-soft: #E3E7D6;
-  --cat-rose-soft: #EFDCE1;
+     What replaces them is a pair of custom properties set inline on each
+     element by the renderer (lib/render.mjs's catColorVars):
+        --cat      the category's stored hex, the solid badge fill
+        --cat-ink  white or dark ink, computed from that hex's luminance
+                   (lib/schema.mjs's readableInk) so a pale colour stays legible
+
+     The soft variant is derived rather than stored - see --cat-soft-mix
+     below. The dark-mode value of that ONE number is the entire dark-mode
+     story for category colour, replacing twelve hand-picked tints. */
+
+  /* How much of the category's own colour goes into the filter pill's rest
+     state, mixed against --paper. Higher in dark mode because a dark surface
+     needs a stronger mix to read as tinted at all - which is exactly the
+     relationship the old hand-picked --cat-*-soft pairs already had.
+
+     Both values are contrast budgets, not taste. The pill's LABEL is neutral
+     ink rather than the category colour, so the more of the colour that goes
+     into the tint, the closer the label gets to failing AA - and unlike the
+     badge (where readableInk picks the ink to suit the fill) there is nothing
+     to compensate.
+
+     Measured in-browser against the worst colour a user could pick (pure
+     black in light mode, pure white in dark), with base.css's --ink override
+     on .filter-pill.is-hued in place: 8.3:1 and 8.6:1 respectively, against
+     AA's 4.5. The tint stays at least as visible as the hand-picked
+     --cat-*-soft values these replaced (1.15:1 vs --paper in dark, where the
+     old ones measured ~1.16:1).
+
+     Both numbers were originally set higher (28% dark) and pulled back after
+     measuring - so if you raise either, re-measure rather than assuming the
+     headroom above is spare. */
+  --cat-soft-mix: 16%;
 
   /* "New" status color (§9k) - separate from --accent, same idea as
      --danger: a semantic color, not the brand accent. */
@@ -73,12 +91,7 @@
     --seq-soft: #1B3530;
     --danger: #E2948A;
     --danger-soft: #3A1F1B;
-    --cat-clay-soft: #2B2019;
-    --cat-ochre-soft: #29230F;
-    --cat-blue-soft: #16262B;
-    --cat-plum-soft: #26192A;
-    --cat-moss-soft: #1E2416;
-    --cat-rose-soft: #291A1F;
+    --cat-soft-mix: 22%;
     --new: #E0B152;
     --new-soft: #3A2E13;
     --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
@@ -105,12 +118,7 @@
   --seq-soft: #1B3530;
   --danger: #E2948A;
   --danger-soft: #3A1F1B;
-  --cat-clay-soft: #2B2019;
-  --cat-ochre-soft: #29230F;
-  --cat-blue-soft: #16262B;
-  --cat-plum-soft: #26192A;
-  --cat-moss-soft: #1E2416;
-  --cat-rose-soft: #291A1F;
+  --cat-soft-mix: 22%;
   --new: #E0B152;
   --new-soft: #3A2E13;
   --shadow-sm: 0 1px 2px rgba(0,0,0,.24), 0 3px 8px rgba(0,0,0,.20);
@@ -136,12 +144,7 @@
   --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
-  --cat-clay-soft: #F1E1D6;
-  --cat-ochre-soft: #EDE6D2;
-  --cat-blue-soft: #DCE6EA;
-  --cat-plum-soft: #EADEEC;
-  --cat-moss-soft: #E3E7D6;
-  --cat-rose-soft: #EFDCE1;
+  --cat-soft-mix: 16%;
   --new: #B8891E;
   --new-soft: #FBF0DA;
   --shadow-sm: 0 1px 2px rgba(20,16,8,.10), 0 3px 8px rgba(20,16,8,.08);

@@ -9,7 +9,7 @@
 // something you might want to act on (archived, uncollected, gaps by
 // category).
 import { loadMyPrompts, loadMyGrants, loadCollections } from './db.js';
-import { categoryHue, categoryLabel, esc, fmtDate } from './lib/render.mjs';
+import { categoryName, catColorVars, esc, fmtDate } from './lib/render.mjs';
 import { ensureFavorites, favoriteCount } from './favoritesStore.js';
 
 const NEW_WINDOW_DAYS = 14;
@@ -51,17 +51,24 @@ export function computeStats({ prompts, grants, collections, favorites, user }) 
 
   const recent = active.filter(p => new Date(p.added).getTime() >= daysAgo(NEW_WINDOW_DAYS));
 
-  const byCategory = {};
+  // Keyed by slug, but the category object is kept alongside the count: the
+  // chart's bars are filled with the category's own stored colour now
+  // (BUILD_BRIEF_v6.md §6), not a categoryHue() class derived from its
+  // position in a fixed vocabulary.
+  const byCategory = new Map();
   for (const p of active) {
-    for (const c of p.categories || []) byCategory[c] = (byCategory[c] || 0) + 1;
+    for (const c of p.categories || []) {
+      const entry = byCategory.get(c.slug) || { ...c, count: 0 };
+      entry.count += 1;
+      byCategory.set(c.slug, entry);
+    }
   }
   // Only categories actually in use. Showing every category in the
   // vocabulary with empty tracks was tried and reverted: nine rows for a
   // handful of prompts read as clutter, and the empties drew attention
   // without being actionable. The chart answers "what is my library made of",
   // not "what could it be made of".
-  const categories = Object.entries(byCategory)
-    .map(([slug, count]) => ({ slug, count }))
+  const categories = [...byCategory.values()]
     .sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
 
   // Only ever non-zero for an admin - a regular user can't own a curated row.
@@ -108,9 +115,9 @@ function categoryChart(categories) {
 <div class="stat-bars">
   ${categories.map(c => `
   <div class="stat-bar-row">
-    <span class="stat-bar-label">${esc(categoryLabel(c.slug))}</span>
+    <span class="stat-bar-label">${esc(categoryName(c))}</span>
     <span class="stat-bar-track">
-      <span class="stat-bar-fill ${categoryHue(c.slug)}" style="width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>
+      <span class="stat-bar-fill" style="${catColorVars(c)};width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>
     </span>
     <span class="stat-bar-count">${c.count}</span>
   </div>`).join('')}

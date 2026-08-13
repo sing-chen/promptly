@@ -1,9 +1,21 @@
 # Promptly — Build Brief v6: user-owned categories
 
-**Status: design pass. Nothing here is built.** This document resolves the open
-decisions so a migration and an implementation pass can follow; it is the
-category equivalent of [BUILD_BRIEF_v5.md](BUILD_BRIEF_v5.md), which did the same
-job for prompts.
+**Status: built, pending migration.** All four passes in §10 are implemented —
+`0006_user_categories.sql` + `verify_0006.sql`, the data-shape change, the colour
+work, and `/categories/`. The migration itself has **not been applied to the live
+project** (no Supabase CLI here; it is pasted into the SQL editor by hand), so the
+signed-in CRUD paths are unexercised against a real database. See
+[`supabase/README.md`](supabase/README.md)'s Status for exactly what that leaves
+unverified. The UI half is logged as BUILD_BRIEF.md §9s.
+
+This document is the design rationale; `supabase/README.md` is the reference for the
+schema as it now stands. It is the category equivalent of
+[BUILD_BRIEF_v5.md](BUILD_BRIEF_v5.md), which did the same job for prompts.
+
+**Two things changed during implementation** and are corrected in place below —
+§6.2's dark-mode mix (28% → 22%) and the filter pill's label colour, both after
+measuring contrast in a browser rather than reasoning about it. §9 records what that
+turned up.
 
 The instruction is settled and not re-opened here: **categories become
 user-owned, following the owned-copies model.** An admin maintains a canonical
@@ -440,8 +452,15 @@ fill. That is the only stored colour. Everything else is derived.
 | Derived value | Used by | Derivation |
 | --- | --- | --- |
 | Soft tint | Filter pill rest state | `color-mix(in oklab, var(--cat) 16%, var(--paper))` |
-| Dark-mode soft tint | Filter pill rest state, dark | `color-mix(in oklab, var(--cat) 28%, var(--paper))` |
+| Dark-mode soft tint | Filter pill rest state, dark | `color-mix(in oklab, var(--cat) 22%, var(--paper))` |
 | Badge text colour | Badge, active filter pill | Computed from WCAG relative luminance (§6.3) |
+
+**The dark figure was 28% in the design and is 22% as built.** Measured rather than
+guessed, once the pills were on screen: the pill's *label* is neutral ink, not the
+category colour, so unlike the badge it gets no help from `readableInk()` — the more
+of the colour that goes into the tint, the closer the label gets to failing AA. At
+28% a user picking pure white left the label at 3.83:1. See §9 for the rest of that
+finding, including the light-mode half, which needed a different fix.
 
 `color-mix` handles both the soft variant and the dark-mode variant **without a
 second stored value or a JS colour library**, because it mixes against
@@ -689,6 +708,60 @@ would keep the old colours indefinitely.
 
 ---
 
+## 8a. What measuring turned up
+
+Two defects that reading the code could not have found, both introduced by this pass,
+both in §6's colour work. Recorded because the numbers behind them aren't recoverable
+from the CSS.
+
+**The filter pill's label was the weak point, not the badge.** §6.3 dealt with badge
+text by computing it from the fill, which is right and works. But the *pill* keeps a
+neutral label over a soft tint, so nothing adapts to the user's colour. Measured
+against the worst thing a person can pick:
+
+| | Light (`--ink-soft`, as shipped before) | Dark (`--ink-soft`) |
+| --- | --- | --- |
+| Worst real seeded category | 4.22:1 ✗ | 5.04:1 |
+| Pure black pick | 3.32:1 ✗ | — |
+| Pure white pick | — | 3.83:1 ✗ at 28% |
+
+The light-mode failure is the notable one: it hits an *actual* seeded category
+(`ops-admin`, a dark slate), not just a hypothetical bad pick, and it was present the
+moment the tint stopped being a hand-picked pastel. The fix is one line — hued pills
+use full-strength `--ink` instead of `--ink-soft` — which moves the worst case to
+8.3:1 light and 8.6:1 dark and lets the tint stay strong enough to actually see. §9k's
+"text stays neutral ink" still holds; what changed is the shade.
+
+**The sidebar dot was 2px too wide.** `ICON.*` declare `width="18" height="18"` on the
+`<svg>`, so a dot box sized 18px looks obviously correct. Those icons lay out at 16px,
+so every category label sat 2px right of the primary nav's. §6.5 flagged this exact
+check as "to verify in the browser, not asserted here", and it was the one thing in
+that section that turned out to be wrong.
+
+Both numbers now carry their measurements in the CSS, since the next person to adjust
+them will otherwise assume the headroom is spare.
+
+**And one the verify script caught, which reading never would have.** `verify_0006.sql`
+check 26 asserted that `anon` cannot read `category_grants`, on the strength of §3's
+reasoning that the migration writes no `GRANT` for it. It failed on the first live run.
+Supabase ships `alter default privileges in schema public grant all on tables to anon,
+authenticated`, so a table created by a migration here **arrives already granted** —
+"I never wrote a GRANT" is not the same as "there is no grant."
+
+RLS was doing its job throughout (`anon` has no `auth.uid()`, so the owner predicate
+matched nothing and every query returned zero rows), so this was a missing layer rather
+than an exposure. But the same is true of `catalog_grants` and `catalog_versions` from
+`0004`, and nobody had noticed, because `verify_0004.sql` never asked. `0006` now
+revokes `anon` on all three; `authenticated` keeps `catalog_grants`, which `/account/`
+reads through `loadMyGrants()`.
+
+The transferable lesson is about the verify scripts rather than about grants: the check
+that earned its place was the one asserting a property the design *claimed* was already
+true. Checks that only confirm what the migration obviously just did would not have
+found this.
+
+---
+
 ## 9. Open items
 
 - **No notify-and-merge for categories.** If the admin renames or recolours a
@@ -704,12 +777,20 @@ would keep the old colours indefinitely.
   its `/browse/` URL. Consistent with v5 §9's identical decision for prompts, and
   invisible for user categories (§5), but it does mean an admin who renames
   `ops-admin` to "Operations" leaves `/browse/ops-admin/` in place.
-- **`lib/content.mjs`'s validation and `tools/sequence-builder/app.js` both hold
-  their own copy of the vocabulary.** Neither ships: `content.mjs`'s
-  `validatePrompts()` is only reachable from `scripts/validate-prompts.mjs`, a
-  standalone lint tool over the retired `prompts/*.md`, and the sequence builder
-  is a separate tool. They should be updated or explicitly retired in this pass
-  rather than left as two more places the list is written down.
+- **`tools/sequence-builder/app.js` still holds its own hardcoded copy of the
+  nine slugs.** Not resolved here, and deliberately so: it is a standalone tool
+  outside the build, nothing imports it, and it was already out of step with the
+  app before this pass. It should be updated or explicitly retired, but doing it
+  inside this change would have meant touching a tool with no test coverage for
+  no benefit to the feature. `lib/content.mjs`'s `validatePrompts()` *was*
+  handled — it now takes the vocabulary as an argument, and the markdown lint
+  tool (`scripts/validate-prompts.mjs`) simply passes none, so it still checks
+  that a prompt *has* categories without being able to check that they exist.
+- **`supabase/seed_default_prompts.sql` no longer runs.** Every INSERT in it
+  targets the dropped `prompts.categories` column. Left broken with a header
+  explaining the fix rather than rewritten: it was already marked "review before
+  reusing", predates the owned-copies model, and its five prompts are test
+  content due to be replaced by canonical ones.
 - **Per-user category limit.** None proposed. Worth a sanity ceiling (~50?)
   before launch, mainly so the sidebar and the filter toolbar can't be driven
   into a state nobody designed.
@@ -721,6 +802,10 @@ would keep the old colours indefinitely.
 ---
 
 ## 10. Sequencing
+
+All four passes below are **built**. Pass 1's migration is written and verified by
+inspection but not yet applied — everything after it therefore describes code that is
+correct against the new schema and untested against the live one.
 
 **Pass 1 — schema.** `0006_user_categories.sql` + `verify_0006.sql`: the three
 tables, RLS, the ≥1-category trigger, the `ensure_seeded()` rewrite, the catalog

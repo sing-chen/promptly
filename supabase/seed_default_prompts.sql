@@ -1,3 +1,21 @@
+-- ⚠ BROKEN AS WRITTEN SINCE 0006_user_categories.sql. Every INSERT below
+-- targets `prompts.categories`, a text[] column that migration drops
+-- (BUILD_BRIEF_v6.md §3) - so this script now fails immediately with
+-- `column "categories" of relation "prompts" does not exist`.
+--
+-- Deliberately not rewritten. It was already marked "review before reusing"
+-- in supabase/README.md - it predates the owned-copies model, and its 5
+-- prompts are test content due to be replaced by canonical ones anyway. If
+-- it is ever revived, the fix is mechanical: drop `categories` from each
+-- column list, capture the inserted ids, and add a follow-up
+--   insert into prompt_categories (prompt_id, category_id)
+--   select p.id, c.id from prompts p
+--   cross join lateral unnest(array['writing','marketing']) as s(slug)
+--   join categories c on c.user_id = p.user_id and c.slug = s.slug
+--   where p.slug = '...';
+-- per prompt. Note the ≥1-category rule: a prompt inserted here has no
+-- categories until that second statement runs.
+--
 -- One-time content migration, not a schema migration - recreates the 5
 -- prompts that used to live in prompts/*.md as published default prompts in
 -- Supabase, owned by you (an admin). Needed because scripts/build.mjs now

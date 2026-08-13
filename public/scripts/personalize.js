@@ -4,10 +4,10 @@
 // (search.js), since it already rebuilds from scratch on every keystroke,
 // rather than reusing this module. Signed out, this is a no-op - the static
 // build is left exactly as rendered.
-import { CATEGORIES } from './lib/schema.mjs';
+import { promptHasCategory } from './lib/schema.mjs';
 import {
   renderPromptTableRows, renderPromptCard, renderFilterToolbar,
-  categoryHue, categoryLabel, findNewPrompts, NEW_WINDOW_DAYS
+  categoryName, findNewPrompts, NEW_WINDOW_DAYS
 } from './lib/render.mjs';
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
@@ -297,7 +297,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     const emptyEl = document.getElementById(`${gridId}-empty`);
     if (emptyEl) emptyEl.hidden = list.length !== 0;
 
-    if (toolbarId) rebuildToolbar(list);
+    if (toolbarId) rebuildToolbar(list, pers.categories);
     updateNewCallout(list);
     syncSelectionUI();
     flashDuplicate();
@@ -326,15 +326,37 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     }
   }
 
-  function rebuildToolbar(list) {
+  // Pills come from the caller's OWN categories now, not a shared constant -
+  // which is the whole point of BUILD_BRIEF_v6.md: a user who renamed
+  // "Marketing" to "Growth", recoloured it, or invented "Client work" sees
+  // exactly that here, in their own order.
+  function rebuildToolbar(list, categories) {
     const bar = document.getElementById(toolbarId);
     if (!bar) return;
-    const options = CATEGORIES
-      .map(slug => ({ slug, count: list.filter(p => p.categories.includes(slug)).length }))
+    const options = (categories || [])
+      .map(c => ({ ...c, count: list.filter(p => promptHasCategory(p, c.slug)).length }))
       .filter(c => c.count > 0)
-      .map(c => ({ value: c.slug, label: categoryLabel(c.slug), count: c.count, hue: categoryHue(c.slug) }));
+      .map(c => ({ value: c.slug, label: categoryName(c), count: c.count, color: c.color }));
     bar.outerHTML = renderFilterToolbar([{ key: 'category', label: 'Category Filter(s)', options }], { id: toolbarId });
     initTableFilterToolbar(toolbarId, gridId);
+    applyCatFromUrl();
+  }
+
+  // ?cat=<slug> pre-activates a pill. This is where the signed-in sidebar
+  // sends every category link (BUILD_BRIEF_v6.md §5): a user-created category
+  // has no statically generated /browse/ page, so Home-filtered-by-category
+  // is the destination for all of them rather than only some.
+  //
+  // Applied after each toolbar rebuild, not once at startup, because the
+  // pills don't exist until the caller's categories have loaded - and only
+  // when nothing is active yet, so a rebuild triggered by an edit doesn't
+  // fight a filter the user has since changed.
+  function applyCatFromUrl() {
+    const slug = new URLSearchParams(location.search).get('cat');
+    if (!slug) return;
+    const bar = document.getElementById(toolbarId);
+    if (!bar || bar.querySelector('.filter-pill.is-active')) return;
+    bar.querySelector(`.filter-pill[data-value="${CSS.escape(slug)}"]`)?.click();
   }
 
   async function refresh() {

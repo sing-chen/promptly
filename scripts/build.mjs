@@ -2,13 +2,14 @@ import { existsSync, rmSync, mkdirSync, writeFileSync, readFileSync, readdirSync
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validatePrompts, buildData, buildSearchIndex, PUBLIC_DIR } from '../lib/content.mjs';
-import { fetchPublishedPrompts } from '../lib/supabaseBuild.mjs';
+import { fetchPublishedPrompts, fetchCatalogCategories } from '../lib/supabaseBuild.mjs';
+import { promptHasCategory } from '../lib/schema.mjs';
 import {
   renderHomePage, renderCategoryPage,
   renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
-  renderArchivedPage, renderWhySignInPage, setAssetVersion
+  renderArchivedPage, renderWhySignInPage, renderCategoriesPage, setAssetVersion
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -69,11 +70,24 @@ export async function runBuild() {
   // (supabase/README.md "There is no markdown catalog") - only published
   // (is_curated=true, published=true) rows, exactly what an anonymous
   // visitor's own RLS-scoped read would return.
-  const prompts = await fetchPublishedPrompts(env);
-  const errors = validatePrompts(prompts);
+  //
+  // Categories come from the database too as of BUILD_BRIEF_v6.md - the
+  // admin's curated set, which is what lib/schema.mjs's CATEGORIES array used
+  // to be. Fetched separately rather than derived from the prompts, since an
+  // empty category still needs a sidebar entry and a /browse/<slug>/ page.
+  const [prompts, catalogCategories] = await Promise.all([
+    fetchPublishedPrompts(env),
+    fetchCatalogCategories(env)
+  ]);
+
+  if (catalogCategories.length === 0 && prompts.length > 0) {
+    console.warn('No catalog categories found, but there are published prompts - every badge, pill and sidebar entry will be missing. Has 0006_user_categories.sql been applied?');
+  }
+
+  const errors = validatePrompts(prompts, catalogCategories);
   if (errors.length > 0) throw new ValidationError(errors);
 
-  const data = buildData(prompts);
+  const data = buildData(prompts, catalogCategories);
 
   // One version stamp per build, applied to every /scripts and /styles
   // reference this build emits (see setAssetVersion/versionAssetFiles) -
@@ -99,8 +113,9 @@ export async function runBuild() {
   // JS (no Node built-ins) - reused client-side by search.js/quickview.js so
   // search results and the quick-view modal render with the exact same
   // markup helpers (renderPromptTableRows, renderCatBadges, esc) as every
-  // server-rendered page. schema.mjs must ship too: render.mjs imports
-  // CATEGORIES from it, and a static import that 404s fails the whole module.
+  // server-rendered page. schema.mjs must ship too: render.mjs imports the
+  // category helpers (promptHasCategory, readableInk) from it, and a static
+  // import that 404s fails the whole module.
   mkdirSync(join(DIST_DIR, 'scripts', 'lib'), { recursive: true });
   cpSync('lib/render.mjs', join(DIST_DIR, 'scripts', 'lib', 'render.mjs'));
   cpSync('lib/sequences.mjs', join(DIST_DIR, 'scripts', 'lib', 'sequences.mjs'));
@@ -134,11 +149,18 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('account', renderAccountPage(data));
   writeRoute('admin', renderAdminPage(data));
   writeRoute('collections', renderCollectionsPage(data));
+  writeRoute('categories', renderCategoriesPage(data));
   writeRoute('archived', renderArchivedPage(data));
   writeRoute('why-sign-in', renderWhySignInPage(data));
 
+  // Statically generated for CATALOG categories only (BUILD_BRIEF_v6.md §5).
+  // A user-created category can't have a build-time page, and rather than add
+  // a catch-all route to a build that has never had a dynamic segment, a
+  // signed-in user reaches any of their categories - catalog or personal -
+  // through Home filtered by it (/?cat=<slug>). These pages stay for
+  // anonymous visitors, for SEO, and for anyone arriving by link.
   for (const category of data.categories) {
-    const inCategory = data.prompts.filter(p => p.categories.includes(category.slug));
+    const inCategory = data.prompts.filter(p => promptHasCategory(p, category.slug));
     writeRoute(`browse/${category.slug}`, renderCategoryPage(category.slug, inCategory, data));
   }
 

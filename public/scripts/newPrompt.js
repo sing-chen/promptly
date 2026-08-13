@@ -22,9 +22,10 @@
 // catalog prompt, the notify override - see BUILD_BRIEF_v5.md §5.3 and §6.2.
 import {
   createPrompt, createCuratedPrompt, updatePrompt, isAdmin,
-  promoteToCatalog, demoteFromCatalog, setLatestVersionNotifiable
+  promoteToCatalog, demoteFromCatalog, setLatestVersionNotifiable,
+  loadMyCategories
 } from './db.js';
-import { categoryLabel } from './lib/render.mjs';
+import { categoryName, catColorVars, esc } from './lib/render.mjs';
 import { confirmDialog } from './confirmDialog.js';
 
 function slugify(str) {
@@ -83,21 +84,52 @@ function init() {
   }
 
   // Category dropdown - a button that toggles a checkbox panel, rather than
-  // a flat checkbox grid, since the vocabulary (lib/schema.mjs's CATEGORIES)
-  // has grown enough that all-checkboxes-always-visible ate too much of the
-  // modal. The checkboxes underneath are unchanged; this only changes how
-  // they're revealed and how the selection is summarized.
+  // a flat checkbox grid, which stops the list eating the modal now that a
+  // user can create as many categories as they want.
+  //
+  // The panel is populated at runtime from the caller's own categories
+  // (BUILD_BRIEF_v6.md §3). It used to be server-rendered into the static
+  // markup from lib/schema.mjs's CATEGORIES, which can't work any more: this
+  // one modal is baked into every static page, and the vocabulary now differs
+  // per user. Checkbox `value` is a category id rather than a slug, since
+  // that is what prompt_categories joins on and it survives a rename.
   const catDropdown = document.getElementById('np-cat-dropdown');
   const catTrigger = document.getElementById('np-cat-trigger');
   const catTriggerText = document.getElementById('np-cat-trigger-text');
   const catPanel = document.getElementById('np-cat-panel');
-  const catCheckboxes = [...catPanel.querySelectorAll('input[name=categories]')];
+  let catCheckboxes = [];
+  let myCategories = [];
+
+  // Loaded once per page and then reused: the modal is opened repeatedly and
+  // the list only changes from /categories/, which reloads the page's data
+  // through the same personalization:changed event everything else uses.
+  async function ensureCategoriesLoaded() {
+    if (myCategories.length) return;
+    try {
+      myCategories = await loadMyCategories();
+    } catch (err) {
+      console.warn('Could not load categories', err);
+      return;
+    }
+    catPanel.innerHTML = myCategories.map(c => `
+            <label class="np-cat-check">
+              <input type="checkbox" name="categories" value="${esc(c.id)}" data-slug="${esc(c.slug)}">
+              <span class="np-cat-swatch" style="${catColorVars(c)}" aria-hidden="true"></span>
+              ${esc(categoryName(c))}
+            </label>`).join('');
+    catCheckboxes = [...catPanel.querySelectorAll('input[name=categories]')];
+  }
+
+  document.addEventListener('categories:changed', () => {
+    myCategories = [];
+    ensureCategoriesLoaded();
+  });
 
   function updateCatTriggerText() {
     const checked = catCheckboxes.filter(c => c.checked);
     catTriggerText.textContent = checked.length === 0
       ? 'Select categories…'
-      : checked.map(c => categoryLabel(c.value)).join(', ');
+      : checked.map(c => c.parentElement.textContent.trim()).join(', ');
   }
 
   function openCatPanel() {
@@ -113,7 +145,12 @@ function init() {
   catTrigger.addEventListener('click', () => {
     if (catPanel.hidden) openCatPanel(); else closeCatPanel();
   });
-  catCheckboxes.forEach(c => c.addEventListener('change', updateCatTriggerText));
+  // Delegated, not bound per checkbox: the checkboxes don't exist at init any
+  // more - ensureCategoriesLoaded() creates them - and rebinding after every
+  // repopulate would be one more thing to forget.
+  catPanel.addEventListener('change', (e) => {
+    if (e.target.name === 'categories') updateCatTriggerText();
+  });
   // Keep the notify default in step with what's actually been changed so far,
   // so the checkbox reflects the real classification at the moment of saving
   // rather than whatever it was when the modal opened.
@@ -217,11 +254,17 @@ function init() {
     setModalMode(false);
   }
 
-  function open() {
+  async function open() {
     resetForm();
     refreshAdminState();
     backdrop.classList.add('is-open');
     form.title.focus();
+    // After the modal is already on screen: the checkbox panel is collapsed
+    // behind its trigger, so it can fill in a moment later without anything
+    // visibly reflowing - and the user isn't held at a blank modal waiting
+    // on a round trip they may not even need.
+    await ensureCategoriesLoaded();
+    updateCatTriggerText();
   }
 
   // Triggered by 'prompt:edit-request' for a prompt the caller owns (see
@@ -229,7 +272,7 @@ function init() {
   // - prefills every field from the existing row instead of leaving them
   // blank, and routes the submit handler below to updatePrompt() instead of
   // create. Slug is intentionally left alone (see module header).
-  function openForEdit(prompt) {
+  async function openForEdit(prompt) {
     resetForm();
     editingId = prompt.id;
     editingPrompt = prompt;
@@ -240,7 +283,11 @@ function init() {
     form.purpose.value = prompt.purpose || '';
     form.body.value = prompt.body;
     form.notes.value = prompt.notes || '';
-    const cats = new Set(prompt.categories || []);
+    // Awaited before ticking boxes, unlike open(): there is nothing to tick
+    // until the panel exists. A prompt's categories are objects now, so this
+    // matches on id.
+    await ensureCategoriesLoaded();
+    const cats = new Set((prompt.categories || []).map(c => c.id));
     catCheckboxes.forEach(c => { c.checked = cats.has(c.value); });
     updateCatTriggerText();
     syncNotifyDefault();

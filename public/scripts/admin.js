@@ -5,7 +5,7 @@
 // publish/unpublish toggle supabase/README.md's "Next steps" called for.
 import { supabase } from './supabaseClient.js';
 import { isAdmin, loadPrompts, publishPrompt, unpublishPrompt } from './db.js';
-import { esc, fmtDate, categoryLabel } from './lib/render.mjs';
+import { esc, fmtDate, categoryName } from './lib/render.mjs';
 
 function renderRow(p) {
   const statusClass = p.published ? 'admin-status-published' : 'admin-status-draft';
@@ -14,7 +14,7 @@ function renderRow(p) {
 <tr data-id="${p.id}">
   <td>
     <strong>${esc(p.title)}</strong>
-    <div class="admin-row-cats">${esc(p.categories.map(categoryLabel).join(', '))}</div>
+    <div class="admin-row-cats">${esc(p.categories.map(categoryName).join(', '))}</div>
   </td>
   <td><span class="admin-status ${statusClass}">${statusLabel}</span></td>
   <td>${esc(fmtDate(p.updated || p.added))}</td>

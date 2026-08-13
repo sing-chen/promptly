@@ -8,7 +8,7 @@
 // prompts, with an overrides table deciding which defaults were hidden. All
 // of that is gone along with the borrowing model.
 import { supabase } from './supabaseClient.js';
-import { loadMyPrompts, ensureSeeded } from './db.js';
+import { loadMyPrompts, loadMyCategories, ensureSeeded } from './db.js';
 
 let cache = null; // { userId, ... } - reset whenever the session changes
 
@@ -37,14 +37,21 @@ export async function getPersonalization() {
     }),
     loadMyPrompts()
   ]);
-  const all = granted > 0 ? await loadMyPrompts() : initial;
+  // Categories are read after seeding rather than alongside it: ensure_seeded()
+  // now creates the caller's category rows too (BUILD_BRIEF_v6.md §7), so a
+  // parallel read would race a brand-new account to an empty list and leave
+  // the sidebar and the filter pills blank until the next navigation.
+  const [all, categories] = await Promise.all([
+    granted > 0 ? loadMyPrompts() : Promise.resolve(initial),
+    loadMyCategories()
+  ]);
 
   const userId = session.user.id;
   const byId = new Map(all.map(p => [p.id, p]));
   const prompts = all.filter(p => !p.is_archived);
   const archived = all.filter(p => p.is_archived);
 
-  cache = { userId, byId, all, prompts, archived, grantedThisLoad: granted };
+  cache = { userId, byId, all, prompts, archived, categories, grantedThisLoad: granted };
   return cache;
 }
 

@@ -1,5 +1,6 @@
 import Fuse from '/scripts/fuse.min.mjs';
-import { renderPromptTableRows, renderPromptCard } from '/scripts/lib/render.mjs';
+import { renderPromptTableRows, renderPromptCard, renderFilterToolbar, categoryName } from '/scripts/lib/render.mjs';
+import { promptHasCategory } from '/scripts/lib/schema.mjs';
 import { initInteractive } from '/scripts/favorites.js';
 import { initFilterToolbar } from '/scripts/filters.js';
 import { initQuickView } from '/scripts/quickview.js';
@@ -32,7 +33,9 @@ const resultsEl = document.getElementById('search-results');
 const resultsWrapEl = document.getElementById('search-results-wrap');
 const cardsEl = document.getElementById('search-results-cards');
 const summaryEl = document.getElementById('search-summary');
-const filtersEl = document.getElementById('search-filters');
+// `let`, not `const`: rebuildFilters() below replaces this element
+// wholesale once the caller's own categories are known.
+let filtersEl = document.getElementById('search-filters');
 const navInput = document.querySelector('.main-header-search input[name="q"]');
 
 if (resultsEl && filtersEl) {
@@ -49,7 +52,11 @@ if (resultsEl && filtersEl) {
 
   const fuse = new Fuse(searchablePrompts, {
     keys: [
-      { name: 'categories', weight: 0.3 },
+      // 'categories.name', not 'categories': the field is an array of
+      // category objects now (BUILD_BRIEF_v6.md §3), and Fuse would index
+      // "[object Object]" if pointed at the array itself. Searching the name
+      // rather than the slug is also what a person types.
+      { name: 'categories.name', weight: 0.3 },
       { name: 'title', weight: 0.3 },
       { name: 'purpose', weight: 0.25 },
       { name: 'body', weight: 0.15 }
@@ -59,7 +66,7 @@ if (resultsEl && filtersEl) {
     includeScore: true
   });
 
-  const toolbar = initFilterToolbar('search-filters', { onChange: runSearch });
+  let toolbar = initFilterToolbar('search-filters', { onChange: runSearch });
   const quickView = initQuickView('search-results', { data: [], sequenceTotals: index.sequenceTotals, allPrompts: index.prompts });
 
   // Cards open the same quick-view modal a table row does, instead of
@@ -136,9 +143,41 @@ if (resultsEl && filtersEl) {
       matches = searchablePrompts;
     }
 
-    matches = matches.filter(p => categories.length === 0 || categories.some(c => p.categories.includes(c)));
+    matches = matches.filter(p => categories.length === 0 || categories.some(c => promptHasCategory(p, c)));
 
     render(matches, q);
+  }
+
+  // Rebuilds the category pills from the caller's own categories.
+  //
+  // Search never did this before, and until BUILD_BRIEF_v6.md it didn't
+  // matter: the pills were built from the same nine-slug vocabulary everyone
+  // shared, so the static markup was already correct for a signed-in user.
+  // Now that a user can rename, recolour, add and delete categories, leaving
+  // the build-time pills in place would show them the *admin's* categories on
+  // this one page while every other page shows theirs - and a pill for a
+  // category they deleted would filter to nothing.
+  //
+  // Rebuilt by hand rather than through personalize.js's rebuildToolbar():
+  // that one is scoped to a .prompt-table-block it owns, and search's toolbar
+  // lives outside one.
+  function rebuildFilters(pers) {
+    const active = new Set(toolbar.getActive('category'));
+    const options = (pers.categories || [])
+      .map(c => ({ ...c, count: pers.prompts.filter(p => promptHasCategory(p, c.slug)).length }))
+      .filter(c => c.count > 0)
+      .map(c => ({ value: c.slug, label: categoryName(c), count: c.count, color: c.color }));
+
+    filtersEl.outerHTML = renderFilterToolbar(
+      [{ key: 'category', label: 'Category Filter(s)', options }], { id: 'search-filters' });
+    filtersEl = document.getElementById('search-filters');
+    toolbar = initFilterToolbar('search-filters', { onChange: runSearch });
+    // Reapply whatever was selected, but only where it still exists - a pill
+    // for a deleted category shouldn't come back as a filter matching nothing.
+    for (const slug of active) {
+      filtersEl.querySelector(`[data-group="category"][data-value="${CSS.escape(slug)}"]`)
+        ?.click();
+    }
   }
 
   async function loadPersonalization() {
@@ -146,6 +185,7 @@ if (resultsEl && filtersEl) {
     if (!personalization) return;
     searchablePrompts = personalization.prompts;
     fuse.setCollection(searchablePrompts);
+    rebuildFilters(personalization);
     runSearch();
   }
   document.addEventListener('personalization:changed', loadPersonalization);
