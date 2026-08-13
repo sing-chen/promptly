@@ -1609,3 +1609,31 @@ tr.is-flash, .prompt-card.is-flash {
 @media (max-width: 560px) {
   .stat-bar-row { grid-template-columns: 90px 1fr 28px; }
 }
+
+/* Empty categories are kept in the chart so the "where the gaps are" caption
+   is actually true - they render as a bare track with a dash instead of a
+   count, dimmed so the populated bars still lead the eye. */
+.stat-bar-row.is-empty .stat-bar-label,
+.stat-bar-row.is-empty .stat-bar-count { color: var(--ink-faint); opacity: .7; }
+.stat-bar-row.is-empty .stat-bar-track { background: transparent; box-shadow: inset 0 0 0 1px var(--line-soft); }
+
+/* Composition bar: one track, three segments, reading as a ramp of ownership
+   - fully yours, partly yours, not yours. The three must be unmistakably
+   different: --seq resolves to the same hex as --accent, so using it for
+   "adapted" made that segment invisible against "written by you". */
+.stat-stack {
+  display: flex;
+  height: 22px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--well);
+  gap: 2px;
+}
+.stat-stack-seg { display: block; height: 100%; }
+.seg-own       { background: var(--accent); }     /* fully yours */
+.seg-custom    { background: var(--cat-ochre); }  /* given, then adapted */
+.seg-untouched { background: var(--ink-faint); }  /* given, untouched */
+
+.stat-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; }
+.stat-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-soft); }
+.stat-legend-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }

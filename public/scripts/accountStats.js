@@ -10,6 +10,7 @@
 // category).
 import { loadMyPrompts, loadMyGrants, loadCollections } from './db.js';
 import { categoryHue, categoryLabel, esc, fmtDate } from './lib/render.mjs';
+import { CATEGORIES } from './lib/schema.mjs';
 import { ensureFavorites, favoriteCount } from './favoritesStore.js';
 
 const NEW_WINDOW_DAYS = 14;
@@ -55,8 +56,12 @@ export function computeStats({ prompts, grants, collections, favorites, user }) 
   for (const p of active) {
     for (const c of p.categories || []) byCategory[c] = (byCategory[c] || 0) + 1;
   }
-  const categories = Object.entries(byCategory)
-    .map(([slug, count]) => ({ slug, count }))
+  // Every category in the vocabulary, not just the ones in use. A category
+  // you have nothing in is precisely what "where the gaps are" means, and
+  // omitting the zeros made the chart unable to show the thing it claims to.
+  // Empty ones sort last, alphabetically, so the populated bars still lead.
+  const categories = CATEGORIES
+    .map(slug => ({ slug, count: byCategory[slug] || 0 }))
     .sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
 
   // Only ever non-zero for an admin - a regular user can't own a curated row.
@@ -65,6 +70,9 @@ export function computeStats({ prompts, grants, collections, favorites, user }) 
 
   return {
     active: active.length,
+    // From the catalog and never edited since - the remainder once
+    // `customised` is taken out of `fromCatalog`.
+    untouched: fromCatalog.length - customised.length,
     archived: archived.length,
     selfAuthored: selfAuthored.length,
     fromCatalog: fromCatalog.length,
@@ -92,20 +100,50 @@ function tile(value, label, hint) {
 }
 
 function categoryChart(categories) {
-  if (!categories.length) {
+  const max = Math.max(...categories.map(c => c.count), 0);
+  if (max === 0) {
     return '<p class="stat-empty">Nothing to chart yet — your prompts will show up here by category.</p>';
   }
-  const max = categories[0].count;
   return `
 <div class="stat-bars">
   ${categories.map(c => `
-  <div class="stat-bar-row">
+  <div class="stat-bar-row${c.count === 0 ? ' is-empty' : ''}">
     <span class="stat-bar-label">${esc(categoryLabel(c.slug))}</span>
     <span class="stat-bar-track">
-      <span class="stat-bar-fill ${categoryHue(c.slug)}" style="width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>
+      ${c.count > 0
+        ? `<span class="stat-bar-fill ${categoryHue(c.slug)}" style="width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>`
+        : ''}
     </span>
-    <span class="stat-bar-count">${c.count}</span>
+    <span class="stat-bar-count">${c.count === 0 ? '—' : c.count}</span>
   </div>`).join('')}
+</div>`;
+}
+
+// One bar, split three ways. The tiles above already state these numbers;
+// what they can't show is the proportion - that a library is mostly given
+// rather than written, and how much of the given part has actually been
+// adapted. Segments below ~4% still render at 4% so a single prompt in a
+// large library doesn't vanish; the legend carries the true counts, so the
+// rounding can't mislead.
+function compositionChart(s) {
+  const total = s.active;
+  if (!total) return '';
+  const parts = [
+    { key: 'own',       label: 'Written by you',   value: s.selfAuthored },
+    { key: 'untouched', label: 'From the catalog', value: s.untouched },
+    { key: 'custom',    label: 'Catalog, adapted', value: s.customised }
+  ].filter(p => p.value > 0);
+
+  return `
+<div class="stat-stack" role="img" aria-label="${parts.map(p => `${p.value} ${p.label}`).join(', ')}">
+  ${parts.map(p => `<span class="stat-stack-seg seg-${p.key}" style="width:${Math.max(4, Math.round((p.value / total) * 100))}%"></span>`).join('')}
+</div>
+<div class="stat-legend">
+  ${parts.map(p => `
+  <span class="stat-legend-item">
+    <span class="stat-legend-swatch seg-${p.key}"></span>
+    ${esc(p.label)} <strong>${p.value}</strong>
+  </span>`).join('')}
 </div>`;
 }
 
@@ -146,8 +184,14 @@ export function renderStats(root, s) {
 ${adminBlock}
 
 <section class="stat-section">
+  <h2>What your library is made of</h2>
+  <p class="stat-section-note">Most of a library starts as catalog prompts. This is how much of yours you've written or adapted.</p>
+  ${compositionChart(s)}
+</section>
+
+<section class="stat-section">
   <h2>By category</h2>
-  <p class="stat-section-note">Where your library is concentrated, and where the gaps are.</p>
+  <p class="stat-section-note">Where your library is concentrated, and where the gaps are — a dash means you have nothing in that category.</p>
   ${categoryChart(s.categories)}
 </section>
 
