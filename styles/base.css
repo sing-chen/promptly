@@ -270,7 +270,15 @@ main .container {
    strip pinned to the sidebar's own right edge, inside its sticky box so it
    scrolls with it. Desktop-only (matches the collapse feature's 901px
    breakpoint - see the media query below) and hidden while collapsed,
-   since there's nothing to grab. */
+   since there's nothing to grab. The strip itself is a faint hover-tinted
+   band (this is the whole grabbable target, wider than it looks); a small
+   pill-shaped grip (::after, vertically centered) is the actual "you can
+   drag this" affordance, since the bare strip alone read as too subtle to
+   notice - a scaled-up, more opaque grip communicates "handle" the way a
+   plain color-change hover state doesn't. Visible on :hover/:focus-visible
+   *and* while `.sidebar.is-resizing` (personalize.js keeps that class on
+   for the whole drag) so it doesn't flicker off mid-drag if the cursor
+   momentarily leaves the thin strip. */
 .sidebar-resize-handle {
   position: absolute;
   top: 0; right: -3px; bottom: 0;
@@ -280,11 +288,28 @@ main .container {
   z-index: 5;
   border: none;
   padding: 0;
+  transition: background .15s ease;
 }
 .sidebar-resize-handle:hover, .sidebar-resize-handle:focus-visible {
-  background: var(--accent);
-  opacity: .5;
+  background: var(--accent-soft);
   outline: none;
+}
+.sidebar-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 4px; height: 36px;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  opacity: 0;
+  transform: translate(-50%, -50%) scaleY(.6);
+  transition: opacity .15s ease, background .15s ease, transform .15s ease;
+}
+.sidebar-resize-handle:hover::after, .sidebar-resize-handle:focus-visible::after,
+.sidebar.is-resizing .sidebar-resize-handle::after {
+  opacity: 1;
+  background: var(--accent);
+  transform: translate(-50%, -50%) scaleY(1);
 }
 .app-shell.sidebar-collapsed .sidebar-resize-handle { display: none; }
 @media (max-width: 900px) {
@@ -398,11 +423,13 @@ a.sidebar-section-label:hover { color: var(--accent); }
 .view-toggle-btn:hover { color: var(--ink); }
 .view-toggle-btn.is-active { background: var(--paper); color: var(--accent); box-shadow: var(--shadow-sm); }
 
-/* Hover/focus tooltip for the header's view-toggle and theme-toggle buttons -
-   CSS-only, reads the existing `title` attribute so no markup duplication,
-   same visual language as .field-hint (dark bubble, light text). */
-.view-toggle-btn, #theme-toggle { position: relative; }
-.view-toggle-btn[title]::after, #theme-toggle[title]::after {
+/* Hover/focus tooltip for the header's view-toggle button - CSS-only, reads
+   the existing `title` attribute so no markup duplication, same visual
+   language as .field-hint (dark bubble, light text). #theme-toggle is also
+   `.icon-btn`, so it's covered by the shared .icon-btn[title] rule below
+   instead of needing its own selector here. */
+.view-toggle-btn { position: relative; }
+.view-toggle-btn[title]::after {
   content: attr(title);
   position: absolute; z-index: 20;
   top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
@@ -412,8 +439,30 @@ a.sidebar-section-label:hover { color: var(--accent); }
   visibility: hidden; opacity: 0; transition: opacity .1s ease, transform .1s ease;
   pointer-events: none;
 }
-.view-toggle-btn[title]:hover::after, .view-toggle-btn[title]:focus-visible::after,
-#theme-toggle[title]:hover::after, #theme-toggle[title]:focus-visible::after {
+.view-toggle-btn[title]:hover::after, .view-toggle-btn[title]:focus-visible::after {
+  visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
+}
+
+/* Same tooltip idiom, generalized to every icon-only button site-wide
+   (sidebar controls, and - now that they're always visible, not just on
+   row/card hover - the fav/copy/archive/delete/edit icons on every prompt
+   row and card). `white-space: normal` + a max-width here, unlike the
+   view-toggle rule above, since these titles range from a two-word label
+   ("Copy Prompt") to a short explanation ("Archive - hides this prompt
+   from your view and filters"). */
+.icon-btn { position: relative; }
+.icon-btn[title]::after {
+  content: attr(title);
+  position: absolute; z-index: 20;
+  top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
+  background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
+  white-space: normal; width: max-content; max-width: 190px; text-align: center;
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  visibility: hidden; opacity: 0; transition: opacity .1s ease, transform .1s ease;
+  pointer-events: none;
+}
+.icon-btn[title]:hover::after, .icon-btn[title]:focus-visible::after {
   visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
 }
 
@@ -889,8 +938,10 @@ button.nav-toggle { display: none; }
 .title-cell .seq-tag { margin-left: 8px; vertical-align: middle; }
 .purpose-line { display: block; font-family: var(--sans); font-weight: 400; font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.row-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .1s ease; }
-.browse-table tr:hover .row-actions, .browse-table tr:focus-within .row-actions, .browse-table tr.is-selected .row-actions { opacity: 1; }
+/* Always visible now, not just on hover/focus/selection - a row's
+   fav/copy/archive/delete icons were easy to miss entirely otherwise,
+   especially on touch devices with no hover state at all. */
+.row-actions { display: flex; gap: 2px; }
 
 /* quick-view modal */
 .backdrop {
