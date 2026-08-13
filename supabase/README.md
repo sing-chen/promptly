@@ -178,9 +178,12 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   which is unaffected either way.
 - Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
   `SUPABASE_ANON_KEY`.
-- `/favorites/` still reads the build-time list, so a favourited personal prompt won't
-  appear there. Now fixable in a way it wasn't before (everything is an owned row), but
-  it interacts with the localStorage/slug-based favourites used for guests.
+- Favourites are two-tier by design: anonymous visitors store slugs in localStorage,
+  signed-in users get the `favorites` table keyed by prompt id (the key spaces can't be
+  shared - a user's copy has a different id, and possibly a different slug, from the
+  catalog row it came from). Anonymous favourites merge into the table once on first
+  sign-in, matched by slug; the local copy is kept so signing out doesn't strand you.
+  `/favorites/` is personalized, so a favourited personal prompt now appears there.
 - `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.
 - Multiple admins: a second admin would see only their own catalog rows and couldn't
   edit the first admin's. Fine at one admin; needs a decision before a second.
@@ -196,7 +199,7 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
    architecture change: the vocabulary is a hardcoded array mirrored by a CHECK
    constraint, and `/browse/<slug>/` pages are statically generated from it. Needs a
    global-vs-per-user decision first, the same fork v5 resolved for prompts.
-5. `/favorites/` coherence, variable-fill, and the remaining open items above.
+5. Variable-fill, and the remaining open items above.
 
 Auto-rebuild on catalog change is **done** (`0005_publish_webhook.sql`) — it only
 needs the Deploy Hook URL wired up, setup step 7.

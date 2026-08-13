@@ -10,7 +10,7 @@
 // category).
 import { loadMyPrompts, loadMyGrants, loadCollections } from './db.js';
 import { categoryHue, categoryLabel, esc, fmtDate } from './lib/render.mjs';
-import { getFavorites } from './favorites.js';
+import { ensureFavorites, favoriteCount } from './favoritesStore.js';
 
 const NEW_WINDOW_DAYS = 14;
 
@@ -73,7 +73,7 @@ export function computeStats({ prompts, grants, collections, favorites, user }) 
     collections: collections.length,
     uncollected: uncollected.length,
     recent: recent.length,
-    favorites: favorites.length,
+    favorites,
     categories,
     catalogPublished,
     catalogDrafts,
@@ -139,7 +139,7 @@ export function renderStats(root, s) {
     ${tile(s.collections, 'Collections', '<a href="/collections/">manage</a>')}
     ${tile(s.uncollected, 'Not in a collection', 'across your library')}
     ${tile(s.recent, 'Added recently', `last ${NEW_WINDOW_DAYS} days`)}
-    ${tile(s.favorites, 'Favourites', 'saved in this browser')}
+    ${tile(s.favorites, 'Favourites', '<a href="/favorites/">view</a>')}
   </div>
 </section>
 
@@ -157,13 +157,14 @@ ${s.memberSince ? `<p class="stat-footnote">Account created ${esc(fmtDate(s.memb
 export async function initAccountStats(root, user) {
   root.innerHTML = '<p class="stat-empty">Loading your library…</p>';
   try {
+    await ensureFavorites();
     const [prompts, grants, collections] = await Promise.all([
       loadMyPrompts(),
       loadMyGrants().catch(() => []), // grants are optional context, not the point
       loadCollections()
     ]);
     renderStats(root, computeStats({
-      prompts, grants, collections, favorites: getFavorites(), user
+      prompts, grants, collections, favorites: favoriteCount(), user
     }));
   } catch (err) {
     root.innerHTML = `<p class="stat-empty">Couldn’t load your library stats. ${esc(err.message || '')}</p>`;

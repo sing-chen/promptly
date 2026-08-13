@@ -1,33 +1,26 @@
 import { initCategoryPillBar } from './categoryPills.js';
+import { supabase } from './supabaseClient.js';
+import {
+  ensureFavorites, resetFavorites, favKeyFrom, isFavoriteKey,
+  toggleFavoriteKey, favoriteCount
+} from './favoritesStore.js';
 
-const KEY = 'promptly:favorites';
-
-export function getFavorites() {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-export function isFavorite(slug) {
-  return getFavorites().includes(slug);
-}
-
-export function toggleFavorite(slug) {
-  const current = getFavorites();
-  const idx = current.indexOf(slug);
-  if (idx === -1) current.push(slug);
-  else current.splice(idx, 1);
-  localStorage.setItem(KEY, JSON.stringify(current));
-  updateNavCount();
-  document.dispatchEvent(new CustomEvent('favorites:changed', { detail: { favorites: current } }));
-  return current.includes(slug);
+// Star buttons carry BOTH identifiers (data-fav-slug and data-fav-id); the
+// store decides which one is the key for the current tier - slug for
+// anonymous visitors, prompt id once signed in. See favoritesStore.js.
+function favTarget(btn) {
+  return favKeyFrom({ id: btn.dataset.favId, slug: btn.dataset.favSlug });
 }
 
 export function exportFavorites() {
-  const data = JSON.stringify(getFavorites(), null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
+  // Derived from the rendered stars rather than the store, because the store
+  // holds prompt ids when signed in and an export keyed by ids would be
+  // meaningless outside this account. Every favourite is on screen when this
+  // button is (it lives on /favorites/), so the DOM is the better source.
+  const slugs = [...document.querySelectorAll('[data-fav-slug].is-active')]
+    .map(b => b.dataset.favSlug)
+    .filter(Boolean);
+  const blob = new Blob([JSON.stringify(slugs, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -38,15 +31,11 @@ export function exportFavorites() {
 
 function updateNavCount() {
   const el = document.getElementById('nav-fav-count-num');
-  if (el) el.textContent = String(getFavorites().length);
+  if (el) el.textContent = String(favoriteCount());
 }
 
-// List/grid star buttons carry a `title` tooltip (unlike the detail-page/
-// quick-view fav buttons, which swap a text label instead - see their own
-// markup in lib/render.mjs) - only those get their tooltip text flipped
-// here, guarded by the data-tip attribute so this doesn't touch the other
-// kind. Never `title` - that would also summon the browser's own tooltip
-// alongside the styled one (see base.css).
+// Tooltip text is flipped here too - the styled tooltip reads `data-tip`,
+// never `title`, or the browser draws its own alongside it (see base.css).
 function applyFavState(btn, active) {
   btn.classList.toggle('is-active', active);
   btn.setAttribute('aria-pressed', String(active));
@@ -55,16 +44,35 @@ function applyFavState(btn, active) {
   }
 }
 
+// Re-applies stored state to every star currently in the DOM. Called after
+// the store resolves and after any change, since binding happens
+// synchronously at render time but the state may arrive later.
+function refreshStars(root = document) {
+  root.querySelectorAll('[data-fav-slug]').forEach(btn => {
+    applyFavState(btn, isFavoriteKey(favTarget(btn)));
+  });
+  updateNavCount();
+}
+
 function initStars(root) {
   root.querySelectorAll('[data-fav-slug]').forEach(btn => {
     if (btn.dataset.favBound) return;
     btn.dataset.favBound = 'true';
-    const slug = btn.getAttribute('data-fav-slug');
-    applyFavState(btn, isFavorite(slug));
-    btn.addEventListener('click', (e) => {
+    applyFavState(btn, isFavoriteKey(favTarget(btn)));
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      applyFavState(btn, toggleFavorite(slug));
+      const key = favTarget(btn);
+      if (key == null) return;
+      const optimistic = !btn.classList.contains('is-active');
+      applyFavState(btn, optimistic);
+      try {
+        applyFavState(btn, await toggleFavoriteKey(key));
+      } catch (err) {
+        applyFavState(btn, !optimistic);
+        alert(err.message || 'Could not update favourites.');
+      }
+      updateNavCount();
     });
   });
 }
@@ -112,14 +120,13 @@ function initFavoritesGrid() {
   const pills = initCategoryPillBar('favorites-category-filter', { onChange: apply });
 
   function apply() {
-    const favs = getFavorites();
     const activeCats = pills.getActive();
     let count = 0;
     const catCounts = {};
     Array.from(grid.children).forEach(row => {
-      const slug = row.querySelector('[data-fav-slug]')?.getAttribute('data-fav-slug');
+      const btn = row.querySelector('[data-fav-slug]');
       const rowCats = (row.dataset.categories || '').split(',').filter(Boolean);
-      const isFav = favs.includes(slug);
+      const isFav = Boolean(btn) && isFavoriteKey(favTarget(btn));
       if (isFav) rowCats.forEach(c => { catCounts[c] = (catCounts[c] || 0) + 1; });
       const matchesCategory = activeCats.size === 0 || rowCats.some(c => activeCats.has(c));
       const visible = isFav && matchesCategory;
@@ -129,7 +136,7 @@ function initFavoritesGrid() {
     pills.setCounts(catCounts);
     wrap.hidden = count === 0;
     if (emptyEl) {
-      emptyEl.textContent = favs.length === 0
+      emptyEl.textContent = favoriteCount() === 0
         ? 'Nothing starred yet. Browse prompts and click the star to save one here.'
         : 'No favorites match the selected categories.';
       emptyEl.hidden = count !== 0;
@@ -197,11 +204,27 @@ function initNavToggle() {
   });
 }
 
-updateNavCount();
 document.addEventListener('DOMContentLoaded', () => {
   initInteractive(document);
   initFavoritesGrid();
   initExportButton();
   initThemeToggle();
   initNavToggle();
+
+  // Stars bind immediately (unstarred) and are corrected once the store
+  // resolves, rather than blocking render on a round trip.
+  ensureFavorites().then(() => {
+    refreshStars();
+    document.dispatchEvent(new CustomEvent('favorites:ready'));
+  });
+
+  // Signing in or out swaps the whole key space - slug-based local storage
+  // for anonymous, prompt ids from the table once signed in - so the store
+  // has to be rebuilt from scratch, not merely re-read.
+  supabase?.auth.onAuthStateChange(() => {
+    resetFavorites();
+    ensureFavorites().then(() => refreshStars());
+  });
+
+  document.addEventListener('favorites:changed', () => refreshStars());
 });

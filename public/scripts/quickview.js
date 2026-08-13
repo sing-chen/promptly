@@ -5,7 +5,7 @@
 // markup itself (renderQuickViewModal in lib/render.mjs) is a single shell
 // reused by whichever table on the page is currently active.
 import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
-import { isFavorite, toggleFavorite } from './favorites.js';
+import { favKeyFrom, isFavoriteKey, toggleFavoriteKey } from './favoritesStore.js';
 import { deletePrompt, archivePrompt, duplicatePrompt } from './db.js';
 import { confirmDialog } from './confirmDialog.js';
 
@@ -111,8 +111,8 @@ export function initQuickView(gridId, opts = {}) {
     });
   }
 
-  function syncFavButton(slug) {
-    const active = isFavorite(slug);
+  function syncFavButton() {
+    const active = isFavoriteKey(favKeyFrom({ id: currentItem?.id, slug: currentItem?.slug }));
     els.fav.classList.toggle('is-active', active);
     els.fav.setAttribute('aria-pressed', String(active));
     // Matches the row/card star's tooltip wording (favorites.js
@@ -149,7 +149,8 @@ export function initQuickView(gridId, opts = {}) {
     }
 
     els.fav.setAttribute('data-fav-slug', item.slug);
-    syncFavButton(item.slug);
+    if (item.id) els.fav.setAttribute('data-fav-id', item.id);
+    syncFavButton();
     // Every build-time item has a real /prompt/[slug]/ page (undefined
     // is_curated/published - see toQuickViewItem in lib/render.mjs). A
     // personalized item that's explicitly is_curated=false or published=false
@@ -260,10 +261,18 @@ export function initQuickView(gridId, opts = {}) {
     const slug = a.getAttribute('href').replace(/^\/prompt\//, '').replace(/\/$/, '');
     open(slug);
   });
-  els.fav.addEventListener('click', () => {
-    if (!currentSlug) return;
-    toggleFavorite(currentSlug);
-    syncFavButton(currentSlug);
+  els.fav.addEventListener('click', async () => {
+    const key = favKeyFrom({ id: currentItem?.id, slug: currentItem?.slug });
+    if (key == null) return;
+    els.fav.disabled = true;
+    try {
+      await toggleFavoriteKey(key);
+    } catch (err) {
+      alert(err.message || 'Could not update favourites.');
+    } finally {
+      els.fav.disabled = false;
+      syncFavButton();
+    }
   });
   els.copy.addEventListener('click', async () => {
     if (!currentItem) return;
@@ -336,7 +345,7 @@ export function initQuickView(gridId, opts = {}) {
   // Any favorite toggled elsewhere (a row's own star, another quick-view
   // session) should be reflected here too if it's the open prompt.
   document.addEventListener('favorites:changed', () => {
-    if (currentSlug) syncFavButton(currentSlug);
+    if (currentItem) syncFavButton();
   });
 
   return {

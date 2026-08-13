@@ -354,6 +354,10 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     if (e.detail?.duplicatedId) pendingDuplicate = e.detail;
     refresh();
   });
+  // /favorites/ passes a filterFn keyed on the favourites store, so a star
+  // toggled on this page changes which rows belong here - repaint rather
+  // than leaving an unstarred row sitting in the list until reload.
+  document.addEventListener('favorites:changed', refresh);
 }
 
 export function initPersonalizedTable(opts) {
