@@ -10,7 +10,6 @@
 // category).
 import { loadMyPrompts, loadMyGrants, loadCollections } from './db.js';
 import { categoryHue, categoryLabel, esc, fmtDate } from './lib/render.mjs';
-import { CATEGORIES } from './lib/schema.mjs';
 import { ensureFavorites, favoriteCount } from './favoritesStore.js';
 
 const NEW_WINDOW_DAYS = 14;
@@ -56,12 +55,13 @@ export function computeStats({ prompts, grants, collections, favorites, user }) 
   for (const p of active) {
     for (const c of p.categories || []) byCategory[c] = (byCategory[c] || 0) + 1;
   }
-  // Every category in the vocabulary, not just the ones in use. A category
-  // you have nothing in is precisely what "where the gaps are" means, and
-  // omitting the zeros made the chart unable to show the thing it claims to.
-  // Empty ones sort last, alphabetically, so the populated bars still lead.
-  const categories = CATEGORIES
-    .map(slug => ({ slug, count: byCategory[slug] || 0 }))
+  // Only categories actually in use. Showing every category in the
+  // vocabulary with empty tracks was tried and reverted: nine rows for a
+  // handful of prompts read as clutter, and the empties drew attention
+  // without being actionable. The chart answers "what is my library made of",
+  // not "what could it be made of".
+  const categories = Object.entries(byCategory)
+    .map(([slug, count]) => ({ slug, count }))
     .sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
 
   // Only ever non-zero for an admin - a regular user can't own a curated row.
@@ -100,21 +100,19 @@ function tile(value, label, hint) {
 }
 
 function categoryChart(categories) {
-  const max = Math.max(...categories.map(c => c.count), 0);
-  if (max === 0) {
+  if (!categories.length) {
     return '<p class="stat-empty">Nothing to chart yet — your prompts will show up here by category.</p>';
   }
+  const max = categories[0].count;
   return `
 <div class="stat-bars">
   ${categories.map(c => `
-  <div class="stat-bar-row${c.count === 0 ? ' is-empty' : ''}">
+  <div class="stat-bar-row">
     <span class="stat-bar-label">${esc(categoryLabel(c.slug))}</span>
     <span class="stat-bar-track">
-      ${c.count > 0
-        ? `<span class="stat-bar-fill ${categoryHue(c.slug)}" style="width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>`
-        : ''}
+      <span class="stat-bar-fill ${categoryHue(c.slug)}" style="width:${Math.max(2, Math.round((c.count / max) * 100))}%"></span>
     </span>
-    <span class="stat-bar-count">${c.count === 0 ? '—' : c.count}</span>
+    <span class="stat-bar-count">${c.count}</span>
   </div>`).join('')}
 </div>`;
 }
@@ -191,7 +189,7 @@ ${adminBlock}
 
 <section class="stat-section">
   <h2>By category</h2>
-  <p class="stat-section-note">Where your library is concentrated, and where the gaps are — a dash means you have nothing in that category.</p>
+  <p class="stat-section-note">Where your library is concentrated.</p>
   ${categoryChart(s.categories)}
 </section>
 

@@ -1610,13 +1610,6 @@ tr.is-flash, .prompt-card.is-flash {
   .stat-bar-row { grid-template-columns: 90px 1fr 28px; }
 }
 
-/* Empty categories are kept in the chart so the "where the gaps are" caption
-   is actually true - they render as a bare track with a dash instead of a
-   count, dimmed so the populated bars still lead the eye. */
-.stat-bar-row.is-empty .stat-bar-label,
-.stat-bar-row.is-empty .stat-bar-count { color: var(--ink-faint); opacity: .7; }
-.stat-bar-row.is-empty .stat-bar-track { background: transparent; box-shadow: inset 0 0 0 1px var(--line-soft); }
-
 /* Composition bar: one track, three segments, reading as a ramp of ownership
    - fully yours, partly yours, not yours. The three must be unmistakably
    different: --seq resolves to the same hex as --accent, so using it for
