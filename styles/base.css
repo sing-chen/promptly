@@ -875,7 +875,22 @@ button.nav-toggle { display: none; }
 /* filter toolbar (§9a filter-rail -> §9b pill pattern swap, see .filter-pill
    below for the pill itself) - a horizontal, wrapping row of pill groups
    replacing the old checkbox sidebar on Category/Search. */
-.filter-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-bottom: 10px; }
+/* Hairline between the category pills and the prompt list/grid below them.
+   Same 1px var(--line-soft) as .home-hero-divider directly above the pills,
+   so the filter row reads as a band bounded on both sides rather than as
+   something floating above the results.
+
+   A border on the toolbar rather than an <hr> in the markup: personalize.js
+   and search.js both rebuild this element via outerHTML when the caller's
+   own categories load, so a sibling <hr> would have to be re-emitted in
+   three separate render paths and kept in step. A border travels with the
+   element for free. Same reasoning for .filter-bar below (Favorites). */
+.filter-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 14px;
+}
 .filter-pill-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .filter-pill-group::before {
   content: attr(data-label);
@@ -1008,7 +1023,12 @@ button.nav-toggle { display: none; }
 
 /* ===== §9b: browse table + live category filter + quick-view modal ===== */
 
-.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+.filter-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  margin-bottom: 14px;
+}
 .filter-pill {
   display: inline-flex; align-items: center; gap: 6px; font-family: var(--sans); font-size: 12.5px; font-weight: 600;
   padding: 6px 12px 6px 10px; border-radius: 999px; border: 1.5px solid transparent; cursor: pointer;

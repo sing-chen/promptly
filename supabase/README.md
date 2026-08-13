@@ -249,6 +249,15 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   personal prompt appears there.
 - `scripts/build.mjs` reads published catalog prompts from Supabase
   (`lib/supabaseBuild.mjs`) rather than `prompts/*.md`.
+- Verified against the live project: `0006` applied, with `verify_0006.sql` passing.
+  Check 26 (`anon` cannot read the bookkeeping tables) **failed on the first run** and
+  is the one worth remembering: Supabase's default privileges had granted `anon` on
+  every new table in `public`, so the migration's "we never wrote a GRANT" reasoning
+  was wrong. RLS was still returning zero rows throughout, so it was a missing layer
+  rather than an exposure. `0006` now revokes explicitly, and the same fix was issued
+  by hand against the live project for the two `0004` tables that had gone unnoticed
+  because `verify_0004.sql` never tested for it. After migrating, `node scripts/build.mjs`
+  runs green and the site is deployed.
 - Verified against the live project: `0004` applied with all 11 checks in
   [`verify_0004.sql`](verify_0004.sql) passing; a non-admin test account was seeded 7
   copies automatically, and editing one updated it in place without creating a fork
@@ -257,19 +266,16 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   anonymous visitors after the resulting rebuild.
 
 **Built, but needs configuration to take effect:**
-- **`0006_user_categories.sql` is written but NOT YET APPLIED to the live project.**
-  There is no Supabase CLI here and `.env.local` holds only the anon key, so it has to
-  be pasted into the SQL Editor by hand (after the admin row exists — see setup step 2).
-  Until then the app code and the live schema disagree and the build fails at
-  `fetchPublishedPrompts()` with a PostgREST `PGRST200` "could not find a relationship
-  between 'prompts' and 'prompt_categories'" — which is the expected symptom, not a
-  separate bug. Run [`verify_0006.sql`](verify_0006.sql) afterwards; every row should
-  read PASS except checks 12 and 13, which report data-dependent counts.
-  The application half was verified against fixture data shaped like the post-migration
-  reads (every page renders; colour, contrast and sidebar alignment measured in-browser
-  in both themes), but the signed-in CRUD paths — seeding, category create/rename/
-  recolour/reorder, and the delete-with-reassignment RPC — have **not** been exercised
-  against a real database yet.
+- **Category CRUD and seeding are unexercised against a real database.** `0006` is
+  applied and the schema is verified, but the signed-in paths — creating, renaming,
+  recolouring and reordering a category, the delete-with-reassignment RPC, and
+  `ensure_seeded()` handing a *new* account its categories — need a browser session,
+  which the build tooling has no way to hold. The rest of the pass was verified against
+  fixture data shaped like the post-migration reads (every page renders; colour,
+  contrast, sidebar alignment and mobile overflow measured in-browser in both themes).
+  Seeding in particular cannot be tested from the admin account at all: `ensure_seeded()`
+  deliberately no-ops for admins, so it needs a throwaway non-admin signup (option D/E in
+  [`reset_prompts.sql`](reset_prompts.sql) clears it again).
 - **Auto-rebuild on catalog change** (`0005_publish_webhook.sql`) is inert until a
   Deploy Hook URL is set - see setup step 7. Confirmed working once configured: an
   edit to a published catalog prompt produced a Vercel deployment. Without it, a

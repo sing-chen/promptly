@@ -1,12 +1,19 @@
 # Promptly — Build Brief v6: user-owned categories
 
-**Status: built, pending migration.** All four passes in §10 are implemented —
-`0006_user_categories.sql` + `verify_0006.sql`, the data-shape change, the colour
-work, and `/categories/`. The migration itself has **not been applied to the live
-project** (no Supabase CLI here; it is pasted into the SQL editor by hand), so the
-signed-in CRUD paths are unexercised against a real database. See
-[`supabase/README.md`](supabase/README.md)'s Status for exactly what that leaves
-unverified. The UI half is logged as BUILD_BRIEF.md §9s.
+**Status: built and live.** All four passes in §10 are implemented, and
+`0006_user_categories.sql` has been applied to the production project and verified
+with `verify_0006.sql`. The static build runs green against the migrated schema and
+the change is deployed. The UI half is logged as BUILD_BRIEF.md §9s, with the
+follow-up layout repairs in §9t.
+
+One check failed on that first live run — see §8a, which is worth reading before
+writing the next migration, because the lesson is about how these verify scripts
+earn their keep rather than about categories.
+
+What is **not** independently verified: the signed-in CRUD paths (category
+create/rename/recolour/reorder, delete-with-reassignment) and seeding into a fresh
+non-admin account. Those need a browser session, which the build tooling here has no
+way to hold. `supabase/README.md`'s Status records the same caveat.
 
 This document is the design rationale; `supabase/README.md` is the reference for the
 schema as it now stands. It is the category equivalent of
@@ -803,9 +810,8 @@ found this.
 
 ## 10. Sequencing
 
-All four passes below are **built**. Pass 1's migration is written and verified by
-inspection but not yet applied — everything after it therefore describes code that is
-correct against the new schema and untested against the live one.
+All four passes below are **built, applied and deployed**. Pass 1's migration ran
+against the production project with `verify_0006.sql` passing; passes 2–4 are live.
 
 **Pass 1 — schema.** `0006_user_categories.sql` + `verify_0006.sql`: the three
 tables, RLS, the ≥1-category trigger, the `ensure_seeded()` rewrite, the catalog

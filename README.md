@@ -67,13 +67,13 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 - `scripts/validate-prompts.mjs` — standalone content validation (required fields, duplicate slugs)
 - `lib/render.mjs` — HTML template functions for every page type; also reused client-side by `search.js` (it's plain browser-safe JS)
 - `lib/content.mjs` — frontmatter loading/validation, the derived data model, and the search index shape
-- `lib/schema.mjs` — controlled category vocabulary
+- `lib/schema.mjs` — category helpers shared by the build and the browser (`promptHasCategory`, `readableInk`, the picker palette). Was the controlled category vocabulary until BUILD_BRIEF_v6.md made categories per-user rows; there is no hardcoded list any more
 - `lib/sequences.mjs` — sequence logic (collections have no build-time equivalent - they're user-generated only, live in Supabase, see `supabase/README.md`)
-- `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal"), now including the sidebar nav layout
+- `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal"), now including the sidebar nav layout. Category colour is *not* a token: it is stored per category and inlined per element, with the soft/dark variants derived via `color-mix` (BUILD_BRIEF.md §9s)
 - `public/scripts/` — client-side JS:
   - *data*: `supabaseClient.js`/`db.js` (data layer), `personalizeData.js` (loads the signed-in library, triggers seeding), `favoritesStore.js` (two-tier favourites: localStorage by slug when signed out, the `favorites` table by prompt id when signed in)
-  - *rendering*: `personalize.js` (rebuilds a static prompt table as the caller's library; owns row actions and bulk select), `viewToggle.js` (table/grid), `quickview.js` (prompt modal), `search.js` (Fuse-powered search), `filters.js`/`categoryPills.js` (pill filter bars)
-  - *pages/features*: `auth.js` (sign-in/up + nav state), `accountStats.js` (`/account/` library metrics), `newPrompt.js` (create/edit modal, incl. admin publish + notify controls), `newCollection.js`, `collections.js`, `collectionsNav.js`, `archived.js`, `admin.js`
+  - *rendering*: `personalize.js` (rebuilds a static prompt table as the caller's library; owns row actions and bulk select), `viewToggle.js` (table/grid), `quickview.js` (prompt modal), `search.js` (Fuse-powered search), `filters.js`/`categoryPills.js` (pill filter bars), `categoriesNav.js` (swaps the sidebar's catalog category list for the caller's own)
+  - *pages/features*: `auth.js` (sign-in/up + nav state), `accountStats.js` (`/account/` library metrics), `newPrompt.js` (create/edit modal, incl. admin publish + notify controls), `newCollection.js`, `collections.js`, `collectionsNav.js`, `categories.js` (`/categories/` CRUD, incl. delete-with-reassignment), `archived.js`, `admin.js`
   - *chrome*: `favorites.js` (star/copy wiring, theme + mobile drawer), `sidebarCollapse.js`, `sidebarResize.js`, `confirmDialog.js`, `quickViewRegistry.js`
 - `lib/env.mjs` — dependency-free `.env.local` loader used by `scripts/build.mjs`
 - `supabase/` — account-tier schema/RLS migrations + setup docs (see [supabase/README.md](./supabase/README.md))

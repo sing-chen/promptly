@@ -172,7 +172,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).
