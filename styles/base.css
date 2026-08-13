@@ -1091,17 +1091,29 @@ button.nav-toggle { display: none; }
   padding-top: 8px;
   margin-top: auto;
 }
-/* Card action tooltips open downward by default and would be clipped by the
-   card below; the right-most ones also overflow the card. Anchor them the
-   same way the table's do. */
+/* Card action tooltips. These can't anchor to their own button like the
+   table's do: the tooltip is up to 190px wide and the card is only 320px, so
+   a button mid-row overflows one edge whichever side it opens from - and on
+   the leftmost card that overflow lands under the fixed sidebar, invisibly,
+   because .prompt-card:hover applies a transform whose stacking context traps
+   the tooltip's z-index below the sidebar's.
+   So anchor to the action ROW instead: make .card-actions the containing
+   block (the buttons go position:static) and pin every tooltip to its left
+   edge with max-width:100%. They then always sit fully inside the card,
+   whatever the button or the card width. Only one is ever visible at a time,
+   so a shared position reads as a hint line rather than a mispointed
+   tooltip. */
+.card-actions { position: relative; }
+.card-actions .icon-btn { position: static; }
 .card-actions .icon-btn[title]::after {
-  left: auto;
-  right: 0;
-  transform: translateX(0) translateY(-4px);
+  left: 0;
+  right: auto;
+  max-width: 100%;
+  transform: translateY(-4px);
 }
 .card-actions .icon-btn[title]:hover::after,
 .card-actions .icon-btn[title]:focus-visible::after {
-  transform: translateX(0) translateY(0);
+  transform: translateY(0);
 }
 
 /* The action icons sit at the table's right edge, and .icon-btn's tooltip is
