@@ -88,14 +88,18 @@ built vs. outstanding.
 **Anonymous tier**: content pipeline, full page generation, design system,
 search, favourites/copy, and Sequence Builder bulk admin.
 
-**Account tier** (owned copies — [BUILD_BRIEF_v5.md](./BUILD_BRIEF_v5.md)):
-Supabase schema/RLS, sign-in/up, per-user libraries seeded from the catalog,
-edit/archive/delete/duplicate with bulk actions, collections, database-backed
-favourites, admin curation with promote/publish, and automatic redeploy when
-the catalog changes. The nav is a left sidebar (replacing v3's top nav).
+**Account tier** (owned copies — [BUILD_BRIEF_v5.md](./BUILD_BRIEF_v5.md), with
+user-owned categories per [BUILD_BRIEF_v6.md](./BUILD_BRIEF_v6.md)): Supabase
+schema/RLS, sign-in/up, per-user libraries seeded from the catalog,
+edit/archive/delete/duplicate with bulk actions, per-user categories with their
+own names and colours (`/categories/`), collections, database-backed favourites,
+admin curation with promote/publish, and automatic redeploy when the catalog
+changes. The nav is a left sidebar (replacing v3's top nav).
 
-**Known gaps before public launch**: transactional email/SMTP is unconfigured,
-so sign-up confirmation and password reset don't actually send; the
-notify-and-merge screen for catalog updates is specced but not built; and the
-database still holds test content to be cleared before canonical prompts are
-seeded.
+**Known gaps before public launch** — the full list, with sequencing, is
+[OPEN_ITEMS.md](./OPEN_ITEMS.md). The short version: transactional email/SMTP is
+unconfigured, so sign-up confirmation and password reset don't actually send;
+Terms of Service and a Privacy Policy aren't drafted; the notify-and-merge
+screen for catalog updates is specced but not built; and the database still
+holds test content to be cleared before canonical prompts are seeded — which is
+worth doing *first*, while no one else holds copies.

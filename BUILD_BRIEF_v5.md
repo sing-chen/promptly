@@ -478,68 +478,14 @@ again afterwards.
 
 ## 9. Open items
 
-- **Multiple admins — accepted as-is, logged for revisit.** With admins skipping
-  seeding, a second admin's library would contain only the prompts *they* wrote —
-  they would not see the first admin's catalog prompts anywhere except the public
-  catalog view, and could not edit them (RLS scopes updates to the owner). Fine at
-  one admin. Revisit before a second admin is added; it would need either shared
-  ownership of catalog rows or an admin-wide catalog view.
-- **Demotion semantics.** The reverse of promotion (unpublish, then
-  `is_curated = false`) is permitted by the same policy and constraint. Users who
-  already hold copies keep them — the copies are independent rows — and seeding
-  won't re-grant, since their grant rows persist. The merge flow (§6) must treat a
-  catalog prompt that is no longer published as "no updates available" rather than
-  erroring on a missing current version. Cheap to handle; easy to forget.
-- **Submission / moderation workflow — logged as a future feature.** Today a
-  non-admin cannot contribute to the catalog at all (RLS blocks `is_curated = true`
-  for them), and Pass 1 doesn't change that. The idea worth building later: a user
-  nominates one of their own prompts for the catalog, an admin reviews it, and on
-  approval it becomes a catalog prompt and distributes like any other. Fits the
-  existing model cleanly — approval is the same promote-then-publish path as §5.3,
-  so the new surface is the submission queue and its review UI, not the
-  distribution mechanics. Needs decisions on attribution (is the original author
-  credited?) and on what happens to the submitter's own copy once it's published to
-  everyone.
-- **Slug drift on title change.** A user's copy generates its own slug at grant
-  time. If the admin later changes the catalog title and the user accepts the
-  update, their copy's title changes but its slug (and URL) does not. Stable links
-  are arguably the right trade; noting it so it isn't mistaken for a bug.
-- **Publishing becomes irreversible in effect.** Once granted, a prompt can't be
-  recalled or corrected across users until §6 ships. The existing draft flow
-  (`is_curated = true, published = false`) is the mitigation; `/admin/` should make
-  publish feel weightier — e.g. confirm with "this will be copied to N libraries and
-  can't be recalled."
-- ~~**`/favorites/` coherence.**~~ **Resolved.** Favourites are now two-tier —
-  localStorage by slug signed out, the `favorites` table by prompt id signed in,
-  with a one-time merge on first sign-in — and `/favorites/` is personalized, so
-  a favourited personal prompt appears there. Original note follows.
+**Moved to [OPEN_ITEMS.md](OPEN_ITEMS.md).** The items this section carried — the merge
+screen's dependants, multiple admins, demotion semantics, submission/moderation, slug
+drift, publish irreversibility, the storage and build-minute watch points, and the SMTP
+blocker — are in the single register, with their current status rather than their status
+as of this pass.
 
-  Today it only shows favourited *defaults* from the
-  build-time list (a known open item). Once everything is an owned row this becomes
-  fixable, but it also interacts with the localStorage/slug-based favourites used for
-  guests. Follow-on, not in Pass 1.
-- **Storage review point.** Revisit the Supabase tier past roughly 1,000 users or
-  100 catalog prompts.
-- **Vercel build minutes.** `0005_publish_webhook.sql` rebuilds the site on every
-  catalog change. Volume is naturally low - only admin writes to published catalog
-  rows qualify, and the trigger is statement-level so a bulk edit is one build - but
-  it's worth a glance if catalog editing ever becomes frequent. Batching would need
-  pg_cron; deliberately not built, since correctness (never serving stale pages)
-  matters more here than saving build minutes.
-- **Transactional email / SMTP is unconfigured — blocks public launch.** Sign-up
-  shows "Check your email to confirm your account" (`public/scripts/auth.js`), but
-  the app sends nothing itself: that email comes from Supabase Auth when "Confirm
-  email" is enabled. The project is still on Supabase's **built-in sender**, which
-  is explicitly test-only — a few messages an hour, and frequently undelivered.
-  Discovered when a test signup produced no email at all.
+One entry here was already struck through as resolved (`/favorites/` coherence); the
+register records it under "do not re-raise" so it doesn't come back a third time.
 
-  Nothing to build in this codebase; it's configuration plus a decision:
-  - **For now (pre-release):** turn "Confirm email" off under Authentication →
-    Providers → Email so test accounts are usable immediately, or confirm one by
-    hand with `update auth.users set email_confirmed_at = now() where email = '…'`.
-  - **Before launch:** configure custom SMTP under Authentication → Emails, or real
-    users will not reliably receive confirmation mail. This also covers password
-    reset, which has the same dependency and is equally untested.
-
-  Worth deciding at the same time whether email confirmation is wanted at all for a
-  personal prompt library, or whether sign-up should be immediate.
+The design rationale for all of it stays above: §6 for notify-and-merge, §4 for
+pull-based seeding, §3 for the schema.

@@ -298,11 +298,20 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 
 ## Next steps
 
-1. **Transactional email / SMTP** — blocks public launch (BUILD_BRIEF_v5.md §9).
-2. **Notify-and-merge screen** (v5 §6) — the schema for it is already in place; build it
-   before editing any published catalog prompt that users already hold.
-3. Clear test content and seed canonical prompts ([`reset_prompts.sql`](reset_prompts.sql)).
-4. Variable-fill, and the remaining open items above.
+**See [OPEN_ITEMS.md](../OPEN_ITEMS.md)** — the single register for everything
+outstanding across the project, ordered by what has to be true before each item matters.
 
-Auto-rebuild on catalog change is **done** (`0005_publish_webhook.sql`) — it only
-needs the Deploy Hook URL wired up, setup step 7.
+The **Status** section above stays here and is not duplicated there: it answers "what
+exists in this database", which is a different question from "what is left to do".
+
+The two things in the register that are specifically Supabase-side:
+
+- **Deploy Hook URL** (setup step 7) — `0005` is inert until it is set, and the failure
+  is quiet: catalog changes stop reaching anonymous visitors while signed-in users are
+  unaffected. Check with
+  `select deploy_hook_url is not null from deploy_settings;` in the SQL editor — it
+  cannot be checked from app code, since `deploy_settings` has RLS with no policies.
+- **Clearing test content before seeding canonical prompts**
+  ([`reset_prompts.sql`](reset_prompts.sql)) — worth doing *before* any other account
+  exists, because after that every edit to a published catalog prompt is a broadcast
+  that cannot be recalled.

@@ -115,16 +115,20 @@ favorites
 
 ## 7. Explicitly out of scope for v1 (open items)
 
-Mirroring v3's convention of flagging what's deliberately undecided rather than silently assumed:
+**Moved to [OPEN_ITEMS.md](OPEN_ITEMS.md).** This section was the original register of
+deliberately-deferred scope, and several of its entries were still live long after v4's
+*model* became historical — which is why CLAUDE.md kept pointing readers here. They now
+live in the single register alongside v5's, v6's and BUILD_BRIEF.md's, with their status
+brought up to date.
 
-- **Sequences for user-owned prompts** — v3's sequence chaining (`lib/sequences.mjs`) stays applied to the curated catalog only. Whether signed-in users can build their *own* sequences (step ordering, `depends_on` validity across their own prompt set, handoff notes) is a real feature with real complexity, not a given extension of the schema — deferred, not decided.
-- **Password reset / email confirmation UX** — Supabase handles the mechanics; the actual pages/copy for "check your email," "reset password," "confirm your address" states still need designing.
-- **Terms of Service / Privacy Policy** — becomes necessary, not optional, once real emails and personal libraries are being stored. Not yet drafted.
-- **Rate limiting / sign-up abuse protection** — Supabase has some baseline protection; whether it's sufficient at whatever scale this reaches is unassessed.
-- **OAuth providers** — decided: Google sign-in is a confirmed **nice-to-have**, not required for v1. Email/password (already built and working) is the v1 baseline; add Google once core account-tier features (admin authoring, `/library/`, forks) are further along. Needs a Google Cloud Console OAuth client + consent screen + redirect URI, then wiring the provider in Supabase's Auth settings — real setup overhead, which is why it's deferred rather than bundled into the initial auth work.
-- **Example output** — v3 had a `prompts.example_output` field (a single attached image, shown on the prompt detail page). Carried into the account-tier schema and the first cut of the New Prompt modal, then removed from both — schema, modal, prompt cards/detail page, search index, fork copy — as a deliberate call, not an oversight (`supabase/migrations/0003_remove_example_output.sql`). May return as a real, redesigned feature later (the old single-image-URL shape wasn't reconsidered for the account tier, just dropped); if it does, treat it as new design work, not a resurrection of the old column.
-- **Admin screen for category management** — categories are currently a hardcoded array (`CATEGORIES` in `lib/schema.mjs`), edited by hand alongside a matching migration for the DB's `prompts_categories_valid` check constraint (`supabase/README.md`'s "Keeping the schema in sync"); a deliberate choice at the time, not an oversight, since category pages are statically generated per hardcoded slug at build time. A real admin CRUD screen for add/rename/remove would mean moving categories into their own Supabase table and reworking `scripts/build.mjs`'s static per-category page generation to read from it (rename/remove also needs to migrate any prompt rows still using the old value) — a real architecture change, not a UI-only addition. Requested, not yet scoped or built.
-- **What admin-unpublishing a default actually should do** — flagged during the archive/delete icon pass (BUILD_BRIEF.md §9o) as worth a real discussion, not resolved here. Today, `unpublishPrompt()` (`db.js`) flips `published = false` and the default silently disappears from every non-owner's view immediately (`prompts_select`'s RLS - see supabase/README.md "Admin curation..."), including out from under anyone who already forked it (their fork keeps working, but "View original" breaks) or archived it without forking (harmless - it was already hidden from their view, so nothing changes for them). No warning to affected users, no grace period, no distinction between "unpublishing a typo'd draft nobody's really used yet" and "unpublishing something people have built on." Whether that's actually the right behavior - and if not, what the alternative is (a deprecation notice? disallowing unpublish once N users have favorited/forked it? something else) - needs a deeper look before treating the current behavior as final.
+Two of them were wrong by the time they were read, and the register says so explicitly
+rather than silently dropping them:
+
+- **"Admin screen for category management"** — built. BUILD_BRIEF_v6.md replaced the
+  hardcoded array and its CHECK constraint with per-user category rows and `/categories/`.
+- **"Sequences stay applied to the curated catalog only"** — the premise was already
+  false: `ensure_seeded()` copies `sequence`/`sequence_step` and remaps `depends_on`, so
+  a signed-in library forms complete chains. Only the rendering is missing.
 
 ---
 

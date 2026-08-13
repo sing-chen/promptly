@@ -783,40 +783,18 @@ together (distinct colours vs. total), which stays meaningful at any count.
 
 ## 9. Open items
 
-- **No notify-and-merge for categories.** If the admin renames or recolours a
-  catalog category, existing users' copies do not change. This is deliberate —
-  divergence is the point — but it means the admin cannot fix a bad colour
-  choice for anyone who has already signed up. Accepted; revisit only if the
-  catalog set changes meaningfully after launch. Note this makes the *initial*
-  nine colours worth getting right before the first non-admin signup.
-- **Re-grant on demand (§7.2) resurrects a deleted category.** Chosen as the
-  least-bad option; worth watching. The refinement, if it grates, is to surface
-  it rather than to change it.
-- **Slug immutability.** Renaming a category changes its label, not its slug or
-  its `/browse/` URL. Consistent with v5 §9's identical decision for prompts, and
-  invisible for user categories (§5), but it does mean an admin who renames
-  `ops-admin` to "Operations" leaves `/browse/ops-admin/` in place.
-- **`tools/sequence-builder/app.js` still holds its own hardcoded copy of the
-  nine slugs.** Not resolved here, and deliberately so: it is a standalone tool
-  outside the build, nothing imports it, and it was already out of step with the
-  app before this pass. It should be updated or explicitly retired, but doing it
-  inside this change would have meant touching a tool with no test coverage for
-  no benefit to the feature. `lib/content.mjs`'s `validatePrompts()` *was*
-  handled — it now takes the vocabulary as an argument, and the markdown lint
-  tool (`scripts/validate-prompts.mjs`) simply passes none, so it still checks
-  that a prompt *has* categories without being able to check that they exist.
-- **`supabase/seed_default_prompts.sql` no longer runs.** Every INSERT in it
-  targets the dropped `prompts.categories` column. Left broken with a header
-  explaining the fix rather than rewritten: it was already marked "review before
-  reusing", predates the owned-copies model, and its five prompts are test
-  content due to be replaced by canonical ones.
-- **Per-user category limit.** None proposed. Worth a sanity ceiling (~50?)
-  before launch, mainly so the sidebar and the filter toolbar can't be driven
-  into a state nobody designed.
-- **Category-scoped collections.** Not in scope, but once categories are
-  user-owned, "what's the difference between a category and a collection?"
-  becomes a fair question. Recorded, not answered — it interacts with
-  BUILD_BRIEF.md §12's unresolved tags question.
+**Moved to [OPEN_ITEMS.md](OPEN_ITEMS.md).** This section's entries — no merge for
+categories, re-granting a deleted category, slug immutability, the sequence-builder's
+stale slug list, the broken `seed_default_prompts.sql`, a per-user category limit, and
+the category-vs-collection question — are in the single register.
+
+Two are worth knowing about without opening it, because they read as bugs and are not:
+
+- **Categories deliberately never merge.** Prompts do (§6 of v5); categories don't.
+  Divergence from the admin's set is the intended outcome, not a conflict to resolve.
+- **`ensure_seeded()` will re-create a category the user deleted** if a newly granted
+  prompt needs it (§7.2). The alternative was letting the prompt land with no categories
+  at all, which breaks the rule §4.3 exists to hold.
 
 ---
 
