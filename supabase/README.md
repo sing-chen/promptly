@@ -13,7 +13,8 @@ Already provisioned and live in production — see "Status" below for what's act
    [`0001_init_schema.sql`](migrations/0001_init_schema.sql) →
    [`0002_admin_curation_and_forks.sql`](migrations/0002_admin_curation_and_forks.sql) →
    [`0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) →
-   [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql).
+   [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql) →
+   [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql).
    - 0001–0003 build up the *old* fork-based model, and 0004 then replaces it. That's
      wasteful on a fresh project but keeps one true migration history rather than a
      rewritten 0001 that no existing project matches. 0002 and 0003 are idempotent
@@ -22,7 +23,14 @@ Already provisioned and live in production — see "Status" below for what's act
      `catalog_grants`, `collections`, `collection_prompts`, `favorites`, plus RLS
      policies, the `ensure_seeded()` function and the `prompts_write_catalog_version`
      trigger. `prompt_overrides` is dropped by 0004 — it belonged to the fork model.
-   - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks, all should read PASS).
+   - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks) and
+     [`verify_0005.sql`](verify_0005.sql) (8 checks); all should read PASS, except
+     0005's hook-URL check until step 7 below.
+7. **Auto-rebuild for anonymous visitors** (optional but recommended): in Vercel,
+   Project Settings → Git → Deploy Hooks, create a hook for `main`, then run
+   `select set_deploy_hook_url('<the URL>');` in the SQL editor. Without this,
+   publishing or editing a catalog prompt won't reach anonymous visitors until
+   someone redeploys by hand. Signed-in users are unaffected either way.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -111,7 +119,7 @@ remapping (a copied prompt must point at *the user's* copy of its dependency).
 Anonymous visitors stay on the existing static site rather than reading Supabase live on every page view — this keeps their pages fast, working without JS, and off the free tier's read quota. Two pieces make that work together with a single Supabase source of truth:
 
 1. **`scripts/build.mjs` queries Supabase for published defaults** (`is_curated = true, published = true`) at build time (`lib/supabaseBuild.mjs`'s `fetchPublishedPrompts()`, a plain `fetch()` against PostgREST — no `@supabase/supabase-js` dependency needed for one GET request), using the `anon` key, instead of reading `prompts/*.md`. This is the only place `anon`'s `GRANT SELECT` actually gets used for anonymous traffic — real anonymous visitors hit pre-built HTML, not Supabase. If `SUPABASE_URL`/`SUPABASE_ANON_KEY` aren't set, the build proceeds with zero default prompts (a warning is logged) rather than failing.
-2. **A Supabase Database Webhook on `prompts`**, firing on `UPDATE` where `published` turns `true`, POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically. Not yet configured — needs both a Vercel project (Deploy Hooks live under Project Settings → Git) and the webhook set up in the Supabase dashboard (Database → Webhooks) once the project exists. Until this is wired up, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
+2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. Not yet configured — needs both a Vercel project (Deploy Hooks live under Project Settings → Git) and the webhook set up in the Supabase dashboard (Database → Webhooks) once the project exists. Until this is wired up, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
 
 ## Keeping the schema in sync
 
@@ -163,9 +171,11 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 - **Transactional email / SMTP** - unconfigured, and blocks public launch. Sign-up says
   "check your email", but that mail comes from Supabase's built-in test-only sender.
   Password reset has the same dependency. See BUILD_BRIEF_v5.md §9.
-- The Supabase->Vercel publish webhook, so a newly published catalog prompt doesn't
-  reach *anonymous* visitors until a redeploy. Signed-in users get it on their next
-  visit via `ensure_seeded()`, which is unaffected.
+- Auto-rebuild on catalog change is **built** (`0005_publish_webhook.sql`) but stays
+  inert until a Deploy Hook URL is configured - see setup step 7. Until then, a
+  published catalog prompt won't reach *anonymous* visitors without a manual
+  redeploy. Signed-in users get it on their next visit via `ensure_seeded()`,
+  which is unaffected either way.
 - Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
   `SUPABASE_ANON_KEY`.
 - `/favorites/` still reads the build-time list, so a favourited personal prompt won't
@@ -181,7 +191,12 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 1. **Transactional email / SMTP** — blocks public launch (BUILD_BRIEF_v5.md §9).
 2. **Notify-and-merge screen** (v5 §6) — the schema for it is already in place; build it
    before editing any published catalog prompt that users already hold.
-3. The Supabase→Vercel publish webhook, so a newly published catalog prompt reaches
-   anonymous visitors without a manual redeploy.
-4. Clear test content and seed canonical prompts ([`reset_prompts.sql`](reset_prompts.sql)).
+3. Clear test content and seed canonical prompts ([`reset_prompts.sql`](reset_prompts.sql)).
+4. **Categories redesign** — user-managed categories with editable colours. A real
+   architecture change: the vocabulary is a hardcoded array mirrored by a CHECK
+   constraint, and `/browse/<slug>/` pages are statically generated from it. Needs a
+   global-vs-per-user decision first, the same fork v5 resolved for prompts.
 5. `/favorites/` coherence, variable-fill, and the remaining open items above.
+
+Auto-rebuild on catalog change is **done** (`0005_publish_webhook.sql`) — it only
+needs the Deploy Hook URL wired up, setup step 7.

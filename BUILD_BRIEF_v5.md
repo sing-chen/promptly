@@ -1,9 +1,13 @@
 # Promptly — Build Brief v5: owned copies
 
-**Status: proposed, not implemented.** Nothing in this document is live yet.
-[`supabase/README.md`](supabase/README.md) remains the source of truth for what is
-actually built until this lands, at which point its model sections get rewritten
-and this file becomes historical.
+**Status: Pass 1 is built and live** (migrations `0004_owned_copies.sql` and
+`0005_publish_webhook.sql`, applied to production). This document is the design
+rationale; [`supabase/README.md`](supabase/README.md) is the reference for the
+schema as it now stands and for what is still outstanding.
+
+Still deferred, and specced here rather than built: the **notify-and-merge screen**
+(§6). It has no users until a catalog prompt is edited after someone has already
+signed up, so the schema for it landed in Pass 1 while the UI did not.
 
 This supersedes the **fork-on-edit / merged-catalog** model described in
 `supabase/README.md` ("Admin curation, publishing, and per-user forks" and "The
@@ -502,6 +506,12 @@ again afterwards.
   guests. Follow-on, not in Pass 1.
 - **Storage review point.** Revisit the Supabase tier past roughly 1,000 users or
   100 catalog prompts.
+- **Vercel build minutes.** `0005_publish_webhook.sql` rebuilds the site on every
+  catalog change. Volume is naturally low - only admin writes to published catalog
+  rows qualify, and the trigger is statement-level so a bulk edit is one build - but
+  it's worth a glance if catalog editing ever becomes frequent. Batching would need
+  pg_cron; deliberately not built, since correctness (never serving stale pages)
+  matters more here than saving build minutes.
 - **Transactional email / SMTP is unconfigured — blocks public launch.** Sign-up
   shows "Check your email to confirm your account" (`public/scripts/auth.js`), but
   the app sends nothing itself: that email comes from Supabase Auth when "Confirm
