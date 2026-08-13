@@ -118,7 +118,7 @@ export function initQuickView(gridId, opts = {}) {
     // Matches the row/card star's tooltip wording (favorites.js
     // applyFavState). The modal's button also carries a visible text label,
     // but the tooltip shouldn't contradict it.
-    els.fav.title = active ? 'Remove from Favorites' : 'Add to Favorites';
+    els.fav.dataset.tip = active ? 'Remove from Favorites' : 'Add to Favorites';
   }
 
   function populate(item) {

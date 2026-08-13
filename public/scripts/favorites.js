@@ -44,12 +44,14 @@ function updateNavCount() {
 // List/grid star buttons carry a `title` tooltip (unlike the detail-page/
 // quick-view fav buttons, which swap a text label instead - see their own
 // markup in lib/render.mjs) - only those get their tooltip text flipped
-// here, guarded by hasAttribute('title') so this doesn't touch the other kind.
+// here, guarded by the data-tip attribute so this doesn't touch the other
+// kind. Never `title` - that would also summon the browser's own tooltip
+// alongside the styled one (see base.css).
 function applyFavState(btn, active) {
   btn.classList.toggle('is-active', active);
   btn.setAttribute('aria-pressed', String(active));
-  if (btn.hasAttribute('title')) {
-    btn.title = active ? 'Remove from Favorites' : 'Add to Favorites';
+  if (btn.dataset.tip) {
+    btn.dataset.tip = active ? 'Remove from Favorites' : 'Add to Favorites';
   }
 }
 
@@ -148,7 +150,7 @@ function syncThemeToggleUI(btn) {
   const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
   btn.setAttribute('aria-pressed', String(isDark));
   btn.setAttribute('aria-label', label);
-  btn.title = label;
+  btn.dataset.tip = label;
 }
 
 function initThemeToggle() {

@@ -484,11 +484,11 @@ a.sidebar-section-label:hover { color: var(--accent); }
 /* Hover/focus tooltip for the header's view-toggle button - CSS-only, reads
    the existing `title` attribute so no markup duplication, same visual
    language as .field-hint (dark bubble, light text). #theme-toggle is also
-   `.icon-btn`, so it's covered by the shared .icon-btn[title] rule below
+   `.icon-btn`, so it's covered by the shared .icon-btn[data-tip] rule below
    instead of needing its own selector here. */
 .view-toggle-btn { position: relative; }
-.view-toggle-btn[title]::after {
-  content: attr(title);
+.view-toggle-btn[data-tip]::after {
+  content: attr(data-tip);
   position: absolute; z-index: 20;
   top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
   background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
@@ -497,7 +497,7 @@ a.sidebar-section-label:hover { color: var(--accent); }
   visibility: hidden; opacity: 0; transition: opacity .1s ease, transform .1s ease;
   pointer-events: none;
 }
-.view-toggle-btn[title]:hover::after, .view-toggle-btn[title]:focus-visible::after {
+.view-toggle-btn[data-tip]:hover::after, .view-toggle-btn[data-tip]:focus-visible::after {
   visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
 }
 
@@ -509,8 +509,8 @@ a.sidebar-section-label:hover { color: var(--accent); }
    ("Copy Prompt") to a short explanation ("Archive - hides this prompt
    from your view and filters"). */
 .icon-btn { position: relative; }
-.icon-btn[title]::after {
-  content: attr(title);
+.icon-btn[data-tip]::after {
+  content: attr(data-tip);
   position: absolute; z-index: 20;
   top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px);
   background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
@@ -520,7 +520,7 @@ a.sidebar-section-label:hover { color: var(--accent); }
   visibility: hidden; opacity: 0; transition: opacity .1s ease, transform .1s ease;
   pointer-events: none;
 }
-.icon-btn[title]:hover::after, .icon-btn[title]:focus-visible::after {
+.icon-btn[data-tip]:hover::after, .icon-btn[data-tip]:focus-visible::after {
   visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
 }
 
@@ -1105,14 +1105,14 @@ button.nav-toggle { display: none; }
    tooltip. */
 .card-actions { position: relative; }
 .card-actions .icon-btn { position: static; }
-.card-actions .icon-btn[title]::after {
+.card-actions .icon-btn[data-tip]::after {
   left: 0;
   right: auto;
   max-width: 100%;
   transform: translateY(-4px);
 }
-.card-actions .icon-btn[title]:hover::after,
-.card-actions .icon-btn[title]:focus-visible::after {
+.card-actions .icon-btn[data-tip]:hover::after,
+.card-actions .icon-btn[data-tip]:focus-visible::after {
   transform: translateY(0);
 }
 
@@ -1123,26 +1123,26 @@ button.nav-toggle { display: none; }
    tooltip in this column to its right edge instead, so they all open inward -
    there is ample room to the left, and applying it uniformly avoids the
    overflow reappearing whenever the number of icons changes. */
-.row-actions .icon-btn[title]::after {
+.row-actions .icon-btn[data-tip]::after {
   left: auto;
   right: 0;
   transform: translateX(0) translateY(-4px);
 }
-.row-actions .icon-btn[title]:hover::after,
-.row-actions .icon-btn[title]:focus-visible::after {
+.row-actions .icon-btn[data-tip]:hover::after,
+.row-actions .icon-btn[data-tip]:focus-visible::after {
   transform: translateX(0) translateY(0);
 }
 
 /* Same problem, pre-existing, at the other right-edge cluster: the header's
    theme toggle is the last thing before the viewport edge, so its centred
    tooltip overflowed too. */
-.main-header-right .icon-btn[title]::after {
+.main-header-right .icon-btn[data-tip]::after {
   left: auto;
   right: 0;
   transform: translateX(0) translateY(-4px);
 }
-.main-header-right .icon-btn[title]:hover::after,
-.main-header-right .icon-btn[title]:focus-visible::after {
+.main-header-right .icon-btn[data-tip]:hover::after,
+.main-header-right .icon-btn[data-tip]:focus-visible::after {
   transform: translateX(0) translateY(0);
 }
 
@@ -1479,4 +1479,34 @@ tr.is-flash, .prompt-card.is-flash {
 }
 @media (prefers-reduced-motion: reduce) {
   tr.is-flash, .prompt-card.is-flash { animation: none; background: var(--accent-soft); }
+}
+
+
+/* Tooltips are driven by `data-tip`, never `title`. A `title` attribute makes
+   the browser render its OWN tooltip near the cursor as well, so any element
+   with both shows two at once - visible once the styled one moved away from
+   the cursor. Elements that only ever want the native tooltip (the modal's
+   close/nav buttons, the resize handle, the catalog/draft chips) still use
+   `title` and are unaffected.
+
+   The modal's action buttons opt into the same styled tooltip so a prompt's
+   actions read identically in the list, the card and the modal. They anchor
+   to their own button, which is safe here - the modal is far wider than a
+   card, so a 190px tooltip has room either side. */
+.pd-action-btn { position: relative; }
+.pd-action-btn[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; z-index: 20;
+  top: calc(100% + 8px); left: 0;
+  background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
+  white-space: normal; width: max-content; max-width: 190px; text-align: center;
+  padding: 4px 8px; border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  visibility: hidden; opacity: 0; transform: translateY(-4px);
+  transition: opacity .1s ease, transform .1s ease;
+  pointer-events: none;
+}
+.pd-action-btn[data-tip]:hover::after,
+.pd-action-btn[data-tip]:focus-visible::after {
+  visibility: visible; opacity: 1; transform: translateY(0);
 }
