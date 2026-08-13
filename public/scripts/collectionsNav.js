@@ -6,17 +6,23 @@
 // the original static callout markup.
 import { supabase } from './supabaseClient.js';
 import { loadCollections } from './db.js';
-import { esc } from './lib/render.mjs';
+import { esc, SIDEBAR_LIST_CAP } from './lib/render.mjs';
 
+// Caps the visible list the same way renderNav caps Categories in
+// lib/render.mjs (SIDEBAR_LIST_CAP) - the sidebar must never grow its own
+// scrollbar. Unlike Categories, Collections already has a real destination
+// page (/collections/) to send the overflow to, so this uses a "View all"
+// link instead of an in-place <details> disclosure.
 function renderLive(collections) {
   if (collections.length === 0) {
     return '<p class="sidebar-empty-note">No collections yet.</p>';
   }
-  return collections
-    .slice()
-    .sort((a, b) => a.title.localeCompare(b.title))
-    .map(c => `<a href="/collections/">${esc(c.title)}</a>`)
-    .join('');
+  const sorted = collections.slice().sort((a, b) => a.title.localeCompare(b.title));
+  const items = sorted.slice(0, SIDEBAR_LIST_CAP).map(c => `<a href="/collections/">${esc(c.title)}</a>`).join('');
+  const more = sorted.length > SIDEBAR_LIST_CAP
+    ? `<a href="/collections/" class="sidebar-view-all">View all ${sorted.length} →</a>`
+    : '';
+  return items + more;
 }
 
 async function refresh(list, session) {

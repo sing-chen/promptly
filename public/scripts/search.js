@@ -144,7 +144,7 @@ if (resultsEl && filtersEl) {
   async function loadPersonalization() {
     personalization = await getPersonalization();
     if (!personalization) return;
-    searchablePrompts = personalization.merged;
+    searchablePrompts = personalization.prompts;
     fuse.setCollection(searchablePrompts);
     runSearch();
   }

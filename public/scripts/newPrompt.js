@@ -9,16 +9,14 @@
 // page. Both listen for this module's 'personalization:changed' event to
 // refresh themselves if they're the page that's open.
 //
-// This same modal doubles as the Edit form for ANY prompt in the merged
-// catalog, not just ones the caller already owns - personalize.js/search.js/
-// quickview.js's Edit buttons call personalizeData.js's
-// resolveOwnPromptForEdit() first (which transparently forks a default the
-// caller doesn't own yet, or reuses an existing fork) and only then dispatch
-// 'prompt:edit-request' with the *resulting* owned prompt row as `detail` -
-// by the time this module sees the event, forking has already happened and
-// there's nothing left here to know about it. Edit mode never touches
-// is_curated/published (the admin checkbox is hidden) or slug (kept stable
-// across an edit, unlike a fresh create) - it's a plain field update.
+// This same modal doubles as the Edit form. Every prompt in a signed-in view
+// is one the caller owns (BUILD_BRIEF_v5.md §3.5), so personalize.js /
+// search.js / quickview.js's Edit buttons just dispatch
+// 'prompt:edit-request' with the row itself as `detail` - there is no
+// ownership resolution step any more, and nothing forks on edit. Edit mode
+// never touches is_curated/published (the admin checkbox is hidden) or slug
+// (kept stable across an edit, unlike a fresh create) - it's a plain field
+// update.
 import { createPrompt, createCuratedPrompt, updatePrompt, isAdmin } from './db.js';
 import { categoryLabel } from './lib/render.mjs';
 

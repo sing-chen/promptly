@@ -74,7 +74,7 @@ async function render(root) {
   // Any prompt the caller can currently see (own, or a default) is a valid
   // thing to put in a collection - db.js's addPromptToCollection() has no
   // ownership restriction, and neither does the RLS policy behind it.
-  const addablePrompts = personalization ? personalization.merged : [];
+  const addablePrompts = personalization ? personalization.prompts : [];
   const byId = personalization ? personalization.byId : new Map();
 
   root.innerHTML = `

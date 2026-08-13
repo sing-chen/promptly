@@ -419,7 +419,43 @@ main .container {
 a.sidebar-section-label:hover { color: var(--accent); }
 .sidebar-section-add { width: 22px; height: 22px; color: var(--ink-faint); }
 .sidebar-section-add:hover { color: var(--accent); background: var(--well); }
-.sidebar-section-list { overflow-y: auto; }
+/* No overflow/scroll here on purpose - the sidebar must never grow its own
+   scrollbar for a long Categories or Collections list. Both cap themselves
+   instead (SIDEBAR_LIST_CAP in lib/render.mjs) and hand the rest to either
+   an in-place <details> disclosure (.sidebar-more below, Categories) or a
+   link to a real page (.sidebar-view-all below, Collections). */
+
+/* Categories-only overflow: a plain <details> so the extra items expand in
+   place without JS or a dedicated "all categories" page - matches the
+   surrounding nav link styling exactly (summary reuses the same
+   padding/radius/hover treatment) rather than looking like a distinct
+   control. */
+.sidebar-more { display: contents; }
+.sidebar-more summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--ink-faint);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.sidebar-more summary::-webkit-details-marker { display: none; }
+.sidebar-more summary:hover { background: var(--well); color: var(--ink); }
+/* Clicking <summary> natively toggles [open] - relabel in place ("Show N
+   more" <-> "Show less") instead of hiding it, so there's still a way to
+   collapse back down. */
+.sidebar-more:not([open]) summary .sidebar-more-less { display: none; }
+.sidebar-more[open] summary .sidebar-more-more { display: none; }
+
+/* Collections overflow: unlike Categories, /collections/ already exists as
+   a real destination for "see the rest", so this is a plain link rather
+   than an in-place expansion. */
+.sidebar-view-all { color: var(--ink-faint) !important; font-weight: 500 !important; }
+.sidebar-view-all:hover { color: var(--accent) !important; }
 
 .sidebar-view-toggle {
   display: flex;
@@ -771,10 +807,15 @@ button.nav-toggle { display: none; }
 .filter-pill-group { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .filter-pill-group::before {
   content: attr(data-label);
+  /* Matches the sitewide mono micro-label treatment used for sidebar
+     section labels (.sidebar-section-label) and sequence-step badges -
+     this previously ran a good deal larger (13px/weight 600) than every
+     other instance of that pattern (10.5-11px), which read as too heavy/
+     "blocky" for a small inline label rather than consistent with them. */
   font-family: var(--mono);
   text-transform: uppercase;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 10.5px;
+  font-weight: 500;
   letter-spacing: .05em;
   color: var(--ink-faint);
 }

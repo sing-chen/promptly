@@ -41,20 +41,28 @@ function updateNavCount() {
   if (el) el.textContent = String(getFavorites().length);
 }
 
+// List/grid star buttons carry a `title` tooltip (unlike the detail-page/
+// quick-view fav buttons, which swap a text label instead - see their own
+// markup in lib/render.mjs) - only those get their tooltip text flipped
+// here, guarded by hasAttribute('title') so this doesn't touch the other kind.
+function applyFavState(btn, active) {
+  btn.classList.toggle('is-active', active);
+  btn.setAttribute('aria-pressed', String(active));
+  if (btn.hasAttribute('title')) {
+    btn.title = active ? 'Remove from Favorites' : 'Add to Favorites';
+  }
+}
+
 function initStars(root) {
   root.querySelectorAll('[data-fav-slug]').forEach(btn => {
     if (btn.dataset.favBound) return;
     btn.dataset.favBound = 'true';
     const slug = btn.getAttribute('data-fav-slug');
-    const active = isFavorite(slug);
-    btn.classList.toggle('is-active', active);
-    btn.setAttribute('aria-pressed', String(active));
+    applyFavState(btn, isFavorite(slug));
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const nowActive = toggleFavorite(slug);
-      btn.classList.toggle('is-active', nowActive);
-      btn.setAttribute('aria-pressed', String(nowActive));
+      applyFavState(btn, toggleFavorite(slug));
     });
   });
 }

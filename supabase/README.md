@@ -1,5 +1,24 @@
 # Supabase setup (account tier, BUILD_BRIEF_v4.md + default-prompt catalog)
 
+> ## ⚠️ Model sections below are superseded by [BUILD_BRIEF_v5.md](../BUILD_BRIEF_v5.md)
+>
+> Migration `0004_owned_copies.sql` replaced the fork-on-edit / merged-catalog
+> model with **owned copies**: signing up copies the whole published catalog into
+> the user's library, so every prompt a signed-in user can see is theirs. There is
+> no forking, no `prompt_overrides` table (dropped), no `source_prompt_id` /
+> `edited_from_source` columns (dropped), and no "view original".
+>
+> **Stale below:** "Admin curation, publishing, and per-user forks", "The merged
+> catalog (superseded `/library/`)", and the parts of Status describing forks,
+> archived defaults, or the merged list. New: `catalog_versions`,
+> `catalog_grants`, `ensure_seeded()`, and the `prompts_write_catalog_version`
+> trigger — all documented in v5 §3–§4.
+>
+> **Still accurate:** setup steps, env vars, the static-build-vs-live-reads split,
+> the categories/schema sync process, and the `example_output` note.
+>
+> A full rewrite of this file is tracked as part of v5 Pass 1.
+
 Already provisioned and live in production — see "Status" below for what's actually built. Steps below are what stands up a fresh project from scratch (useful for a new environment, or if you're verifying/reproducing the existing one):
 
 1. Create a project at [supabase.com](https://supabase.com) (free tier is fine at this project's size — see BUILD_BRIEF_v4.md §1).

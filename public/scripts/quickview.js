@@ -7,7 +7,6 @@
 import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
 import { isFavorite, toggleFavorite } from './favorites.js';
 import { deletePrompt } from './db.js';
-import { resolveOwnPromptForEdit } from './personalizeData.js';
 import { confirmDialog } from './confirmDialog.js';
 
 function readEmbedded(gridId) {
@@ -50,12 +49,9 @@ export function initQuickView(gridId, opts = {}) {
   let sequenceTotals = opts.sequenceTotals || null;
   let allPrompts = opts.allPrompts || null;
   // Set (and kept current via update()'s second argument) once a page's
-  // merged-catalog personalization resolves - the full object
-  // personalizeData.js's getPersonalization() returns, not just pieces of
-  // it, since resolveOwnPromptForEdit() below needs `.overrides` too.
-  // `.byId` covers every prompt the caller can see, including a default
-  // they've archived by forking it, which `items`/`allPrompts` deliberately
-  // exclude - that's what lets "View original" resolve a source_prompt_id.
+  // personalization resolves - the object personalizeData.js's
+  // getPersonalization() returns. Its presence is what makes the owner
+  // actions (Edit/Delete) available at all; signed out it stays null.
   let personalization = opts.personalization || null;
 
   // The catalog-wide search index, lazily fetched only the first time a
@@ -97,7 +93,6 @@ export function initQuickView(gridId, opts = {}) {
     edit: document.getElementById('qv-edit'),
     delete: document.getElementById('qv-delete'),
     openFull: document.getElementById('qv-open-full'),
-    viewOriginal: document.getElementById('qv-view-original')
   };
 
   let currentSlug = null;
@@ -158,18 +153,12 @@ export function initQuickView(gridId, opts = {}) {
     els.openFull.hidden = !hasStaticPage;
     if (hasStaticPage) els.openFull.href = `/prompt/${item.slug}/`;
 
-    // Edit is available on anything in a personalized (merged-catalog) view,
-    // regardless of ownership - clicking it on a default is what forks it
-    // (see els.edit's click handler below). Delete only for a row the caller
-    // actually owns. "View original" only for a fork whose source default is
-    // still resolvable via `byId` (it always should be - every published
-    // default stays in `byId` even after being forked/archived).
-    const isOwn = Boolean(personalization) && item.user_id === personalization.userId && !item.is_curated;
+    // Every row in a personalized view is one the caller owns
+    // (BUILD_BRIEF_v5.md §3.5), so Edit and Delete are both available on all
+    // of them - no ownership test, and no "View original", which only had
+    // meaning when a fork pointed back at a borrowed default.
     els.edit.hidden = !personalization;
-    els.delete.hidden = !isOwn;
-    const original = personalization && item.source_prompt_id ? personalization.byId.get(item.source_prompt_id) : null;
-    els.viewOriginal.hidden = !original;
-    els.viewOriginal.dataset.targetId = original ? original.id : '';
+    els.delete.hidden = !personalization;
 
     // A sequence neighbor opened via fallback fetch (see ensureIndex) may not
     // be one of the rows on this page at all - stepping through "the list"
@@ -198,11 +187,6 @@ export function initQuickView(gridId, opts = {}) {
     return items.find(p => p.slug === slug) || allPrompts?.find(p => p.slug === slug);
   }
 
-  // Shared by open() (below) and "View original" - the latter shows an
-  // archived default that isn't in `items`/`allPrompts` (by design, see
-  // `byId` above) and has no row of its own, so it deliberately leaves
-  // `selectedSlug` untouched: it's a side-trip from the currently selected
-  // row, not a change of which row that is.
   function showItem(item) {
     currentSlug = item.slug;
     populate(item);
@@ -280,17 +264,9 @@ export function initQuickView(gridId, opts = {}) {
     els.copy.textContent = 'Copied';
     setTimeout(() => { els.copy.innerHTML = original; }, 2000);
   });
-  els.edit.addEventListener('click', async () => {
+  els.edit.addEventListener('click', () => {
     if (!currentItem || !personalization) return;
-    els.edit.disabled = true;
-    try {
-      const target = await resolveOwnPromptForEdit(personalization, currentItem);
-      document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: target }));
-    } catch (err) {
-      alert(err.message || 'Something went wrong.');
-    } finally {
-      els.edit.disabled = false;
-    }
+    document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: currentItem }));
   });
   els.delete.addEventListener('click', async () => {
     if (!currentItem) return;
@@ -310,11 +286,6 @@ export function initQuickView(gridId, opts = {}) {
     } finally {
       els.delete.disabled = false;
     }
-  });
-  els.viewOriginal.addEventListener('click', (e) => {
-    e.preventDefault();
-    const original = personalization?.byId.get(els.viewOriginal.dataset.targetId);
-    if (original) showItem(original);
   });
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
   document.addEventListener('keydown', (e) => {

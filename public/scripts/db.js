@@ -6,11 +6,20 @@
 // writing a new row requires it (RLS WITH CHECK still needs the value
 // supplied on INSERT; there's no column default for it).
 //
-// A plain `select('*')` on prompts returns both the caller's own rows
-// (owned, any visibility) and every published default (is_curated=true,
-// published=true) - that mix is intentional, see supabase/README.md's
-// "Admin curation, publishing, and per-user forks" section. Callers that
-// need to tell them apart check `user_id` against the current session.
+// Owned-copies model (BUILD_BRIEF_v5.md). Signing up copies the whole
+// published catalog into your library, so every prompt a signed-in user can
+// see is genuinely theirs - there is no borrowing, no forking, and no
+// per-user override table. The catalog still exists as admin-owned rows
+// (is_curated=true), because the anonymous static build is generated from
+// it, but authenticated users hold copies rather than references.
+//
+// Two distinct reads follow from that, and mixing them up is the easy
+// mistake here:
+// - loadMyPrompts() - the caller's library. What every signed-in view
+//   renders. Own rows only.
+// - loadPrompts() - everything RLS lets the caller see, which still
+//   includes published catalog rows they don't own. Only wanted for
+//   catalog-level work (admin screens, and the Pass 2 merge UI).
 import { supabase } from './supabaseClient.js';
 
 class DbUnavailableError extends Error {
@@ -37,12 +46,41 @@ function unwrap({ data, error }) {
 
 // ── prompts ─────────────────────────────────────────────────────────
 
-// Every prompt visible to the caller: their own (including forks and, if
-// admin, their curated drafts) plus every published default - see the
-// module comment above for why those are mixed in one array.
+// The caller's library - every row they own, newest-updated first. This is
+// what Home/Category/Search render for a signed-in user.
+//
+// No is_curated filter, and that is deliberate rather than an oversight
+// (BUILD_BRIEF_v5.md §3.5): a regular user can never own a curated row (RLS
+// forbids setting is_curated=true), so for them this is exactly their
+// copies plus anything they wrote. An admin owns the catalog rows and holds
+// no copies, so for them this *is* the catalog - which is the intended
+// model, not a leak. Ownership alone is the correct predicate for both.
+//
+// Archived rows come back too; filtering them is a view concern (the main
+// list hides them, /archived/ shows only them).
+export async function loadMyPrompts() {
+  const user_id = await requireUserId();
+  return unwrap(await supabase.from('prompts')
+    .select('*').eq('user_id', user_id).order('updated', { ascending: false }));
+}
+
+// Everything RLS lets the caller see: their own rows plus every published
+// catalog prompt. Not what a signed-in view should render - use
+// loadMyPrompts() for that. Kept for catalog-level work (admin screens, and
+// the Pass 2 merge UI, which needs the catalog's current content to compare
+// a copy against).
 export async function loadPrompts() {
   assertConfigured();
   return unwrap(await supabase.from('prompts').select('*').order('updated', { ascending: false }));
+}
+
+// Published catalog rows only - the admin-authored set that feeds the
+// static build and gets copied into libraries by ensure_seeded().
+export async function loadCatalog() {
+  assertConfigured();
+  return unwrap(await supabase.from('prompts')
+    .select('*').eq('is_curated', true).eq('published', true)
+    .order('updated', { ascending: false }));
 }
 
 export async function getPrompt(id) {
@@ -91,87 +129,125 @@ export async function unpublishPrompt(id) {
   return updatePrompt(id, { published: false });
 }
 
-// ── forking a default prompt (supabase/README.md "Admin curation,
-// publishing, and per-user forks") ──────────────────────────────────
+// ── seeding ──────────────────────────────────────────────────────────
 
-// Copies `defaultPrompt` (a row with is_curated=true, published=true) into
-// a new row owned by the caller, then upserts the prompt_overrides row that
-// marks the default as archived/superseded in the caller's own view. This
-// is what "editing a default" means in the app - there's no direct UPDATE
-// path for a row you don't own (RLS forbids it).
+// Grants the caller a copy of every published catalog prompt they haven't
+// already been given, returning how many were newly added.
 //
-// The fork starts with the default's own slug (unlike createPrompt(), which
-// always generates one from the title) - that's what lets a fork's
-// /prompt/[slug]/-shaped identity line up with the default it came from. But
-// slug is only unique per-user, so if the caller already happens to own a
-// different prompt with that exact slug (a real, if uncommon, collision -
-// e.g. they independently titled something the same as a default they're
-// now forking), the insert 23505s. Retry with an incrementing numeric
-// suffix, same dedupe-on-collision approach as newPrompt.js's
-// createWithUniqueSlug, rather than surfacing the raw constraint error.
-export async function forkPrompt(defaultPrompt) {
+// Idempotent and cheap to call on every authenticated load: it covers both
+// signup (no grants exist, so the whole catalog arrives) and later publishes
+// (each user picks a new catalog prompt up on their next visit). That's why
+// there is no publish-time fan-out job anywhere in this codebase -
+// distribution is pull-based, so publishing stays a single row update
+// (BUILD_BRIEF_v5.md §4).
+//
+// No-ops for admins, who own the catalog rows themselves.
+export async function ensureSeeded() {
+  assertConfigured();
+  const { data, error } = await supabase.rpc('ensure_seeded');
+  if (error) throw error;
+  return data ?? 0;
+}
+
+// ── archive / delete / duplicate (all operate on rows you own) ───────
+
+// Archive hides a prompt from the main list while keeping it, and is
+// reversible from /archived/. Delete (above) is permanent. Under the
+// owned-copies model both verbs apply to every prompt in the library -
+// the old split, where only unowned defaults could be archived and only
+// owned rows deleted, is gone with the borrowing model that caused it.
+export async function archivePrompt(id) {
+  return updatePrompt(id, { is_archived: true });
+}
+
+export async function unarchivePrompt(id) {
+  return updatePrompt(id, { is_archived: false });
+}
+
+// Independent copy of a prompt the caller owns, always personal
+// (is_curated=false) regardless of what it was copied from. Two uses
+// (BUILD_BRIEF_v5.md §5.3): any user keeping subtle variants of a prompt,
+// and an admin who wants a personal version of a catalog prompt - editing
+// the catalog row itself would be a broadcast to everyone holding it.
+export async function duplicatePrompt(prompt, overrides = {}) {
   const user_id = await requireUserId();
-  const base = defaultPrompt.slug;
-  let fork;
+  return insertWithUniqueSlug({
+    user_id,
+    slug: prompt.slug,
+    title: `${prompt.title} (copy)`,
+    categories: prompt.categories,
+    purpose: prompt.purpose,
+    body: prompt.body,
+    notes: prompt.notes,
+    sequence: prompt.sequence,
+    sequence_step: prompt.sequence_step,
+    is_curated: false,
+    published: false,
+    is_archived: false,
+    ...overrides
+  });
+}
+
+// slug is unique per user, so any insert carrying a slug the caller already
+// owns 23505s. Retry with an incrementing numeric suffix rather than
+// surfacing a raw constraint violation - same approach as newPrompt.js's
+// createWithUniqueSlug and the seeding function's server-side loop.
+async function insertWithUniqueSlug(fields) {
+  const base = fields.slug;
   for (let attempt = 1; attempt <= 20; attempt++) {
-    const slug = attempt === 1 ? base : `${base}-${attempt}`;
     try {
-      fork = unwrap(await supabase.from('prompts')
-        .insert({
-          user_id,
-          slug,
-          title: defaultPrompt.title,
-          categories: defaultPrompt.categories,
-          purpose: defaultPrompt.purpose,
-          body: defaultPrompt.body,
-          notes: defaultPrompt.notes,
-          sequence: defaultPrompt.sequence,
-          sequence_step: defaultPrompt.sequence_step,
-          source_prompt_id: defaultPrompt.id,
-          is_curated: false,
-          published: false
-        })
+      return unwrap(await supabase.from('prompts')
+        .insert({ ...fields, slug: attempt === 1 ? base : `${base}-${attempt}` })
         .select().single());
-      break;
     } catch (err) {
       if (err?.code !== '23505' || attempt === 20) throw err;
     }
   }
-
-  await supabase.from('prompt_overrides').upsert({
-    user_id,
-    default_prompt_id: defaultPrompt.id,
-    fork_prompt_id: fork.id,
-    is_archived: true
-  });
-
-  return fork;
 }
 
-// Archives a default without forking it (no prompt_overrides row at all
-// means "shown normally"). Safe to call whether or not a row already
-// exists for this (user_id, default_prompt_id) pair.
-export async function archiveDefault(defaultPromptId) {
-  const user_id = await requireUserId();
-  return unwrap(await supabase.from('prompt_overrides')
-    .upsert({ user_id, default_prompt_id: defaultPromptId, is_archived: true })
-    .select().single());
+// ── promoting a personal prompt into the catalog (admin only) ───────
+
+// Lands the prompt as a catalog *draft* (is_curated=true, published=false),
+// never straight to published. That keeps the reversible step and the
+// irreversible one apart: promoting is undoable and visible only to the
+// admin, while publishing distributes copies that cannot be recalled
+// (BUILD_BRIEF_v5.md §5.3). Call publishPrompt() separately.
+//
+// RLS already permits this - prompts_update's WITH CHECK allows is_curated
+// on a row you own if you're in `admins` - so no new policy was needed.
+export async function promoteToCatalog(id) {
+  return updatePrompt(id, { is_curated: true });
 }
 
-export async function unarchiveDefault(defaultPromptId) {
-  const user_id = await requireUserId();
-  return unwrap(await supabase.from('prompt_overrides')
-    .upsert({ user_id, default_prompt_id: defaultPromptId, is_archived: false })
-    .select().single());
+// Reverse of the above. Must unpublish first: the
+// prompts_published_requires_curated constraint forbids published without
+// is_curated. Users already holding copies keep them - the copies are
+// independent rows - and seeding won't re-grant, since their grant rows
+// persist.
+export async function demoteFromCatalog(id) {
+  await updatePrompt(id, { published: false });
+  return updatePrompt(id, { is_curated: false });
 }
 
-// Every default the caller has archived and/or forked - join this against
-// loadPrompts()'s is_curated/published rows client-side to know which
-// defaults to hide or badge as superseded; not worth a server-side join for
-// this table's size.
-export async function loadOverrides() {
+// ── catalog versions ─────────────────────────────────────────────────
+
+// Version rows are written by the prompts_write_catalog_version trigger, not
+// by clients - there is no INSERT policy on catalog_versions. The one thing
+// a client may change is `notifiable` on the most recent version, which is
+// the manual override (BUILD_BRIEF_v5.md §6.2): push a notes-only fix
+// deliberately, or release a body typo-fix quietly.
+//
+// Nothing consumes versions until the Pass 2 merge UI ships, but the flag
+// has to be recorded correctly from now on, or the history is wrong by the
+// time anything reads it.
+export async function setLatestVersionNotifiable(catalogPromptId, notifiable) {
   assertConfigured();
-  return unwrap(await supabase.from('prompt_overrides').select('*'));
+  const latest = unwrap(await supabase.from('catalog_versions')
+    .select('id').eq('catalog_prompt_id', catalogPromptId)
+    .order('created_at', { ascending: false }).limit(1));
+  if (!latest.length) return null;
+  return unwrap(await supabase.from('catalog_versions')
+    .update({ notifiable }).eq('id', latest[0].id).select().single());
 }
 
 // ── favorites ────────────────────────────────────────────────────────

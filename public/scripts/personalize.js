@@ -1,6 +1,6 @@
 // Rebuilds a static .prompt-table-block in place with the signed-in caller's
-// merged catalog (personalizeData.js) - used by Home and Category's inline
-// scripts. Search does the equivalent directly against its live Fuse index
+// library (personalizeData.js) - used by Home and Category's inline scripts.
+// Search does the equivalent directly against its live Fuse index
 // (search.js), since it already rebuilds from scratch on every keystroke,
 // rather than reusing this module. Signed out, this is a no-op - the static
 // build is left exactly as rendered.
@@ -12,39 +12,50 @@ import {
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
 import { initTableFilterToolbar } from './filters.js';
-import { deletePrompt, archiveDefault } from './db.js';
-import { getPersonalization, resolveOwnPromptForEdit } from './personalizeData.js';
+import { deletePrompt, archivePrompt, duplicatePrompt } from './db.js';
+import { getPersonalization } from './personalizeData.js';
 import { confirmDialog } from './confirmDialog.js';
 
 // Exported for search.js to reuse directly - it rebuilds its own results
 // from scratch on every keystroke rather than going through rebuildBlock()
-// below, but wants the exact same Edit/Archive/Delete wiring on what it
-// renders. Rebinding, not the block's own 'personalization:changed'
-// listener, is what picks up an edit/archive/delete/fork here - the Edit,
-// Archive, and Delete handlers below all dispatch that event themselves
-// once their write completes.
+// below, but wants the exact same Edit/Duplicate/Archive/Delete wiring on
+// what it renders. Rebinding, not the block's own 'personalization:changed'
+// listener, is what picks up a write here - each handler below dispatches
+// that event itself once its write completes.
 export function wireOwnerActions(container, items, personalization) {
+  // Every row in a signed-in view is a row the caller owns
+  // (BUILD_BRIEF_v5.md §3.5), so Edit just opens the modal. This used to
+  // resolve the clicked row down to an owned one first, forking a borrowed
+  // default on the way - there is nothing left to resolve.
   container.querySelectorAll('[data-edit-id]').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
+    btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const prompt = items.find(p => p.id === btn.dataset.editId);
       if (!prompt) return;
+      document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: prompt }));
+    });
+  });
+
+  container.querySelectorAll('[data-duplicate-id]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const prompt = items.find(p => p.id === btn.dataset.duplicateId);
+      if (!prompt) return;
       btn.disabled = true;
       try {
-        const target = await resolveOwnPromptForEdit(personalization, prompt);
-        document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: target }));
+        await duplicatePrompt(prompt);
+        document.dispatchEvent(new CustomEvent('personalization:changed'));
       } catch (err) {
         alert(err.message || 'Something went wrong.');
-      } finally {
         btn.disabled = false;
       }
     });
   });
 
-  // Archive only ever targets a default (personalizedActions() in
-  // lib/render.mjs only renders this button for is_curated rows) - reversible
-  // from /archived/, so no confirmation needed, unlike Delete below.
+  // Archive is reversible from /archived/, so no confirmation - unlike
+  // Delete below. Both now apply to every row, since every row is owned.
   container.querySelectorAll('[data-archive-id]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -53,7 +64,7 @@ export function wireOwnerActions(container, items, personalization) {
       if (!prompt) return;
       btn.disabled = true;
       try {
-        await archiveDefault(prompt.id);
+        await archivePrompt(prompt.id);
         document.dispatchEvent(new CustomEvent('personalization:changed'));
       } catch (err) {
         alert(err.message || 'Something went wrong.');
@@ -124,12 +135,13 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   }
 
   // Home's "N new prompts" banner (lib/render.mjs's findNewPrompts) is
-  // server-rendered from the build-time (defaults-only) list - re-derive it
-  // from the merged, personalized list so a default the caller has since
-  // archived (by editing it - see supabase/README.md "Admin curation...")
-  // stops being announced to them, and drop the banner entirely once no
-  // unarchived new default is left to show. No-op on any page without the
-  // banner in the first place (Category, Search).
+  // server-rendered from the build-time catalog list - re-derive it from the
+  // caller's own library so it reflects what they actually hold (a prompt
+  // they archived or deleted stops being announced), and drop the banner
+  // entirely once nothing recent is left to show. Newly seeded copies land
+  // with a fresh `added` timestamp, so a catalog prompt published since the
+  // last visit shows up here as new without any special handling. No-op on
+  // any page without the banner in the first place (Category, Search).
   function updateNewCallout(list) {
     const container = document.getElementById('new-callout');
     if (!container) return;
@@ -159,11 +171,12 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   async function refresh() {
     const fresh = await getPersonalization();
     if (!fresh) return; // signed out mid-session (rare, but don't crash on it)
-    const freshItems = filterFn ? fresh.merged.filter(filterFn) : fresh.merged;
+    const freshItems = filterFn ? fresh.prompts.filter(filterFn) : fresh.prompts;
     paint(fresh, freshItems);
   }
 
-  const items = filterFn ? personalization.merged.filter(filterFn) : personalization.merged;
+  // `.prompts` excludes archived rows - those live at /archived/ only.
+  const items = filterFn ? personalization.prompts.filter(filterFn) : personalization.prompts;
   paint(personalization, items);
 
   document.addEventListener('personalization:changed', refresh);
