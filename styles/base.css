@@ -1493,11 +1493,18 @@ tr.is-flash, .prompt-card.is-flash {
    actions read identically in the list, the card and the modal. They anchor
    to their own button, which is safe here - the modal is far wider than a
    card, so a 190px tooltip has room either side. */
-.pd-action-btn { position: relative; }
+/* Anchored to the ACTION ROW, not the individual button - same reasoning as
+   .card-actions above. The row sits at the right edge of the prompt box, so
+   a tooltip anchored to its own button ran past the modal's right edge and
+   gave the modal a horizontal scrollbar (measured: the Delete tooltip
+   reaching 1091px against a modal edge of 973px). Anchoring right and
+   opening inward keeps every tooltip inside the modal. */
+.pd-actions { position: relative; }
+.pd-actions .pd-action-btn { position: static; }
 .pd-action-btn[data-tip]::after {
   content: attr(data-tip);
   position: absolute; z-index: 20;
-  top: calc(100% + 8px); left: 0;
+  top: calc(100% + 8px); right: 0; left: auto;
   background: var(--ink); color: var(--paper); font-size: 12px; line-height: 1.4;
   white-space: normal; width: max-content; max-width: 190px; text-align: center;
   padding: 4px 8px; border-radius: var(--radius-sm);
@@ -1511,8 +1518,28 @@ tr.is-flash, .prompt-card.is-flash {
   visibility: visible; opacity: 1; transform: translateY(0);
 }
 
+/* Belt and braces: the modal should never scroll sideways. If some future
+   content is genuinely too wide, it should wrap or scroll in its own box,
+   not shift the whole dialog. */
+.qv-modal { overflow-x: hidden; }
+
 /* Only for the one admin-hint case that describes a destructive change -
    unticking "Publish to everyone" on an already-published catalog prompt
    unpublishes it. The other three contexts describe additions and stay
    muted, so this actually carries signal. */
 .np-admin-hint-warn { color: var(--danger); }
+
+/* Sign out, directly under the signed-in email in the sidebar footer. Styled
+   as a quiet text button rather than a .btn - it sits in nav chrome, and a
+   filled button there would out-shout "+ New Prompt" at the top. */
+.sidebar-footer-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.sidebar-signout {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+  cursor: pointer;
+  text-align: left;
+}
+.sidebar-signout:hover { color: var(--danger); text-decoration: underline; }

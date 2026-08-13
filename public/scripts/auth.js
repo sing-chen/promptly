@@ -4,6 +4,10 @@ import { isAdmin } from './db.js';
 function setNavAccountState(session) {
   const link = document.getElementById('nav-account-link');
   if (link) link.textContent = session ? session.user.email : 'Sign in';
+  // Sign out lives under the email in the sidebar so it's reachable from
+  // anywhere, rather than only via /account/. Nothing to sign out of when
+  // signed out, so it's hidden then.
+  document.getElementById('nav-signout-btn')?.toggleAttribute('hidden', !session);
   // Open to any signed-in user (db.js's createPrompt() has no admin check) -
   // the New Prompt modal's own "make this a default prompt" checkbox is
   // admin-gated, not the button itself. Starts hidden server-side so
@@ -122,6 +126,21 @@ async function init() {
     renderAccountRoot(null);
     return;
   }
+
+  document.getElementById('nav-signout-btn')?.addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await supabase.auth.signOut();
+      // onAuthStateChange below repaints the nav; reload so any page showing
+      // personalized content (Home, Category, Search, /archived/) drops back
+      // to the static build rather than keeping the previous user's rows.
+      window.location.reload();
+    } catch (err) {
+      alert(err.message || 'Could not sign out.');
+      btn.disabled = false;
+    }
+  });
 
   const { data: { session } } = await supabase.auth.getSession();
   setNavAccountState(session);
