@@ -225,8 +225,13 @@ main .container {
   position: sticky;
   top: 0;
   align-self: flex-start;
-  width: 240px;
-  flex: 0 0 240px;
+  /* --sidebar-width (public/scripts/sidebarResize.js, min 240px - the
+     original fixed width - enforced in JS, not by a CSS min-width, since
+     min-width:0 below is load-bearing for the collapse animation) - the
+     fallback keeps every page that doesn't run the init script (none,
+     currently) at the original width. */
+  width: var(--sidebar-width, 240px);
+  flex: 0 0 var(--sidebar-width, 240px);
   /* Flex items default to min-width:auto (their content's intrinsic width),
      which silently blocks flex-basis/width from ever animating down to 0
      for the collapse transition below - overflow-x:hidden alone wasn't
@@ -242,6 +247,36 @@ main .container {
   background: var(--surface);
   border-right: 1px solid var(--line);
   transition: flex-basis .2s ease, width .2s ease, padding-left .2s ease, padding-right .2s ease, border-color .2s ease;
+}
+/* Suppress the width/flex-basis transition above while actively dragging
+   the resize handle - without this, every pointermove frame races a 0.2s
+   easing animation toward the previous frame's target and the sidebar
+   visibly lags behind the cursor. */
+.sidebar.is-resizing { transition: none; }
+
+/* Drag-to-resize handle (sidebarResize.js) - a thin invisible-until-hover
+   strip pinned to the sidebar's own right edge, inside its sticky box so it
+   scrolls with it. Desktop-only (matches the collapse feature's 901px
+   breakpoint - see the media query below) and hidden while collapsed,
+   since there's nothing to grab. */
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0; right: -3px; bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 5;
+  border: none;
+  padding: 0;
+}
+.sidebar-resize-handle:hover, .sidebar-resize-handle:focus-visible {
+  background: var(--accent);
+  opacity: .5;
+  outline: none;
+}
+.app-shell.sidebar-collapsed .sidebar-resize-handle { display: none; }
+@media (max-width: 900px) {
+  .sidebar-resize-handle { display: none; }
 }
 .sidebar-brand-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .sidebar-brand {
