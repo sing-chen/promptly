@@ -43,6 +43,9 @@ function renderSignedIn(root, session) {
   // Sign out lives in the sidebar footer now (reachable from anywhere), so
   // this page's job is what the sidebar can't do: say something about the
   // library itself. Stats render asynchronously into #account-stats.
+  // Widens the page for the stat grid; the signed-out form keeps the narrow
+  // measure .account-page was sized for.
+  root.closest('.account-page')?.classList.add('is-dashboard');
   root.innerHTML = `
 <h1>Account</h1>
 <p class="account-identity">Signed in as <strong>${session.user.email}</strong></p>
@@ -51,6 +54,7 @@ function renderSignedIn(root, session) {
 }
 
 function renderSignedOut(root) {
+  root.closest('.account-page')?.classList.remove('is-dashboard');
   root.innerHTML = `
 <h1>Account</h1>
 <div class="filter-pill-group account-tabs">
