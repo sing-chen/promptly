@@ -33,9 +33,27 @@ body {
   align-items: flex-start;
   flex: 1 0 auto;
 }
+/* `main` reserves room for the sidebar via margin, not flex sizing - the
+   sidebar is `position: fixed` (see .sidebar below), out of normal flow
+   entirely, specifically so its own vertical scroll is fully independent of
+   how tall `main`'s content is. A `position: sticky` sidebar (the previous
+   approach) only stays pinned for as long as its flex-flow container has
+   "extra" height beyond the sidebar's own - on a short page that's a tiny
+   budget, so the sidebar visibly scrolled away well before reaching the
+   bottom of the page. Reads `--sidebar-width` (sidebarResize.js), the same
+   property the sidebar's own width uses, so a drag-resize or collapse
+   automatically keeps main's margin in sync with no extra JS. */
 main {
   flex: 1 1 auto;
   min-width: 0;
+  margin-left: var(--sidebar-width, 240px);
+  transition: margin-left .2s ease;
+}
+@media (max-width: 900px) {
+  /* Sidebar is an off-canvas overlay below 900px (see the mobile media
+     query further down), not a layout participant - it doesn't push
+     content over, so main shouldn't reserve space for it either. */
+  main { margin-left: 0; }
 }
 /* This top breathing room used to live on `main` itself, back when page
    content (an <h1>, directly) was always its first child. Now .main-header
@@ -230,13 +248,17 @@ main .container {
 /* Sidebar (replaces the old top nav bar - whole-site rebuild). A raised
    surface (§9 elevation rule: nothing sits flush with --paper), same
    --surface treatment as .surface elsewhere rather than plain --paper, so
-   it reads as chrome distinct from the page content next to it. Sticky +
-   100vh height so it scrolls independently and stays pinned while the main
-   column scrolls past it. */
+   it reads as chrome distinct from the page content next to it.
+   `position: fixed` (not sticky - see main's own comment above for why)
+   pins it to the viewport regardless of page scroll; 100vh height +
+   overflow-y:auto means it only ever grows its own scrollbar when its own
+   content (mainly the Categories list) doesn't fit, independent of
+   whatever main's content is doing. */
 .sidebar {
-  position: sticky;
+  position: fixed;
   top: 0;
-  align-self: flex-start;
+  left: 0;
+  z-index: 15;
   /* --sidebar-width (public/scripts/sidebarResize.js, min 240px - the
      original fixed width - enforced in JS, not by a CSS min-width, since
      min-width:0 below is load-bearing for the collapse animation) - the
@@ -481,26 +503,29 @@ a.sidebar-section-label:hover { color: var(--accent); }
 
 /* Desktop sidebar collapse (public/scripts/sidebarCollapse.js) - the mobile
    off-canvas drawer below has its own independent open/close mechanics
-   (menu-open), untouched by this. Collapsing shrinks the sidebar's flex box
-   to zero instead of toggling display, so main reflows to fill the
-   reclaimed width, animated by the same transition - a "slide" in the sense
-   of the content sliding into the reclaimed space, not the sidebar itself
-   sliding off over the content (which the mobile drawer does instead, via
-   position:fixed - a different mechanism for a different reason: there,
-   main never had that space to reclaim in the first place). `inert` (set
-   alongside the class in JS) keeps the sidebar's now-clipped contents out
-   of tab order and the accessibility tree while collapsed, since
-   overflow:hidden alone doesn't do that. The re-expand button
-   (#sidebar-expand-btn) lives in .main-header, not .sidebar, so it stays
-   reachable even once the sidebar (and its own #sidebar-collapse-btn) is
-   gone - see .main-header below. */
+   (menu-open), untouched by this. Collapsing shrinks the (fixed-position)
+   sidebar's own width to zero and main's margin-left along with it (main's
+   own rule above reads the same --sidebar-width custom property this
+   doesn't touch, so it needs its own explicit override here), animated by
+   the same transition - a "slide" in the sense of the content sliding into
+   the reclaimed space, not the sidebar itself sliding off over the content
+   (which the mobile drawer does instead, via a translateX transform - a
+   different mechanism for a different reason: there, main never had that
+   space to reclaim in the first place). `inert` (set alongside the class in
+   JS) keeps the sidebar's now-clipped contents out of tab order and the
+   accessibility tree while collapsed, since overflow:hidden alone doesn't
+   do that. The re-expand button (#sidebar-expand-btn) lives in
+   .main-header, not .sidebar, so it stays reachable even once the sidebar
+   (and its own #sidebar-collapse-btn) is gone - see .main-header below. */
 @media (min-width: 901px) {
   .app-shell.sidebar-collapsed .sidebar {
-    flex-basis: 0;
     width: 0;
     padding-left: 0;
     padding-right: 0;
     border-right-color: transparent;
+  }
+  .app-shell.sidebar-collapsed main {
+    margin-left: 0;
   }
 }
 
@@ -511,7 +536,14 @@ a.sidebar-section-label:hover { color: var(--accent); }
    live in the sidebar footer on the right, so they're reachable regardless
    of which page you're on or whether the sidebar is collapsed. Fixed 64px
    height (not padding-driven) to match the reference's compact profile -
-   the titles block just centers within it via align-items. */
+   the titles block just centers within it via align-items. `position:
+   sticky` (relative to the page's one real scroll container - html/body,
+   same as the fixed sidebar's viewport-relative pin, just via a different
+   mechanism since this needs to sit at whatever horizontal offset main's
+   margin-left already puts it at, not the viewport's left edge) keeps it
+   pinned at the top as page content scrolls underneath - an explicit
+   background is required for that to look right (sticky doesn't imply
+   opacity; without it, scrolling content would show through). */
 .main-header {
   display: flex;
   align-items: center;
@@ -520,6 +552,10 @@ a.sidebar-section-label:hover { color: var(--accent); }
   height: 64px;
   padding: 0 24px;
   border-bottom: 1px solid var(--line-soft);
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  background: var(--paper);
 }
 .main-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .main-header-titles { min-width: 0; }
@@ -596,9 +632,8 @@ button.nav-toggle { display: none; }
 @media (max-width: 900px) {
   .mobile-topbar { display: flex; }
   .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
+    /* position/top/left already set by the shared desktop rule above (it's
+       fixed there too now) - just the off-canvas-specific bits here. */
     z-index: 25;
     transform: translateX(-100%);
     transition: transform .2s ease;
@@ -912,8 +947,20 @@ button.nav-toggle { display: none; }
 .filter-clear.is-visible { display: inline-flex; align-items: center; gap: 4px; }
 .filter-result-count { font-size: 12px; color: var(--ink-faint); margin: -6px 0 12px; min-height: 1em; }
 
-.table-wrap { overflow-x: auto; background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
-.browse-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* No overflow-x/y here on purpose - `table-layout: fixed` below means the
+   table can never grow past its container's width in the first place
+   (content wraps within each column's fixed share of it instead), so there
+   was nothing that actually needed a scrollbar. The previous `overflow-x:
+   auto` was masking a real bug (the actions column's `<th>` width was just
+   a hint under the default `table-layout: auto`, so once more than ~2
+   icons needed to fit there the browser silently grew the whole table past
+   its container) rather than something that belonged here - and per the
+   CSS overflow-x/y computed-value coupling rule, setting only overflow-x
+   forces overflow-y to compute to 'auto' too, which is what was producing
+   the *vertical* scrollbar as well (a few stray pixels of "overflow" from
+   the horizontal scrollbar itself eating into the box's own height). */
+.table-wrap { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-sm); }
+.browse-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
 .browse-table thead th {
   text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em;
   color: var(--ink-faint); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line);
