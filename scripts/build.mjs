@@ -8,7 +8,7 @@ import {
   renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
-  renderWhySignInPage, setAssetVersion
+  renderArchivedPage, renderWhySignInPage, setAssetVersion
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -134,6 +134,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('account', renderAccountPage(data));
   writeRoute('admin', renderAdminPage(data));
   writeRoute('collections', renderCollectionsPage(data));
+  writeRoute('archived', renderArchivedPage(data));
   writeRoute('why-sign-in', renderWhySignInPage(data));
 
   for (const category of data.categories) {

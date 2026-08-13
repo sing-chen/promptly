@@ -12,15 +12,17 @@ import {
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
 import { initTableFilterToolbar } from './filters.js';
-import { deletePrompt } from './db.js';
+import { deletePrompt, archiveDefault } from './db.js';
 import { getPersonalization, resolveOwnPromptForEdit } from './personalizeData.js';
+import { confirmDialog } from './confirmDialog.js';
 
 // Exported for search.js to reuse directly - it rebuilds its own results
 // from scratch on every keystroke rather than going through rebuildBlock()
-// below, but wants the exact same Edit/Delete wiring on what it renders.
-// Rebinding, not the block's own 'personalization:changed' listener, is what
-// picks up an edit/delete/fork here - both the Edit and Delete handlers
-// below dispatch that event themselves once their write completes.
+// below, but wants the exact same Edit/Archive/Delete wiring on what it
+// renders. Rebinding, not the block's own 'personalization:changed'
+// listener, is what picks up an edit/archive/delete/fork here - the Edit,
+// Archive, and Delete handlers below all dispatch that event themselves
+// once their write completes.
 export function wireOwnerActions(container, items, personalization) {
   container.querySelectorAll('[data-edit-id]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -40,13 +42,38 @@ export function wireOwnerActions(container, items, personalization) {
     });
   });
 
+  // Archive only ever targets a default (personalizedActions() in
+  // lib/render.mjs only renders this button for is_curated rows) - reversible
+  // from /archived/, so no confirmation needed, unlike Delete below.
+  container.querySelectorAll('[data-archive-id]').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const prompt = items.find(p => p.id === btn.dataset.archiveId);
+      if (!prompt) return;
+      btn.disabled = true;
+      try {
+        await archiveDefault(prompt.id);
+        document.dispatchEvent(new CustomEvent('personalization:changed'));
+      } catch (err) {
+        alert(err.message || 'Something went wrong.');
+        btn.disabled = false;
+      }
+    });
+  });
+
   container.querySelectorAll('[data-delete-id]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const prompt = items.find(p => p.id === btn.dataset.deleteId);
       if (!prompt) return;
-      if (!confirm(`Delete "${prompt.title}"? This can't be undone.`)) return;
+      const ok = await confirmDialog({
+        title: 'Delete this prompt?',
+        message: `"${prompt.title}" will be permanently deleted from the database. This can't be undone.`,
+        confirmLabel: 'Delete'
+      });
+      if (!ok) return;
       btn.disabled = true;
       try {
         await deletePrompt(prompt.id);

@@ -8,6 +8,7 @@ import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
 import { isFavorite, toggleFavorite } from './favorites.js';
 import { deletePrompt } from './db.js';
 import { resolveOwnPromptForEdit } from './personalizeData.js';
+import { confirmDialog } from './confirmDialog.js';
 
 function readEmbedded(gridId) {
   const el = document.getElementById(`${gridId}-data`);
@@ -293,7 +294,12 @@ export function initQuickView(gridId, opts = {}) {
   });
   els.delete.addEventListener('click', async () => {
     if (!currentItem) return;
-    if (!confirm(`Delete "${currentItem.title}"? This can't be undone.`)) return;
+    const ok = await confirmDialog({
+      title: 'Delete this prompt?',
+      message: `"${currentItem.title}" will be permanently deleted from the database. This can't be undone.`,
+      confirmLabel: 'Delete'
+    });
+    if (!ok) return;
     els.delete.disabled = true;
     try {
       await deletePrompt(currentItem.id);

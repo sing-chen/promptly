@@ -17,6 +17,13 @@ function setNavAccountState(session) {
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.
   document.getElementById('nav-library-link')?.toggleAttribute('hidden', !session);
+  // Archived Prompts is per-user content too - same reasoning.
+  document.getElementById('nav-archived-link')?.toggleAttribute('hidden', !session);
+  // The Collections "(i)" tooltip is redundant signed out - the sidebar
+  // already shows an explainer callout there instead of a live list
+  // (collectionsNav.js), so the tooltip only earns its place once that
+  // callout is gone.
+  document.getElementById('collections-info-btn')?.toggleAttribute('hidden', !session);
 
   const adminLink = document.getElementById('nav-admin-link');
   if (!adminLink) return;

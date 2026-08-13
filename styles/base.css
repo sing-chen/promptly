@@ -196,6 +196,18 @@ main .container {
 }
 .btn-ghost:hover { background: var(--well); }
 
+/* For the confirm dialog's destructive action (renderConfirmDialog in
+   lib/render.mjs) - --danger, not --accent, same reasoning as the field
+   validation messages that already use it. */
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.btn-danger:hover { filter: brightness(1.08); box-shadow: var(--shadow); }
+.btn-danger:active { transform: translateY(1px); }
+.btn-danger:disabled { background: var(--ink-faint); opacity: .5; cursor: not-allowed; }
+
 /* Chips */
 .chip {
   display: inline-flex;
@@ -334,11 +346,21 @@ main .container {
    label - same .field-info/.field-hint idiom as the New Prompt modal, with
    a narrower hint and downward opening so it doesn't get clipped by the
    sidebar's own overflow-x:hidden. */
-.sidebar-nav-item-row { display: flex; align-items: center; gap: 2px; position: relative; }
-.sidebar-nav-item-row > a { flex: 1 1 auto; min-width: 0; }
+/* Sized to content (not flex:1) so the "(i)" button sits right after the
+   label with natural spacing, instead of being pushed to the row's far
+   right edge - matches .sidebar-section-label-group's layout below. */
+.sidebar-nav-item-row { display: flex; align-items: center; gap: 4px; position: relative; }
+.sidebar-nav-item-row > a { flex: 0 0 auto; }
 .sidebar-section-label-group { display: flex; align-items: center; gap: 4px; position: relative; min-width: 0; }
 .sidebar-info-btn { flex-shrink: 0; }
-.sidebar-info-hint { top: calc(100% + 6px); bottom: auto; left: 0; width: 190px; }
+/* Compound selector (not just .sidebar-info-hint) so this reliably beats
+   .field-hint's own bottom/left/width declarations regardless of source
+   order - equal-specificity single-class selectors would otherwise leave
+   `bottom` set by both rules, over-constraining the box's height and
+   visibly truncating it right around the sidebar divider below. z-index
+   bumped well past .field-hint's default 4 as an extra guard against
+   anything else in the sidebar painting over it. */
+.field-hint.sidebar-info-hint { top: calc(100% + 6px); bottom: auto; left: 0; width: 190px; z-index: 50; }
 .sidebar-section-label {
   font-family: var(--mono);
   text-transform: uppercase;
@@ -1009,6 +1031,15 @@ footer.site-footer {
 }
 .np-modal-title { margin: 0; font-family: var(--display); font-size: 15px; font-weight: 700; }
 .np-page { padding: 20px 22px 26px; }
+
+/* Confirm dialog (renderConfirmDialog, public/scripts/confirmDialog.js) -
+   much narrower than the New Prompt/Collection modals it otherwise shares
+   .np-modal/.np-page/.np-success-actions with, since it's just a
+   title/message/two-buttons prompt. */
+.confirm-modal { max-width: 380px; }
+.confirm-modal .np-page { padding-top: 22px; }
+#confirm-title { margin: 0 0 8px; font-family: var(--display); font-size: 15px; font-weight: 700; }
+#confirm-message { margin: 0 0 18px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.5; }
 .np-form textarea {
   font: inherit;
   padding: 9px 12px;
@@ -1098,6 +1129,13 @@ label.np-admin-check {
 .admin-status-published { background: var(--accent-soft); color: var(--accent); }
 .admin-status-draft { background: var(--well); color: var(--ink-soft); }
 
+/* Archived Prompts page (/archived/, lib/render.mjs renderArchivedPage,
+   behavior in public/scripts/archived.js) - same .browse-table as
+   Home/Category (category pills via renderCatBadges), just with an
+   Unarchive action column instead of the personalized row's usual
+   fav/copy/edit/archive/delete icon cluster. */
+.archived-page { max-width: 820px; }
+
 /* Collections page (/collections/, lib/render.mjs renderCollectionsPage,
    behavior in public/scripts/collections.js) - wider than .account-page's
    sign-in-form width for the same reason .admin-page is, plus its own
@@ -1132,12 +1170,11 @@ label.np-admin-check {
 .sidebar-callout a { font-size: 12.5px; font-weight: 600; color: var(--accent); }
 .sidebar-callout a:hover { text-decoration: underline; }
 
-/* /why-sign-in/ page (lib/render.mjs renderWhySignInPage) */
-.why-sign-in-page { max-width: 680px; }
-.why-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+/* /why-sign-in/ page (lib/render.mjs renderWhySignInPage) - a single wide
+   column, stacked (not side-by-side) so neither box has to squeeze its text
+   into half the page width and wrap awkwardly. */
+.why-sign-in-page { max-width: 820px; }
+.why-compare { display: flex; flex-direction: column; gap: 16px; margin: 20px 0; }
 .why-compare-col { padding: 18px 20px; }
 .why-compare-col h2 { font-family: var(--display); font-size: 14px; margin: 0 0 10px; }
 .why-compare-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--ink-soft); }
-@media (max-width: 640px) {
-  .why-compare { grid-template-columns: 1fr; }
-}

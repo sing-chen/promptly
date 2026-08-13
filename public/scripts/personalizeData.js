@@ -22,12 +22,16 @@ export async function getPersonalization() {
   const [all, overrides] = await Promise.all([loadPrompts(), loadOverrides()]);
   const userId = session.user.id;
   const byId = new Map(all.map(p => [p.id, p]));
-  // Archiving a default is currently only ever a side effect of editing it
+  // Archiving a default happens either as a side effect of editing it
   // (forkPrompt() upserts prompt_overrides with is_archived=true - see
-  // supabase/README.md "Admin curation..."). There's no UI path left that
-  // archives without forking, but the check is on is_archived regardless of
-  // fork_prompt_id so an old standalone-archive row (from before that
-  // decision) still hides its default correctly.
+  // supabase/README.md "Admin curation...") or directly, via the Archive
+  // icon on any default's row/card (personalizedActions() in
+  // lib/render.mjs, db.js's archiveDefault()) - reversible from /archived/
+  // (public/scripts/archived.js), which only lists the fork_prompt_id=null
+  // case so a forked-and-archived default isn't offered twice (its fork
+  // already carries "View original" back to it). Either way, the check
+  // here is just on is_archived, since both cases hide the default the
+  // same way in the merged list.
   const archivedDefaultIds = new Set(overrides.filter(o => o.is_archived).map(o => o.default_prompt_id));
   const ownPrompts = all.filter(p => p.user_id === userId && !p.is_curated);
   const defaults = all.filter(p => p.is_curated && p.published && !archivedDefaultIds.has(p.id));
