@@ -9,3 +9,5 @@ Then read [BUILD_BRIEF_v5.md](BUILD_BRIEF_v5.md) — **the current model.** It r
 [`supabase/README.md`](supabase/README.md) is the reference for the schema as it stands, setup steps, and — in its Status section — what's built versus outstanding. It has been rewritten for the owned-copies model, so it and v5 agree.
 
 The UI half of v5 is logged as BUILD_BRIEF.md §9r, following that document's pass-by-pass convention.
+
+[BUILD_BRIEF_v6.md](BUILD_BRIEF_v6.md) is **a design pass, not built** — user-owned categories, doing for the category vocabulary what v5 did for prompts (an admin-maintained canonical set that seeds new accounts; each signed-in user then owns and can diverge). Nothing in it is live: categories are still the hardcoded `CATEGORIES` array in `lib/schema.mjs` mirrored by a CHECK constraint. Read it as the plan for the next major change, never as a description of current behaviour.
