@@ -142,12 +142,21 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   `catalog_versions`, `catalog_grants`, `ensure_seeded()`, the
   `prompts_write_catalog_version` trigger. `prompt_overrides`, `source_prompt_id`,
   `edited_from_source` and `mark_edited_from_source` are dropped.
+- [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql): `deploy_settings`,
+  `request_static_rebuild()` and statement-level triggers that redeploy the static
+  site whenever a published catalog prompt is added, edited, unpublished or deleted.
 - `lib/env.mjs` -> `scripts/build.mjs` writes `dist/scripts/config.js` from
   `SUPABASE_URL`/`SUPABASE_ANON_KEY` every build.
 - `public/scripts/supabaseClient.js` (esm.sh CDN, not vendored) and
   `public/scripts/db.js` - prompts CRUD, admin curate/publish, promote/demote,
   archive/unarchive, duplicate, seeding, favorites, collections.
-- `public/scripts/auth.js` + `/account/` - email/password sign-in/up/out.
+- `public/scripts/auth.js` - email/password sign-in/up/out. **Sign out lives in the
+  sidebar footer**, under the signed-in email, so it's reachable from any page.
+- `/account/` (`public/scripts/accountStats.js`) - library metrics: prompts, written
+  by you vs. received from the catalog, how many catalog prompts you've customised,
+  collections, uncollected, recently added, favourites, a category-distribution bar
+  chart, and published/draft counts for an admin. All derived from rows the caller
+  already owns.
 - The New/Edit Prompt modal. For an admin it also carries the publish-to-everyone
   choice (promote/demote) and, for an already-published catalog prompt, the notify
   override.
@@ -157,33 +166,38 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   `personalize.js`; every row carries Edit, Duplicate, Archive and Delete, plus bulk
   multi-select Archive/Delete.
 - `/collections/` and the live sidebar Collections list.
+- Favourites, two-tier by design (`public/scripts/favoritesStore.js`): anonymous
+  visitors store slugs in localStorage, signed-in users get the `favorites` table keyed
+  by prompt id. The key spaces can't be shared - a user's copy has a different id, and
+  possibly a different slug, from the catalog row it came from. Anonymous favourites
+  merge into the table once on first sign-in, matched by slug; the local copy is kept
+  so signing out doesn't strand you. `/favorites/` is personalized, so a favourited
+  personal prompt appears there.
 - `scripts/build.mjs` reads published catalog prompts from Supabase
   (`lib/supabaseBuild.mjs`) rather than `prompts/*.md`.
-- Verified against the live project: migration applied and all 11 checks in
-  [`verify_0004.sql`](verify_0004.sql) pass; a non-admin test account was seeded 7
+- Verified against the live project: `0004` applied with all 11 checks in
+  [`verify_0004.sql`](verify_0004.sql) passing; a non-admin test account was seeded 7
   copies automatically, and editing one updated it in place without creating a fork
-  (`catalog_grants` stayed at 7).
+  (`catalog_grants` stayed at 7). `0005` verified separately - editing a published
+  catalog prompt triggered a Vercel deployment, and a newly published prompt reached
+  anonymous visitors after the resulting rebuild.
 
-**Deferred / not built:**
+**Built, but needs configuration to take effect:**
+- **Auto-rebuild on catalog change** (`0005_publish_webhook.sql`) is inert until a
+  Deploy Hook URL is set - see setup step 7. Confirmed working once configured: an
+  edit to a published catalog prompt produced a Vercel deployment. Without it, a
+  catalog change won't reach *anonymous* visitors until someone redeploys by hand.
+  Signed-in users get it on their next visit via `ensure_seeded()` either way.
+- Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
+  `SUPABASE_ANON_KEY`.
+
+**Not built:**
 - **Notify-and-merge screen** (BUILD_BRIEF_v5.md §6) - versions and the `notifiable`
   flag are recorded now, but nothing consumes them yet. Deliberate: the feature has no
   users until a catalog prompt is edited *after* someone has signed up.
 - **Transactional email / SMTP** - unconfigured, and blocks public launch. Sign-up says
   "check your email", but that mail comes from Supabase's built-in test-only sender.
   Password reset has the same dependency. See BUILD_BRIEF_v5.md §9.
-- Auto-rebuild on catalog change is **built** (`0005_publish_webhook.sql`) but stays
-  inert until a Deploy Hook URL is configured - see setup step 7. Until then, a
-  published catalog prompt won't reach *anonymous* visitors without a manual
-  redeploy. Signed-in users get it on their next visit via `ensure_seeded()`,
-  which is unaffected either way.
-- Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
-  `SUPABASE_ANON_KEY`.
-- Favourites are two-tier by design: anonymous visitors store slugs in localStorage,
-  signed-in users get the `favorites` table keyed by prompt id (the key spaces can't be
-  shared - a user's copy has a different id, and possibly a different slug, from the
-  catalog row it came from). Anonymous favourites merge into the table once on first
-  sign-in, matched by slug; the local copy is kept so signing out doesn't strand you.
-  `/favorites/` is personalized, so a favourited personal prompt now appears there.
 - `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.
 - Multiple admins: a second admin would see only their own catalog rows and couldn't
   edit the first admin's. Fine at one admin; needs a decision before a second.
