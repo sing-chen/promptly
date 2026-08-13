@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient.js';
+import { initAccountStats } from './accountStats.js';
 import { isAdmin } from './db.js';
 
 function setNavAccountState(session) {
@@ -39,11 +40,14 @@ function setNavAccountState(session) {
 }
 
 function renderSignedIn(root, session) {
+  // Sign out lives in the sidebar footer now (reachable from anywhere), so
+  // this page's job is what the sidebar can't do: say something about the
+  // library itself. Stats render asynchronously into #account-stats.
   root.innerHTML = `
 <h1>Account</h1>
-<p>Signed in as <strong>${session.user.email}</strong></p>
-<button type="button" id="sign-out-btn" class="btn btn-secondary">Sign out</button>`;
-  root.querySelector('#sign-out-btn').addEventListener('click', () => supabase.auth.signOut());
+<p class="account-identity">Signed in as <strong>${session.user.email}</strong></p>
+<div id="account-stats"></div>`;
+  initAccountStats(document.getElementById('account-stats'), session.user);
 }
 
 function renderSignedOut(root) {

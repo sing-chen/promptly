@@ -149,6 +149,16 @@ export async function ensureSeeded() {
   return data ?? 0;
 }
 
+// The caller's own grant rows (RLS scopes this to them). Normally private
+// bookkeeping the UI never touches - the one legitimate read is the account
+// page, which uses it to tell prompts the user wrote apart from prompts the
+// catalog gave them, and to spot which received ones they've since edited.
+export async function loadMyGrants() {
+  const user_id = await requireUserId();
+  return unwrap(await supabase.from('catalog_grants')
+    .select('catalog_prompt_id, user_prompt_id, granted_at').eq('user_id', user_id));
+}
+
 // ── archive / delete / duplicate (all operate on rows you own) ───────
 
 // Archive hides a prompt from the main list while keeping it, and is

@@ -1016,7 +1016,15 @@ button.nav-toggle { display: none; }
   color: var(--ink-faint); font-weight: 700; padding: 10px 14px; border-bottom: 1px solid var(--line);
   white-space: nowrap;
 }
-.browse-table th.col-updated, .browse-table td.col-updated { text-align: right; font-variant-numeric: tabular-nums; }
+/* Wide enough for a full "Aug 13, 2026" on one line - at 100px the year
+   wrapped to a second row. nowrap so a longer locale format pushes the
+   column rather than stacking. */
+.browse-table th.col-updated, .browse-table td.col-updated {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 118px;
+  white-space: nowrap;
+}
 .browse-table tbody tr {
   cursor: pointer; border-bottom: 1px solid var(--line-soft); border-left: 3px solid transparent;
   transition: background-color .15s ease, border-color .15s ease;
@@ -1543,3 +1551,52 @@ tr.is-flash, .prompt-card.is-flash {
   text-align: left;
 }
 .sidebar-signout:hover { color: var(--danger); text-decoration: underline; }
+
+/* ── Account page stats (/account/, public/scripts/accountStats.js) ──
+   Tiles for headline numbers, a bar chart for category spread. Reuses the
+   category hue tokens so the chart speaks the same colour language as the
+   badges and filter pills elsewhere. */
+.account-identity { color: var(--ink-soft); margin-bottom: 28px; }
+
+.stat-section { margin-bottom: 32px; }
+.stat-section h2 { font-size: 15px; margin-bottom: 4px; }
+.stat-section-note { font-size: 12.5px; color: var(--ink-faint); margin: 0 0 14px; }
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  background: var(--well);
+  border-radius: var(--radius);
+}
+.stat-value { font-family: var(--display); font-size: 26px; font-weight: 700; line-height: 1.1; }
+.stat-label { font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.stat-hint { font-size: 11.5px; color: var(--ink-faint); }
+.stat-hint a { color: var(--accent); }
+.stat-hint a:hover { text-decoration: underline; }
+
+.stat-bars { display: flex; flex-direction: column; gap: 7px; }
+.stat-bar-row { display: grid; grid-template-columns: 110px 1fr 32px; align-items: center; gap: 10px; }
+.stat-bar-label { font-size: 12.5px; color: var(--ink-soft); text-align: right; }
+.stat-bar-track { background: var(--well); border-radius: 999px; height: 14px; overflow: hidden; }
+.stat-bar-fill { display: block; height: 100%; border-radius: 999px; }
+.stat-bar-fill.cat-clay  { background: var(--cat-clay); }
+.stat-bar-fill.cat-ochre { background: var(--cat-ochre); }
+.stat-bar-fill.cat-blue  { background: var(--cat-blue); }
+.stat-bar-fill.cat-plum  { background: var(--cat-plum); }
+.stat-bar-fill.cat-moss  { background: var(--cat-moss); }
+.stat-bar-fill.cat-rose  { background: var(--cat-rose); }
+.stat-bar-count { font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+.stat-empty { color: var(--ink-faint); font-size: 13px; }
+.stat-footnote { font-size: 12px; color: var(--ink-faint); border-top: 1px solid var(--line-soft); padding-top: 14px; }
+
+@media (max-width: 560px) {
+  .stat-bar-row { grid-template-columns: 90px 1fr 28px; }
+}
