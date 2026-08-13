@@ -117,6 +117,61 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     cardGrid.innerHTML = list.map(p => renderPromptCard(p, ctx)).join('');
     initInteractive(cardGrid);
     wireOwnerActions(cardGrid, list, pers);
+    wireSelection(cardGrid);
+  }
+
+  // ── bulk selection ────────────────────────────────────────────────
+  // Selection lives here rather than in the DOM's checked state alone, so it
+  // survives the table being re-rendered (a filter, an edit) and stays in
+  // sync between the table and the card grid, which are two separate sets of
+  // checkboxes for the same prompts.
+  const selected = new Set();
+
+  function selectableIds(list) {
+    return list.filter(p => !rowHidden(p)).map(p => p.id);
+  }
+
+  function rowHidden(p) {
+    const row = tbody.querySelector(`tr[data-slug="${CSS.escape(p.slug)}"]`);
+    return row ? row.hidden : false;
+  }
+
+  // Scoped to this block (plus its card grid, which viewToggle.js inserts as
+  // a sibling of .table-wrap, so it's inside the block too). A document-wide
+  // query would cross-wire two tables on the same page.
+  function ownBlock() {
+    return tbody.closest('.prompt-table-block');
+  }
+
+  function syncSelectionUI() {
+    const block = ownBlock();
+    if (!block) return;
+    block.querySelectorAll('[data-select-id]').forEach(cb => {
+      cb.checked = selected.has(cb.dataset.selectId);
+    });
+
+    const bar = document.getElementById(`${gridId}-bulkbar`);
+    const count = document.getElementById(`${gridId}-bulkcount`);
+    if (bar) bar.hidden = selected.size === 0;
+    if (count) count.textContent = `${selected.size} selected`;
+
+    const all = block.querySelector('.bulk-select-all');
+    if (all && lastList) {
+      const ids = selectableIds(lastList);
+      all.checked = ids.length > 0 && ids.every(id => selected.has(id));
+      all.indeterminate = !all.checked && ids.some(id => selected.has(id));
+    }
+  }
+
+  function wireSelection(container) {
+    container.querySelectorAll('[data-select-id]').forEach(cb => {
+      cb.addEventListener('click', e => e.stopPropagation()); // don't open the row/card
+      cb.addEventListener('change', () => {
+        if (cb.checked) selected.add(cb.dataset.selectId);
+        else selected.delete(cb.dataset.selectId);
+        syncSelectionUI();
+      });
+    });
   }
 
   document.addEventListener('promptly:cards-built', (e) => {
@@ -124,8 +179,67 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     paintCards(e.detail.cardGrid, personalization, lastList);
   });
 
+  // Bulk bar and select-all live outside the tbody, so they're wired once
+  // rather than on every repaint.
+  function wireBulkBar() {
+    const block = tbody.closest('.prompt-table-block');
+    if (!block) return;
+    block.classList.add('is-personalized'); // reveals the select column (base.css)
+
+    block.querySelector('.bulk-select-all')?.addEventListener('change', (e) => {
+      const ids = selectableIds(lastList || []);
+      if (e.target.checked) ids.forEach(id => selected.add(id));
+      else ids.forEach(id => selected.delete(id));
+      syncSelectionUI();
+    });
+
+    block.querySelectorAll('[data-bulk]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.bulk;
+        if (action === 'clear') {
+          selected.clear();
+          syncSelectionUI();
+          return;
+        }
+        const ids = [...selected];
+        if (!ids.length) return;
+
+        if (action === 'delete') {
+          const ok = await confirmDialog({
+            title: `Delete ${ids.length} prompt${ids.length === 1 ? '' : 's'}?`,
+            message: `${ids.length} prompt${ids.length === 1 ? ' will be' : 's will be'} permanently deleted from the database. This can't be undone.`,
+            confirmLabel: 'Delete'
+          });
+          if (!ok) return;
+        }
+
+        block.querySelectorAll('[data-bulk]').forEach(b => { b.disabled = true; });
+        try {
+          // Sequential rather than Promise.all: these are RLS-scoped writes
+          // against the free tier, and a partial failure part-way through a
+          // parallel burst is harder to reason about than a clean stop.
+          for (const id of ids) {
+            if (action === 'archive') await archivePrompt(id);
+            else await deletePrompt(id);
+          }
+          selected.clear();
+          document.dispatchEvent(new CustomEvent('personalization:changed'));
+        } catch (err) {
+          alert(err.message || 'Something went wrong.');
+        } finally {
+          block.querySelectorAll('[data-bulk]').forEach(b => { b.disabled = false; });
+          syncSelectionUI();
+        }
+      });
+    });
+  }
+
   function paint(pers, list) {
     lastList = list;
+    // Drop any selection pointing at rows that no longer exist (deleted,
+    // archived, or filtered out by an edit) so the count can't drift.
+    const present = new Set(list.map(p => p.id));
+    [...selected].forEach(id => { if (!present.has(id)) selected.delete(id); });
     tbody.innerHTML = renderPromptTableRows(list, ctx);
 
     const dataScript = document.getElementById(`${gridId}-data`);
@@ -133,6 +247,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
 
     initInteractive(tbody);
     wireOwnerActions(tbody, list, pers);
+    wireSelection(tbody);
     getQuickView(gridId)?.update(list, pers);
 
     // If grid view was the persisted preference, viewToggle.js already built
@@ -146,6 +261,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
 
     if (toolbarId) rebuildToolbar(list);
     updateNewCallout(list);
+    syncSelectionUI();
   }
 
   // Home's "N new prompts" banner (lib/render.mjs's findNewPrompts) is
@@ -190,8 +306,10 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   }
 
   // `.prompts` excludes archived rows - those live at /archived/ only.
+  wireBulkBar();
   const items = filterFn ? personalization.prompts.filter(filterFn) : personalization.prompts;
   paint(personalization, items);
+  syncSelectionUI();
 
   document.addEventListener('personalization:changed', refresh);
 }

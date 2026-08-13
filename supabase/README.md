@@ -1,29 +1,28 @@
-# Supabase setup (account tier, BUILD_BRIEF_v4.md + default-prompt catalog)
+# Supabase setup (account tier — owned-copies model)
 
-> ## ⚠️ Model sections below are superseded by [BUILD_BRIEF_v5.md](../BUILD_BRIEF_v5.md)
->
-> Migration `0004_owned_copies.sql` replaced the fork-on-edit / merged-catalog
-> model with **owned copies**: signing up copies the whole published catalog into
-> the user's library, so every prompt a signed-in user can see is theirs. There is
-> no forking, no `prompt_overrides` table (dropped), no `source_prompt_id` /
-> `edited_from_source` columns (dropped), and no "view original".
->
-> **Stale below:** "Admin curation, publishing, and per-user forks", "The merged
-> catalog (superseded `/library/`)", and the parts of Status describing forks,
-> archived defaults, or the merged list. New: `catalog_versions`,
-> `catalog_grants`, `ensure_seeded()`, and the `prompts_write_catalog_version`
-> trigger — all documented in v5 §3–§4.
->
-> **Still accurate:** setup steps, env vars, the static-build-vs-live-reads split,
-> the categories/schema sync process, and the `example_output` note.
->
-> A full rewrite of this file is tracked as part of v5 Pass 1.
+The current model is **owned copies**, specified in [BUILD_BRIEF_v5.md](../BUILD_BRIEF_v5.md):
+signing up copies the whole published catalog into the user's library, so every prompt a
+signed-in user can see is genuinely theirs. This file is the schema/setup reference for
+that; v5 is the design rationale. BUILD_BRIEF_v4.md's fork-on-edit and merged-catalog
+sections are **historical** — that model was removed by `0004_owned_copies.sql`.
 
 Already provisioned and live in production — see "Status" below for what's actually built. Steps below are what stands up a fresh project from scratch (useful for a new environment, or if you're verifying/reproducing the existing one):
 
 1. Create a project at [supabase.com](https://supabase.com) (free tier is fine at this project's size — see BUILD_BRIEF_v4.md §1).
-2. In the Supabase dashboard's SQL Editor, run [`migrations/0001_init_schema.sql`](migrations/0001_init_schema.sql). It creates `admins`, `prompts`, `prompt_overrides`, `collections`, `collection_prompts`, `favorites`, and RLS policies.
-   - **Already ran an earlier version of 0001 against this project?** `0001_init_schema.sql` has been rewritten several times since (admin curation, forks, `prompt_overrides` all landed after the first run). Don't re-run it — instead run, in order, [`migrations/0002_admin_curation_and_forks.sql`](migrations/0002_admin_curation_and_forks.sql) and [`migrations/0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql), idempotent patches that bring any earlier revision up to the current schema, whichever version you happened to run. (The live production project needs both — it predates each.)
+2. In the Supabase dashboard's SQL Editor, run the migrations **in order**:
+   [`0001_init_schema.sql`](migrations/0001_init_schema.sql) →
+   [`0002_admin_curation_and_forks.sql`](migrations/0002_admin_curation_and_forks.sql) →
+   [`0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) →
+   [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql).
+   - 0001–0003 build up the *old* fork-based model, and 0004 then replaces it. That's
+     wasteful on a fresh project but keeps one true migration history rather than a
+     rewritten 0001 that no existing project matches. 0002 and 0003 are idempotent
+     patches, so they're safe whichever revision of 0001 you happened to run.
+   - After 0004 the schema is: `admins`, `prompts`, `catalog_versions`,
+     `catalog_grants`, `collections`, `collection_prompts`, `favorites`, plus RLS
+     policies, the `ensure_seeded()` function and the `prompts_write_catalog_version`
+     trigger. `prompt_overrides` is dropped by 0004 — it belonged to the fork model.
+   - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks, all should read PASS).
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -38,23 +37,74 @@ Already provisioned and live in production — see "Status" below for what's act
 
 `prompts/*.md` was the v3 static site's original test content and is retired by this plan — it is **not** carried forward as "the official default prompts," and as of `scripts/build.mjs`'s Supabase switch, it's no longer read by the production build at all (`lib/content.mjs`'s `loadPrompts()`/`PROMPTS_DIR` now exist only for `scripts/validate-prompts.mjs`, a standalone lint tool, unrelated to what actually ships). Supabase is the single source of truth for default ("site-level") prompts, for every tier, anonymous visitors included. Concretely:
 
-- You author and edit default prompts through the app's admin "create prompt" feature (the "+ New Prompt" modal's admin checkbox + the `/admin/` publish page), not by hand-editing files or committing to git.
+- You author and edit catalog prompts through the app: the "+ New Prompt" modal's
+  "Publish to everyone" checkbox creates one as a draft (or promotes an existing
+  personal prompt into the catalog on edit), and the `/admin/` page publishes it.
+  Not by hand-editing files or committing to git.
 - Anonymous visitors never talk to Supabase directly (see below) — they still get a fast static site — but the *content* those static pages are built from comes from Supabase at build time, not from files in this repo.
-- The 5 prompts that used to live in `prompts/*.md` didn't carry over automatically — [`seed_default_prompts.sql`](seed_default_prompts.sql) recreated them as published defaults (**run, confirmed live** — see Status below); its header comment documents what's accepted as lost in that migration (the markdown-only `handoff` field).
+- The 5 prompts that used to live in `prompts/*.md` didn't carry over automatically —
+  [`seed_default_prompts.sql`](seed_default_prompts.sql) recreated them as published
+  catalog prompts; its header comment documents what's accepted as lost in that
+  migration (the markdown-only `handoff` field). **Review before reusing**: it predates
+  the owned-copies model, and everything currently in the database is test content to be
+  cleared (see [`reset_prompts.sql`](reset_prompts.sql)) before canonical prompts are
+  seeded for release.
 
-## Admin curation, publishing, and per-user forks
+## Owned copies (how the catalog reaches users)
 
-`prompts.is_curated` and `prompts.published` gate admin authoring and visibility; `source_prompt_id`, `prompt_overrides`, and `edited_from_source` support the fork-on-edit model:
+`prompts.is_curated` and `published` gate admin authoring and visibility. What changed
+in [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql) is what happens *after*
+publishing: users receive **copies**, not references (BUILD_BRIEF_v5.md).
 
-- A row with `is_curated = true, published = false` is a default prompt being tested — visible only to its admin owner (same as any other private prompt), so you can try it out in the real, production UI before anyone else sees it.
-- Only a user listed in `admins` can insert or update a row with `is_curated = true` — enforced by `prompts_insert`/`prompts_update`, not just app code.
-- Flipping `published = true` makes the row visible to **everyone** — `prompts_select`'s RLS allows `user_id = auth.uid() OR (is_curated AND published)`, and the `anon` role has a table-level `GRANT SELECT` too, so this covers signed-in users and anonymous visitors alike. It stays editable/deletable only by the owning admin, always.
-- A signed-in user can favorite a published default or add it to their own collection directly — no copy required for that (`favorites_owner_all` / `collection_prompts_owner_all` allow it).
-- **Editing** a default is what forks it: the app inserts a new row owned by that user (`is_curated = false`, `source_prompt_id = <the default's id>`, content copied from the default at fork time), then upserts a `prompt_overrides` row with `fork_prompt_id` set to the new fork and `is_archived = true` — the default is now shown as archived/superseded in that user's own view, while their fork carries a live pointer (`source_prompt_id`) back to the current admin version for "view original" (the admin may keep iterating it after the fork — this is a live reference, not a snapshot).
-- The `mark_edited_from_source` trigger auto-flips a fork's `edited_from_source = true` the moment its content actually diverges from what it started as — a simple "edited from original" badge, computed by the DB rather than tracked by hand in app code.
-- A user can also archive a default **without** editing it — just a `prompt_overrides` row with `is_archived = true` and `fork_prompt_id = null`. No row in `prompt_overrides` at all means "shown normally, unarchived, unforked."
-- **Deleting** a fork removes it from that user's profile only — the admin's default and every other user's fork or override are untouched.
-- If the admin unpublishes a default (`published = false`), it stops being visible to non-owners immediately, including to anyone who already forked it — an existing fork keeps working (it's the user's own independent row), but its "view original" link will fail to resolve until republished, since `prompts_select` no longer permits reading it.
+- A row with `is_curated = true, published = false` is a catalog prompt being drafted -
+  visible only to its admin owner, so you can try it in the real UI before anyone else
+  sees it. Editing a draft notifies nobody and writes no version.
+- Only a user listed in `admins` can insert or update a row with `is_curated = true` -
+  enforced by `prompts_insert`/`prompts_update`, not just app code. That same policy is
+  what lets an admin **promote** a personal prompt into the catalog later, and demote it
+  again; no extra policy was needed.
+- Flipping `published = true` makes the row eligible for distribution. `ensure_seeded()`
+  then hands every user a copy on their next visit.
+- **Every prompt a signed-in user can see is their own row.** They can edit, archive
+  (`prompts.is_archived`), delete or duplicate any of it. There is no borrowing, so no
+  fork-on-edit, no `prompt_overrides`, and no "view original".
+- **An admin's library *is* the catalog.** `ensure_seeded()` no-ops for admins, so they
+  hold the canonical rows rather than copies. The consequence worth knowing: editing a
+  *published* catalog prompt is a broadcast to everyone holding a copy. Drafts are free,
+  and `duplicatePrompt()` is the escape hatch for a personal variant.
+- **Deleting** only ever affects the caller's own row. The catalog original and every
+  other user's copy are untouched - they were never the same row.
+- **Unpublishing** now has a clean meaning it didn't before: it stops *future* grants.
+  Anyone already holding a copy keeps it, and won't be re-granted, because their
+  `catalog_grants` row persists.
+
+### The three tables
+
+| Table | Purpose |
+| --- | --- |
+| `prompts` | Both the catalog (admin-owned, `is_curated`) and every user's own rows. |
+| `catalog_versions` | History of catalog prompts - one row per content change while published. Scales with the catalog, not with users. `notifiable` marks significant changes (title/purpose/body) apart from minor ones (notes/categories). |
+| `catalog_grants` | Private bookkeeping: who has what, which row it is, which version they got. Never rendered. |
+
+`catalog_grants.user_prompt_id` is `ON DELETE SET NULL` deliberately: deleting your copy
+leaves the grant behind, so seeding never resurrects it, while the pointer clears.
+
+A version row is written for **every** content change, not just notifiable ones. That
+looks redundant but isn't - a grant must point at an exact snapshot of what was handed
+over, or a user seeded between two edits would later have that difference misread as an
+edit *they* made, raising a false conflict. See BUILD_BRIEF_v5.md §6.2.
+
+### Seeding is pull-based
+
+`ensure_seeded()` (SECURITY DEFINER, called on authenticated page load) copies every
+published catalog prompt the caller has no grant for. One function covers both signup
+and later publishes, so **there is no fan-out job** and publishing stays a single row
+update. It is idempotent and self-healing: a partial failure is repaired next load.
+
+It handles two details that bite otherwise - slug collisions (`slug` is unique per user,
+so a later publish can collide with something the user already wrote) and `depends_on`
+remapping (a copied prompt must point at *the user's* copy of its dependency).
+
 
 ## Static build vs. live reads (why both `anon` GRANT and a rebuild trigger exist)
 
@@ -77,50 +127,62 @@ A real admin screen for this (add/rename/remove without a code change) is on the
 
 The v3-era "attach an example output image, shown on the prompt detail page" feature (`prompts.example_output`, plus the matching frontmatter field and detail-page section) has been **removed from the shipped product**, not carried forward into the account tier. It may come back as a real feature later — if so, redesign it rather than resurrecting the column, since the old shape (a single image URL) was a v3-era placeholder, not a considered account-tier design. Tracked in BUILD_BRIEF_v4.md §7 and noted in BUILD_BRIEF.md. [`migrations/0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) drops the column from the live project (and updates `mark_edited_from_source`, which used to check it).
 
-## Status (last updated after the sidebar/header redesign and content reseed)
+## Status
 
-**Built:**
-- Schema + RLS (`0001_init_schema.sql`, patched onto the live project via `0002_admin_curation_and_forks.sql` and `0003_remove_example_output.sql`) — admin curation/publish/fork model described above, live in Supabase.
-- `lib/env.mjs` (build-time `.env.local` loader, no `dotenv` dependency) → `scripts/build.mjs` writes `dist/scripts/config.js` from `SUPABASE_URL`/`SUPABASE_ANON_KEY` every build.
-- `public/scripts/supabaseClient.js` (client, loaded from the esm.sh CDN — not vendored, no bundler in this project) and `public/scripts/db.js` (full data layer: prompts CRUD, admin curate/publish, fork-on-edit, archive, favorites, collections).
-- `public/scripts/auth.js` + `/account/` page — email/password sign-in/up/out, wired into the sidebar nav's account link, "New Prompt" button, and Admin link visibility.
-- The "New Prompt" modal (`renderNewPromptModal` in `lib/render.mjs`, behavior in `public/scripts/newPrompt.js`) — collects `title`, `purpose` (with a hover/focus "(i)" tooltip explaining what it is), `categories` (a checkbox-backed dropdown, not a flat grid), `body`, and `notes`. No `slug` field — it's generated from the title at submit time (`createWithUniqueSlug()` in `newPrompt.js`), retrying with an incrementing numeric suffix on a Postgres unique-violation (23505) rather than exposing the slug for manual editing; `slug` is only unique per-user, so the only way to collide is the same user creating two same-titled prompts. `example_output` is gone (see above); `sequence`/`sequence_step`/`depends_on` are intentionally left out per BUILD_BRIEF_v4.md §7. The admin-only "make this a default prompt" checkbox routes the submit through `createCuratedPrompt()` instead of `createPrompt()`.
-- `/admin/` page (`renderAdminPage` in `lib/render.mjs`, behavior in `public/scripts/admin.js`) — lists the signed-in admin's own curated prompts (drafts and published alike) with a publish/unpublish button per row, calling `db.js`'s existing `publishPrompt()`/`unpublishPrompt()`. Linked from the sidebar's `#nav-admin-link`, hidden unless `isAdmin()` resolves true.
-- The admin-only "make this a default prompt" checkbox now defaults to **checked** when the signed-in user is an admin (still a plain checkbox — uncheckable for a one-off personal prompt); field-validation messages (`#np-message[role="alert"]`, e.g. "Choose at least one category.") render in `--danger` red instead of the default ink color.
-- Verified end-to-end against the real Supabase project, **signed in as the real admin account**: created a regular prompt, created a default prompt as a draft, published it and confirmed the status flip in `/admin/`, unpublished it, all with a clean console. Confirmed live in the Vercel production build (`config.js` response inspected in prod DevTools).
-- `scripts/build.mjs` reads default prompts from Supabase (`lib/supabaseBuild.mjs`) instead of `prompts/*.md` — `lib/content.mjs`'s `buildData()`/`validatePrompts()` now take a `prompts` array as a parameter instead of loading it themselves, so either source can feed them. `validatePrompts()`'s duplicate-slug check now matters for a real reason it didn't before: `slug` is only unique **per admin** in the DB (`unique(user_id, slug)`), not globally, so two different admins could otherwise publish colliding slugs with nothing stopping them at insert time — this is what catches that before two prompts silently collide on the same `/prompt/<slug>/` route. `runBuild()` is now async (network call); `scripts/watch.mjs` and the CLI entrypoint both await it. Verified locally against the live project: builds cleanly, every page (home, category, collections, sequences, search, prompt detail) degrades to its existing empty state rather than erroring when there's little/no Supabase content, no console errors.
-- A New Collection modal (`renderNewCollectionModal` in `lib/render.mjs`, behavior in `public/scripts/newCollection.js`) mirroring the New Prompt modal's pattern — title + description, slug generated at submit time with the same dedupe-on-collision approach, calling `db.js`'s existing `createCollection()`. Opens from a "+" button in the sidebar's Collections section header (`#new-collection-btn`, hidden until signed in — collections have no admin/curated concept). A created collection is managed at `/collections/` and shows up live in the sidebar (see below).
-- [`seed_default_prompts.sql`](seed_default_prompts.sql) has been **run and confirmed live** — all 5 prompts and the `client-onboarding` sequence are back on the production site. Its "Client Onboarding Kit" collection insert still runs too, but only as a normal row in the seeding admin's *own* `collections` table entry (own by that user, per the "all user-generated" decision below) — it's not shown to anyone else and isn't a public/curated collection.
-- A UI pass unrelated to Supabase itself (so not detailed here beyond a pointer): the sidebar and a new main-content header (`renderMainHeader` in `lib/render.mjs`) were reworked to match a reference design — search, the table/grid view toggle, and the theme toggle moved from the sidebar into this header; sidebar collapse/expand is now a two-button pair (`#sidebar-collapse-btn` in the sidebar, `#sidebar-expand-btn` in the header); main content left-aligns instead of centering.
+**Built - current model (BUILD_BRIEF_v5.md):**
+- Schema + RLS through [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql):
+  `catalog_versions`, `catalog_grants`, `ensure_seeded()`, the
+  `prompts_write_catalog_version` trigger. `prompt_overrides`, `source_prompt_id`,
+  `edited_from_source` and `mark_edited_from_source` are dropped.
+- `lib/env.mjs` -> `scripts/build.mjs` writes `dist/scripts/config.js` from
+  `SUPABASE_URL`/`SUPABASE_ANON_KEY` every build.
+- `public/scripts/supabaseClient.js` (esm.sh CDN, not vendored) and
+  `public/scripts/db.js` - prompts CRUD, admin curate/publish, promote/demote,
+  archive/unarchive, duplicate, seeding, favorites, collections.
+- `public/scripts/auth.js` + `/account/` - email/password sign-in/up/out.
+- The New/Edit Prompt modal. For an admin it also carries the publish-to-everyone
+  choice (promote/demote) and, for an already-published catalog prompt, the notify
+  override.
+- `/admin/` - lists the admin's curated prompts with publish/unpublish per row.
+- `/archived/` - the caller's own archived prompts, with Unarchive.
+- Home/Category/Search render the caller's library via `personalizeData.js` +
+  `personalize.js`; every row carries Edit, Duplicate, Archive and Delete, plus bulk
+  multi-select Archive/Delete.
+- `/collections/` and the live sidebar Collections list.
+- `scripts/build.mjs` reads published catalog prompts from Supabase
+  (`lib/supabaseBuild.mjs`) rather than `prompts/*.md`.
+- Verified against the live project: migration applied and all 11 checks in
+  [`verify_0004.sql`](verify_0004.sql) pass; a non-admin test account was seeded 7
+  copies automatically, and editing one updated it in place without creating a fork
+  (`catalog_grants` stayed at 7).
 
-### The merged catalog (superseded `/library/` - a deliberate pivot)
+**Deferred / not built:**
+- **Notify-and-merge screen** (BUILD_BRIEF_v5.md §6) - versions and the `notifiable`
+  flag are recorded now, but nothing consumes them yet. Deliberate: the feature has no
+  users until a catalog prompt is edited *after* someone has signed up.
+- **Transactional email / SMTP** - unconfigured, and blocks public launch. Sign-up says
+  "check your email", but that mail comes from Supabase's built-in test-only sender.
+  Password reset has the same dependency. See BUILD_BRIEF_v5.md §9.
+- The Supabase->Vercel publish webhook, so a newly published catalog prompt doesn't
+  reach *anonymous* visitors until a redeploy. Signed-in users get it on their next
+  visit via `ensure_seeded()`, which is unaffected.
+- Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
+  `SUPABASE_ANON_KEY`.
+- `/favorites/` still reads the build-time list, so a favourited personal prompt won't
+  appear there. Now fixable in a way it wasn't before (everything is an owned row), but
+  it interacts with the localStorage/slug-based favourites used for guests.
+- `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.
+- Home's header stat line stays the build-time count after a signed-in load.
+- Multiple admins: a second admin would see only their own catalog rows and couldn't
+  edit the first admin's. Fine at one admin; needs a decision before a second.
 
-A `/library/` page shipped first (three tabs: My Prompts, Collections, Archived Defaults - a signed-in user's content siloed away from the public catalog). It was then **replaced** by a different, simpler model after explicit product direction: signed in, there is no separate "your prompts" page at all - Home, Category, and Search show **one merged list** (every published default the caller hasn't forked, plus their own prompts), and editing a default is what forks and archives it, with the original reachable only via "View original" on the fork. `/library/` and `public/scripts/library.js` are deleted; nothing links to `/library/` anymore (it 404s). What replaced it:
-
-- **`public/scripts/personalizeData.js`** (new) - the merge itself. `getPersonalization()` (memoized per signed-in session) calls `loadPrompts()`/`loadOverrides()` and returns `{ userId, byId, ownPrompts, defaults, merged, overrides }` - `merged` is `defaults` (published, not archived by this caller) concatenated with `ownPrompts` (self-authored + forks), sorted the same way the static build already sorts (newest-updated-first). `byId` covers *every* prompt the caller can see, including a default they've since archived by forking it - that's what lets "View original" resolve a fork's `source_prompt_id` even though the default itself is no longer in `merged`. Also exports `resolveOwnPromptForEdit(personalization, prompt)`: returns the prompt itself if already owned; the *existing* fork if one was already made (checked via `overrides`, so re-opening Edit on the same default twice - e.g. by reaching it again through "View original" - never creates a second, orphaned fork); otherwise calls `forkPrompt()` and dispatches `personalization:changed`.
-- **`public/scripts/personalize.js`** (new) - rebuilds a static `.prompt-table-block` (Home/Category) in place once `getPersonalization()` resolves: replaces the table rows, the embedded quick-view JSON, and - if the grid-view card list was already lazily built by `viewToggle.js` before the merge finished - that too, plus a from-scratch rebuild of the category filter pill toolbar (counts recomputed from the merged set, since a personal prompt can use a category that had zero published defaults and so wasn't rendered as a pill at build time at all). Exports `wireOwnerActions()`, reused as-is by `search.js`. Listens for `personalization:changed` to redraw itself after any write.
-- **Edit is available on every row/card in a personalized view, not just owned ones** - `renderPromptTableRows`/`renderPromptCard` (`lib/render.mjs`) take `ctx.personalized`/`ctx.currentUserId` (replacing the old `/library/`-only `ctx.ownerActions`) and render an Edit icon-button on *every* row, with a Delete button added only when the row's `user_id` actually matches the caller and it isn't `is_curated`. Clicking Edit calls `resolveOwnPromptForEdit()` first, then dispatches `prompt:edit-request` with the resulting owned prompt - by the time `public/scripts/newPrompt.js`'s listener sees it, any forking has already happened, so the New Prompt modal (repurposed as the Edit modal, unchanged from the first pass) never needs to know the difference.
-- **Quick-view** (`public/scripts/quickview.js`) grew the same Edit/Delete affordances plus a **"View original ↗"** link (`renderQuickViewModal` in `lib/render.mjs` adds `#qv-edit`/`#qv-delete`/`#qv-view-original`) - shown for a fork whose `source_prompt_id` resolves via `personalization.byId`. Clicking it shows the original default's own content in the same modal (a `showItem()` refactor shared with `open()`) without changing which table row is "selected" - it's a side-trip, not a navigation. `initQuickView()`/`.update()` now take the whole `personalization` object (not just pieces of it) since `resolveOwnPromptForEdit()` needs `.overrides` too.
-- **`search.js`** blends `personalization.merged` into its live Fuse index (`fuse.setCollection()`, Fuse 7's in-place re-index) once personalization resolves, re-running whatever search was in progress; falls back to `personalization.merged` for the empty-query case a `q`-less search already used `index.prompts` for.
-- **`/collections/`** (`lib/render.mjs` `renderCollectionsPage`, behavior in `public/scripts/collections.js`) replaces `/library/`'s Collections tab as its own page - collection CRUD and membership only, nothing else. The "Add a prompt…" selector now offers *any* prompt the caller can currently see (`personalization.merged`, own or default), not just owned ones, matching `addPromptToCollection()`'s actual RLS (favoriting/collecting a default was always copy-free - see "Admin curation..." above). Linked from the sidebar's Collections section label (an `<a>` now, always pointing at `/collections/` regardless of sign-in state - the page itself is the sign-in gate).
-- **Sidebar Collections, signed in** (`#sidebar-collections-list` in `renderNav`) goes live via `public/scripts/collectionsNav.js`, swapping the signed-out explainer callout ("Collections group your prompts for a project or workflow" + a link to `/why-sign-in/`) for the caller's own Supabase collections, restored on sign-out. `newCollection.js` and `collections.js`'s own mutations dispatch `collections:changed` so this list stays in sync without a poll.
-- **`/why-sign-in/`** (`renderWhySignInPage` in `lib/render.mjs`) - a static page comparing what's available anonymously vs. signed in, linked from the sidebar callout and the footer. Plain content, no client-side behavior.
-- **Archived Defaults as a standalone tab is gone** - per explicit product direction, archiving a default only ever happens as a side effect of editing it now (no bare "hide this default" action exists or is planned), and the one remaining use for seeing an archived default - checking what a fork was edited from - is "View original" on the fork itself, not a separate list to browse.
-- **Real bug found and fixed during this pass**: `forkPrompt()` (`db.js`) copied the default's `slug` verbatim with no collision handling - unlike `createPrompt()`'s slug generation, which already retries with a numeric suffix on a 23505 unique-violation. Since `slug` is only unique **per user**, forking a default whose slug happens to match something the caller already personally owns (a real, if uncommon, collision) 409'd with a raw constraint-violation alert. `forkPrompt()` now retries the insert the same way `createWithUniqueSlug()` does - verified against the live project by intentionally forking a default that collided with an existing personal prompt and confirming it landed as `<slug>-2`.
-- **Another real bug found and fixed**: `/collections/`'s `onAuthStateChange` listener (`collections.js`) re-rendered the whole page - including the New Collection form - on *every* fired event, not just real sign-in/out transitions. `supabase-js` fires that listener once immediately with the current session right after it's registered (an `INITIAL_SESSION` event), which was wiping out whatever had just been typed into the form a moment after the page's first render. Fixed by tracking the last-rendered `userId` and only re-rendering on an actual change. (`public/scripts/auth.js`/`admin.js` have the same unconditional-reload pattern but no persistent form to lose input from, so they were left alone rather than scope-creeping this fix.)
-- Verified end-to-end against the real Supabase project, **signed in as the real account**, after the pivot: Home showed the correct merged count (7 defaults + 3 owned = 10) with recomputed category pills; clicking Edit on an unowned default forked it (confirmed via a direct `loadPrompts()` check that the fork's `source_prompt_id` pointed back correctly) and the default disappeared from the merged list in its place; saving the edit updated the title live; quick-view's "View original" opened the untouched default with "Open full page" present and Edit-but-no-Delete; Category (`/browse/marketing/`) and Search (query "tesd") both reflected the same merged/edited state with matching Edit/Delete button counts; `/collections/` created a collection, added both an owned prompt and a default to it, and the sidebar's live list linked to `/collections/` correctly. All with a clean console (aside from the two bugs above, fixed before this verification pass). Test collection, fork, and edited title were cleaned up afterward via direct `db.js` calls, restoring the account to its prior state.
-- A small UI pass (BUILD_BRIEF.md §9m has the full write-up) touching Home's personalized state specifically: `findNewPrompts()` (`lib/render.mjs`) now excludes `is_curated === false`, and `personalize.js` recomputes Home's "N new prompts" callout from the signed-in merged catalog after every render/edit — a default the caller has archived by editing it (see "Admin curation..." above) now correctly drops out of that count instead of still being announced to them. Also in this pass but not personalization-specific: the "N of N shown" result-count text is removed site-wide (it was rendering twice with different numbers on a signed-in Home, from a duplicate-DOM-id bug in `personalize.js`'s toolbar rebuild — root-caused and fixed by removing the feature rather than patching the duplicate), and `/sequences/`/`/sequence/[slug]/` now open prompts in the quick-view modal instead of navigating away.
-- `db.js`'s `archiveDefault()`/`unarchiveDefault()` (previously only reachable indirectly, as a side effect of `forkPrompt()`) now have real UI entry points (BUILD_BRIEF.md §9o): an Archive icon on every default's row/card in the merged catalog (immediate, no confirmation — trivially reversible), and a new `/archived/` page listing everything archived that way with an Unarchive button per row. Deliberately excludes a default archived as a side effect of forking (`fork_prompt_id` set) — that one's only reachable via "View original" on the fork, unchanged from the existing design. Delete (a real, unrecoverable row removal, `db.js`'s pre-existing `deletePrompt()`) now goes through a themed confirm dialog (`public/scripts/confirmDialog.js`) instead of the browser's native `confirm()`, on both the list/grid rows and the quick-view modal.
-
-**Open items:**
-- Vercel env vars are **Production-only** — Preview/Development don't have `SUPABASE_URL`/`SUPABASE_ANON_KEY` set (the Environments dropdown wasn't cooperating in the dashboard when this was set up). Fine until preview-branch deployments or `vercel env pull` are actually used — add them then.
-- The Supabase→Vercel publish webhook (next item below) isn't wired up yet, so a newly published default won't reach anonymous visitors until a manual redeploy.
-- The merged catalog is Home/Category/Search only, by explicit scoping decision - `/favorites/` still only shows favorited *defaults* from the build-time list, so a favorited personal prompt or fork won't appear there. Not assessed as a gap yet, just not built.
-- Home's header stat line ("N prompts across M categories...") stays the static build-time count after a signed-in merge - only the table/grid content and the category pill toolbar actually recompute. A cosmetic inconsistency, not incorrect data.
-- Search's category pill *counts* (not the results themselves) stay the static site-wide numbers after a merge, same as they already did before a query ever narrowed the result set - pre-existing behavior, not something this pass changed either way.
-- `/sequences/` and `/sequence/[slug]/`'s new quick-view modals (BUILD_BRIEF.md §9m) aren't personalization-aware like Home/Category/Search's - they're initialized without a `personalization` object, so a signed-in user sees Edit/Delete/"View original" only via the modals reached from Home/Category/Search, not from a sequence's own rail, and an archived default still shows there rather than being excluded. Not assessed as a gap yet, just not built - the merged-catalog scoping decision above already treats Search the same way relative to Sequences' non-treatment, so this is consistent with that boundary rather than a new inconsistency.
-- What admin **unpublishing** a default should actually do needs a real discussion, not just its current behavior (`unpublishPrompt()` flips `published = false` and the default silently vanishes from every non-owner's view immediately, forked-from or not, with no warning) — tracked in BUILD_BRIEF_v4.md §7, flagged during the archive/delete icon work (BUILD_BRIEF.md §9o) but explicitly not resolved there.
 
 ## Next steps
 
-The Supabase→Vercel publish webhook (auto-redeploy when a default gets published) → extending the merged-catalog treatment to `/favorites/` → variable-fill (§6.1) → remaining open items (BUILD_BRIEF_v4.md §7).
+1. **Transactional email / SMTP** — blocks public launch (BUILD_BRIEF_v5.md §9).
+2. **Notify-and-merge screen** (v5 §6) — the schema for it is already in place; build it
+   before editing any published catalog prompt that users already hold.
+3. The Supabase→Vercel publish webhook, so a newly published catalog prompt reaches
+   anonymous visitors without a manual redeploy.
+4. Clear test content and seed canonical prompts ([`reset_prompts.sql`](reset_prompts.sql)).
+5. `/favorites/` coherence, variable-fill, and the remaining open items above.

@@ -1040,6 +1040,39 @@ button.nav-toggle { display: none; }
 .col-actions { width: 200px; }
 .browse-table td:last-child { white-space: nowrap; }
 
+/* Bulk selection. The select column is rendered on every table, guest or
+   not, so <thead> and <tbody> always agree on column count - personalize.js
+   replaces only the tbody, so a column that appeared solely when signed in
+   would leave the header one cell short. Hidden until the block is marked
+   personalized. */
+.col-select, .select-cell { display: none; }
+.prompt-table-block.is-personalized .col-select,
+.prompt-table-block.is-personalized .select-cell {
+  display: table-cell;
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+.bulk-select, .bulk-select-all { cursor: pointer; accent-color: var(--accent); width: 15px; height: 15px; }
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+}
+.bulk-count { font-size: 13px; font-weight: 700; color: var(--accent); margin-right: auto; }
+.btn-danger-outline { color: var(--danger); border-color: var(--danger); }
+.btn-danger-outline:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* Card equivalent of the row checkbox - inline at the start of the card's
+   top row rather than absolutely positioned, which would sit on top of the
+   title. */
+.card-select { flex-shrink: 0; margin-right: 2px; }
+
 /* The action icons sit at the table's right edge, and .icon-btn's tooltip is
    centred on its button (translateX(-50%), up to 190px wide) - so for the
    right-most icons it extends past the viewport and gives the whole page a
@@ -1372,3 +1405,18 @@ label.np-admin-check {
 .why-compare-col { padding: 18px 20px; }
 .why-compare-col h2 { font-family: var(--display); font-size: 14px; margin: 0 0 10px; }
 .why-compare-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--ink-soft); }
+
+/* Help text under the modal's admin-only choices. The publish decision and
+   the notify decision both have consequences that aren't obvious from a
+   label alone (one distributes copies that can't be recalled, the other
+   reaches everyone who already holds one), so each carries a sentence. */
+.np-admin-hint {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  font-weight: 400;
+  margin-top: 2px;
+}
+.np-admin-check { display: flex; gap: 8px; align-items: flex-start; }
+.np-admin-check input { margin-top: 3px; flex-shrink: 0; }

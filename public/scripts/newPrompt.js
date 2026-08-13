@@ -13,12 +13,19 @@
 // is one the caller owns (BUILD_BRIEF_v5.md §3.5), so personalize.js /
 // search.js / quickview.js's Edit buttons just dispatch
 // 'prompt:edit-request' with the row itself as `detail` - there is no
-// ownership resolution step any more, and nothing forks on edit. Edit mode
-// never touches is_curated/published (the admin checkbox is hidden) or slug
-// (kept stable across an edit, unlike a fresh create) - it's a plain field
-// update.
-import { createPrompt, createCuratedPrompt, updatePrompt, isAdmin } from './db.js';
+// ownership resolution step any more, and nothing forks on edit. Slug is kept
+// stable across an edit, unlike a fresh create.
+//
+// For an admin, edit mode also exposes two catalog-only choices: the
+// publish-to-everyone checkbox (which promotes a personal prompt into the
+// catalog as a draft, or demotes one back out) and, for an already-published
+// catalog prompt, the notify override - see BUILD_BRIEF_v5.md §5.3 and §6.2.
+import {
+  createPrompt, createCuratedPrompt, updatePrompt, isAdmin,
+  promoteToCatalog, demoteFromCatalog, setLatestVersionNotifiable
+} from './db.js';
 import { categoryLabel } from './lib/render.mjs';
+import { confirmDialog } from './confirmDialog.js';
 
 function slugify(str) {
   return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -54,12 +61,19 @@ function init() {
   const submitBtn = document.getElementById('np-submit-btn');
   const adminRow = document.getElementById('np-admin-row');
   const adminCheckbox = document.getElementById('np-admin-checkbox');
+  const notifyRow = document.getElementById('np-notify-row');
+  const notifyCheckbox = document.getElementById('np-notify-checkbox');
+  const notifyHint = document.getElementById('np-notify-hint');
   const titleEl = document.getElementById('np-title');
   const createAnotherBtn = document.getElementById('np-create-another');
 
   // Set by openForEdit(), cleared by resetForm() - the one piece of state
   // that distinguishes "editing prompt X" from a fresh create.
   let editingId = null;
+  // The row being edited, kept so submit can tell what actually changed
+  // (which drives the notify default) and whether curation status is being
+  // flipped. Null for a fresh create.
+  let editingPrompt = null;
 
   function setModalMode(editing) {
     titleEl.textContent = editing ? 'Edit Prompt' : 'New Prompt';
@@ -99,6 +113,13 @@ function init() {
     if (catPanel.hidden) openCatPanel(); else closeCatPanel();
   });
   catCheckboxes.forEach(c => c.addEventListener('change', updateCatTriggerText));
+  // Keep the notify default in step with what's actually been changed so far,
+  // so the checkbox reflects the real classification at the moment of saving
+  // rather than whatever it was when the modal opened.
+  ['title', 'purpose', 'body'].forEach(name => {
+    form[name].addEventListener('input', syncNotifyDefault);
+  });
+  notifyCheckbox.addEventListener('change', () => { notifyCheckbox.dataset.touched = '1'; });
   document.addEventListener('click', (e) => {
     if (!catPanel.hidden && !catDropdown.contains(e.target)) closeCatPanel();
   });
@@ -113,20 +134,49 @@ function init() {
   let isAdminUser = false;
 
   function applyAdminState() {
-    // Editing never changes curation status - only the admin-authored
-    // "make this a default prompt" checkbox (createCuratedPrompt) can set
-    // is_curated in the first place, and that's a create-time-only choice.
-    adminRow.hidden = !isAdminUser || editingId !== null;
-    // Defaults to checked for an admin - they're far more often making a
-    // default prompt than a personal one from this modal - but stays a
-    // plain checkbox, so unchecking it for a one-off personal prompt still
-    // works.
-    adminCheckbox.checked = isAdminUser && editingId === null;
+    // Shown on create *and* edit. On edit it's what promotes a personal
+    // prompt into the catalog, or demotes one back out - BUILD_BRIEF_v5.md
+    // §5.3, "start private, decide later". RLS already permits both for an
+    // admin; this is the missing UI, not a new capability.
+    adminRow.hidden = !isAdminUser;
+    adminCheckbox.checked = isAdminUser && (editingPrompt ? Boolean(editingPrompt.is_curated) : true);
+
+    // The notify override (§6.2) only means anything for a catalog prompt
+    // that's already published - nothing else has anyone holding copies to
+    // notify. Its default tracks the field classifier live (see
+    // syncNotifyDefault) until the admin touches it themselves.
+    const editingPublished = Boolean(editingPrompt?.is_curated && editingPrompt?.published);
+    notifyRow.hidden = !isAdminUser || !editingPublished;
+    if (!notifyRow.hidden) {
+      notifyCheckbox.dataset.touched = '';
+      syncNotifyDefault();
+    }
+  }
+
+  // Significant fields (title/purpose/body) notify; notes/categories alone
+  // ride along with the next significant change instead. Mirrors
+  // write_catalog_version()'s classification in 0004_owned_copies.sql - the
+  // two must agree, or the checkbox would misreport what the DB just did.
+  function significantChange() {
+    if (!editingPrompt) return false;
+    return form.title.value.trim() !== (editingPrompt.title || '')
+      || form.purpose.value.trim() !== (editingPrompt.purpose || '')
+      || form.body.value !== editingPrompt.body;
+  }
+
+  function syncNotifyDefault() {
+    if (notifyRow.hidden) return;
+    const auto = significantChange();
+    if (!notifyCheckbox.dataset.touched) notifyCheckbox.checked = auto;
+    notifyHint.textContent = auto
+      ? 'The prompt text changed, so everyone holding a copy will be told. Untick for a minor correction.'
+      : 'Only notes or categories changed, so this stays quiet. Tick to tell everyone anyway.';
   }
 
   function resetForm() {
     form.reset();
     editingId = null;
+    editingPrompt = null;
     messageEl.hidden = true;
     form.hidden = false;
     successEl.hidden = true;
@@ -151,6 +201,7 @@ function init() {
   function openForEdit(prompt) {
     resetForm();
     editingId = prompt.id;
+    editingPrompt = prompt;
     applyAdminState();
     setModalMode(true);
     form.title.value = prompt.title;
@@ -160,6 +211,7 @@ function init() {
     const cats = new Set(prompt.categories || []);
     catCheckboxes.forEach(c => { c.checked = cats.has(c.value); });
     updateCatTriggerText();
+    syncNotifyDefault();
     backdrop.classList.add('is-open');
     form.title.focus();
   }
@@ -202,11 +254,46 @@ function init() {
     // but this guards against a stale DOM state either way.
     const makeCurated = adminCheckbox.checked && !adminRow.hidden;
 
+    // Demoting something that's already published pulls it from the catalog
+    // for everyone who hasn't been given it yet - worth a confirmation, since
+    // it's the inverse of an action that's otherwise irreversible.
+    if (editingPrompt?.published && !makeCurated) {
+      const ok = await confirmDialog({
+        title: 'Remove from the catalog?',
+        message: `"${editingPrompt.title}" will be unpublished and become a personal prompt. Users who already have a copy keep it — copies are independent — but nobody new will receive it.`,
+        confirmLabel: 'Remove from catalog'
+      });
+      if (!ok) return;
+    }
+
     submitBtn.disabled = true;
     try {
       if (editingId) {
+        const wasCurated = Boolean(editingPrompt?.is_curated);
+        const wantsNotify = notifyCheckbox.checked;
+        const autoNotify = significantChange();
+
         await updatePrompt(editingId, fields);
-        successMessageEl.textContent = 'Prompt updated.';
+
+        // Curation flips are separate calls: promoteToCatalog() lands it as a
+        // draft rather than publishing (BUILD_BRIEF_v5.md §5.3), keeping the
+        // reversible step apart from the irreversible one.
+        if (!wasCurated && makeCurated) await promoteToCatalog(editingId);
+        else if (wasCurated && !makeCurated) await demoteFromCatalog(editingId);
+
+        // The DB trigger already classified this edit by field; only correct
+        // it when the admin overrode that choice. Skipped entirely unless the
+        // row was a published catalog prompt, since nothing else writes a
+        // version worth flagging.
+        if (!notifyRow.hidden && wantsNotify !== autoNotify) {
+          await setLatestVersionNotifiable(editingId, wantsNotify);
+        }
+
+        successMessageEl.textContent = !wasCurated && makeCurated
+          ? 'Prompt updated and added to the catalog as an unpublished draft — publish it from the Admin page to send it to everyone.'
+          : wasCurated && !makeCurated
+            ? 'Prompt updated and removed from the catalog — it’s personal to you now.'
+            : 'Prompt updated.';
       } else {
         await createWithUniqueSlug(fields, makeCurated ? createCuratedPrompt : createPrompt);
         successMessageEl.textContent = makeCurated
