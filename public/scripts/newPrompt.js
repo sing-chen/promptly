@@ -127,11 +127,16 @@ function init() {
     if (e.key === 'Escape' && !catPanel.hidden) { e.stopPropagation(); closeCatPanel(); catTrigger.focus(); }
   });
 
-  // Cached from the last isAdmin() check (open()) so resetForm() - also
-  // called by "Create another", which doesn't re-check - can re-apply it
-  // without another round trip. Re-checked fresh on every open() itself,
-  // since admin status could change between sessions.
+  // Resolved once at init and re-checked whenever the modal opens, by either
+  // entry point. It must be resolved for Edit too, not just create: the
+  // admin-only curation checkbox is hidden while this is false, and a hidden
+  // checkbox reads as unchecked - which submit would otherwise interpret as
+  // "the admin chose to remove this from the catalog".
   let isAdminUser = false;
+
+  function refreshAdminState() {
+    return isAdmin().then(admin => { isAdminUser = admin; applyAdminState(); });
+  }
 
   function applyAdminState() {
     // Shown on create *and* edit. On edit it's what promotes a personal
@@ -188,7 +193,7 @@ function init() {
 
   function open() {
     resetForm();
-    isAdmin().then(admin => { isAdminUser = admin; applyAdminState(); });
+    refreshAdminState();
     backdrop.classList.add('is-open');
     form.title.focus();
   }
@@ -203,6 +208,7 @@ function init() {
     editingId = prompt.id;
     editingPrompt = prompt;
     applyAdminState();
+    refreshAdminState(); // may resolve after paint; applyAdminState reruns then
     setModalMode(true);
     form.title.value = prompt.title;
     form.purpose.value = prompt.purpose || '';
@@ -221,6 +227,8 @@ function init() {
   }
 
   btn.addEventListener('click', open);
+  // Resolve up front so the first Edit click doesn't race the check.
+  refreshAdminState();
   document.getElementById('np-close').addEventListener('click', close);
   backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
   document.addEventListener('keydown', (e) => {
@@ -252,7 +260,16 @@ function init() {
     // Only actually curated if the checkbox is both checked and visible -
     // a hidden (non-admin) row's checkbox can't be checked through the UI,
     // but this guards against a stale DOM state either way.
-    const makeCurated = adminCheckbox.checked && !adminRow.hidden;
+    // You can only change what you were shown. If the curation control isn't
+    // visible - non-admin, or admin status hadn't resolved yet - curation
+    // status must carry over untouched rather than being read off a hidden,
+    // and therefore unchecked, checkbox. Without this, opening Edit on a
+    // published catalog prompt before isAdmin() resolved offered to
+    // unpublish it.
+    const canChooseCuration = isAdminUser && !adminRow.hidden;
+    const makeCurated = canChooseCuration
+      ? adminCheckbox.checked
+      : Boolean(editingPrompt?.is_curated);
 
     // Demoting something that's already published pulls it from the catalog
     // for everyone who hasn't been given it yet - worth a confirmation, since
