@@ -68,6 +68,19 @@ function setupStaticBlock(block) {
     initInteractive(cardGrid);
     mirrorHiddenState();
 
+    // This module renders cards without any personalization context, so the
+    // owner actions (edit/duplicate/archive/delete) are missing from them.
+    // That's fine when the grid is built before the caller's library
+    // resolves, but a grid built *after* - i.e. switching to grid view on an
+    // already-personalized page - would otherwise stay permanently
+    // action-less. Announce the new grid instead of reaching for
+    // personalization here, which would make this module depend on
+    // personalize.js and create an import cycle; personalize.js owns that
+    // logic and re-renders in response.
+    document.dispatchEvent(new CustomEvent('promptly:cards-built', {
+      detail: { gridId, cardGrid }
+    }));
+
     // Cards open the same quick-view modal a table row does, instead of
     // navigating away - matches the table's own click behavior. Only
     // intercepts plain clicks on the card itself, not its fav/copy buttons

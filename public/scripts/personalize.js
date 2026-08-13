@@ -106,7 +106,26 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
 
   const ctx = { sequenceTotals, personalized: true, currentUserId: personalization.userId };
 
+  // Keeps the last painted list around so a card grid built later - by
+  // switching to grid view after personalization has already resolved - can
+  // be redrawn with owner actions rather than staying stuck on the
+  // action-less markup viewToggle.js produces.
+  let lastList = null;
+
+  function paintCards(cardGrid, pers, list) {
+    if (!cardGrid) return;
+    cardGrid.innerHTML = list.map(p => renderPromptCard(p, ctx)).join('');
+    initInteractive(cardGrid);
+    wireOwnerActions(cardGrid, list, pers);
+  }
+
+  document.addEventListener('promptly:cards-built', (e) => {
+    if (e.detail?.gridId !== gridId || !lastList) return;
+    paintCards(e.detail.cardGrid, personalization, lastList);
+  });
+
   function paint(pers, list) {
+    lastList = list;
     tbody.innerHTML = renderPromptTableRows(list, ctx);
 
     const dataScript = document.getElementById(`${gridId}-data`);
@@ -117,15 +136,10 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     getQuickView(gridId)?.update(list, pers);
 
     // If grid view was the persisted preference, viewToggle.js already built
-    // #${gridId}-cards from the stale (pre-merge, or pre-edit) embedded JSON
-    // by the time this runs - rebuild it directly rather than leaving it out
-    // of sync with the table.
-    const cardGrid = document.getElementById(`${gridId}-cards`);
-    if (cardGrid) {
-      cardGrid.innerHTML = list.map(p => renderPromptCard(p, ctx)).join('');
-      initInteractive(cardGrid);
-      wireOwnerActions(cardGrid, list, pers);
-    }
+    // #${gridId}-cards from the stale (pre-personalization, or pre-edit)
+    // embedded JSON by the time this runs - rebuild it directly rather than
+    // leaving it out of sync with the table.
+    paintCards(document.getElementById(`${gridId}-cards`), pers, list);
 
     const emptyEl = document.getElementById(`${gridId}-empty`);
     if (emptyEl) emptyEl.hidden = list.length !== 0;

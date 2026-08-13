@@ -1029,7 +1029,62 @@ button.nav-toggle { display: none; }
 /* Always visible now, not just on hover/focus/selection - a row's
    fav/copy/archive/delete icons were easy to miss entirely otherwise,
    especially on touch devices with no hover state at all. */
-.row-actions { display: flex; gap: 2px; }
+.row-actions { display: flex; gap: 2px; justify-content: flex-end; }
+
+/* Signed in, this column carries six icons (favourite, copy, edit,
+   duplicate, archive, delete) rather than the two a guest sees. The table is
+   `table-layout: fixed`, so an under-sized column here doesn't reflow - the
+   icons simply overflow past the table's right edge. Sized to the signed-in
+   case and right-aligned, so the guest view just leaves whitespace instead
+   of breaking. */
+.col-actions { width: 200px; }
+.browse-table td:last-child { white-space: nowrap; }
+
+/* The action icons sit at the table's right edge, and .icon-btn's tooltip is
+   centred on its button (translateX(-50%), up to 190px wide) - so for the
+   right-most icons it extends past the viewport and gives the whole page a
+   horizontal scrollbar, which this layout otherwise never has. Anchor every
+   tooltip in this column to its right edge instead, so they all open inward -
+   there is ample room to the left, and applying it uniformly avoids the
+   overflow reappearing whenever the number of icons changes. */
+.row-actions .icon-btn[title]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-4px);
+}
+.row-actions .icon-btn[title]:hover::after,
+.row-actions .icon-btn[title]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* Same problem, pre-existing, at the other right-edge cluster: the header's
+   theme toggle is the last thing before the viewport edge, so its centred
+   tooltip overflowed too. */
+.main-header-right .icon-btn[title]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-4px);
+}
+.main-header-right .icon-btn[title]:hover::after,
+.main-header-right .icon-btn[title]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
+
+/* Marks an admin's catalog rows apart from their personal ones (only an
+   admin can own a curated row). Muted rather than loud - it's an
+   orientation cue in a list, not a call to action. */
+.chip-catalog, .chip-draft {
+  margin-left: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  vertical-align: middle;
+}
+.chip-catalog { background: var(--accent-soft); color: var(--accent); }
+.chip-draft { background: var(--well); color: var(--ink-faint); border: 1px dashed var(--line); }
 
 /* quick-view modal */
 .backdrop {
