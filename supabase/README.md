@@ -172,7 +172,6 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   appear there. Now fixable in a way it wasn't before (everything is an owned row), but
   it interacts with the localStorage/slug-based favourites used for guests.
 - `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.
-- Home's header stat line stays the build-time count after a signed-in load.
 - Multiple admins: a second admin would see only their own catalog rows and couldn't
   edit the first admin's. Fine at one admin; needs a decision before a second.
 
