@@ -4,6 +4,16 @@
 -- 'CHECK' (rather than FAIL) marks a row that is informational — a value that
 -- depends on what data happens to be in the project, not on whether the
 -- migration did its job. Same convention as verify_0004.sql's grants check.
+--
+-- A note for whoever edits this next, learned the hard way twice (see
+-- BUILD_BRIEF_v6.md §8a): assert what the MIGRATION guarantees, never a number
+-- the product is designed to change. Check 5 originally required exactly 9
+-- catalog categories and duly "failed" the first time the admin deleted one —
+-- reporting reality, but as a fault, when nothing was wrong. Categories are
+-- user-editable now and the admin's library *is* the catalog, so that count
+-- drifts by design. It now asserts `>= 1`, which is the thing that actually
+-- matters (an empty catalog can't file a prompt), and check 6 carries the real
+-- invariant by comparing two numbers that move together.
 
 select * from (
   select 1 as ord,
@@ -37,22 +47,44 @@ select * from (
     and relnamespace = 'public'::regnamespace
     and relrowsecurity
 
+  -- Deliberately `>= 1`, not `= 9`.
+  --
+  -- This asserted an exact count of 9 and failed the first time the admin
+  -- deleted a category - correctly reporting reality, but reporting it as a
+  -- FAILURE when nothing was wrong. Categories are user-editable now, and the
+  -- admin's library *is* the catalog, so the count drifts by design the moment
+  -- the feature is used. A verify script must assert what the migration
+  -- guarantees, not a number the product is meant to change.
+  --
+  -- What still matters is that the catalog isn't *empty*: with no categories
+  -- at all, no prompt can be saved (the >= 1 rule) and the static build emits
+  -- no badges, pills or category pages.
   union all
-  select 5, 'catalog categories seeded',
+  select 5, 'catalog categories present',
          count(*)::text,
-         '9 (the old lib/schema.mjs CATEGORIES array)',
-         case when count(*) = 9 then 'PASS' else 'FAIL' end
+         '>= 1 (9 at seed; drifts as you add/delete - not an error)',
+         case when count(*) >= 1 then 'PASS' else 'FAIL' end
   from categories where is_curated
+
 
   -- The defect in BUILD_BRIEF_v6.md §1: categoryHue() mapped 9 categories
   -- onto 6 hues by index, so writing+education, code+creative and
   -- marketing+ops-admin each shared a colour. This is the check that it is
-  -- actually gone rather than merely intended to be.
+  -- actually gone rather than merely intended to be - and unlike a fixed
+  -- count, it stays meaningful however many categories the admin ends up
+  -- with, because it compares two numbers that both move together.
+  --
+  -- Also validates the hex format, which the column's CHECK constraint
+  -- enforces on write but which is worth confirming holds across the set:
+  -- the renderer inlines these values straight into a style attribute.
   union all
-  select 6, 'catalog colours all distinct',
-         count(distinct color)::text,
-         '9 (one per category — no shared hues)',
-         case when count(distinct color) = count(*) then 'PASS' else 'FAIL' end
+  select 6, 'catalog colours distinct and valid',
+         count(distinct color)::text || ' distinct, '
+           || count(*) filter (where color !~* '^#[0-9a-f]{6}$')::text || ' malformed',
+         'one colour per category, none malformed',
+         case when count(distinct color) = count(*)
+               and count(*) filter (where color !~* '^#[0-9a-f]{6}$') = 0
+              then 'PASS' else 'FAIL' end
   from categories where is_curated
 
   union all

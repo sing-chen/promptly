@@ -767,6 +767,18 @@ that earned its place was the one asserting a property the design *claimed* was 
 true. Checks that only confirm what the migration obviously just did would not have
 found this.
 
+**And the same script then taught the opposite half of the lesson.** Check 5 required
+exactly nine catalog categories. It passed on migration day and failed the first time
+the admin deleted one — reporting reality, but as a *fault*, when the product was
+working exactly as designed. Categories are user-editable now and an admin's library
+*is* the catalog, so that count is meant to drift.
+
+So the rule has two sides, and this pass managed to break both: **assert what the
+migration guarantees, and nothing the product is designed to change.** Check 5 now
+asserts `>= 1` — an empty catalog genuinely is broken, because no prompt can be
+saved — while check 6 carries the real invariant by comparing two numbers that move
+together (distinct colours vs. total), which stays meaningful at any count.
+
 ---
 
 ## 9. Open items
