@@ -1,6 +1,14 @@
 # Promptly — Build Brief v4: Two-Tier Supabase Architecture
 
-**Status: partially implemented — this document is now historical for §4/§5/§11, not current.** It was originally a plan produced from a design conversation; real implementation has since diverged from and extended what's written below (an admin curation/publish/fork model, no markdown catalog for default prompts, and a full sidebar nav rebuild replacing v3's top nav — none of which this document originally specified). **[`supabase/README.md`](supabase/README.md) is the up-to-date source of truth** for the actual schema and what's built vs. pending; read this document for the original *why* (§1, §2, §7, §10 still hold), not for current implementation detail in §4/§5/§11. v3's static content pipeline, taxonomy, and design system remain unchanged except for the nav (see below).
+**Status: superseded. This document is historical.** Its fork-on-edit and
+merged-catalog design was replaced wholesale by
+[BUILD_BRIEF_v5.md](BUILD_BRIEF_v5.md) (owned copies) — there is no forking,
+no `prompt_overrides`, and no "view original" in the shipped product. Read v5
+for the current model and [`supabase/README.md`](supabase/README.md) for the
+schema. What follows is still worth reading for §1, §2, §7 and §10 — the
+original reasoning about why an account tier exists at all.
+
+**Original status note, kept for context: partially implemented — this document is now historical for §4/§5/§11, not current.** It was originally a plan produced from a design conversation; real implementation has since diverged from and extended what's written below (an admin curation/publish/fork model, no markdown catalog for default prompts, and a full sidebar nav rebuild replacing v3's top nav — none of which this document originally specified). **[`supabase/README.md`](supabase/README.md) is the up-to-date source of truth** for the actual schema and what's built vs. pending; read this document for the original *why* (§1, §2, §7, §10 still hold), not for current implementation detail in §4/§5/§11. v3's static content pipeline, taxonomy, and design system remain unchanged except for the nav (see below).
 
 This document does not replace v3 — it **extends** it. v3's static site (content model, sitemap, design system, taxonomy, sequencing, page templates) stays exactly as-is and becomes the **Anonymous tier** described below, unchanged in code or product decisions. v4 adds a second, optional **Account tier** on top, backed by Supabase, for visitors who want to create, edit, delete, and permanently keep their own prompts. Read v3 first — this document assumes it and doesn't re-explain what's unchanged.
 

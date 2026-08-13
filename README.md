@@ -1,6 +1,18 @@
 # Promptly
 
-Personal-use, static prompt catalog. Static HTML/CSS/vanilla JS, no framework — see [BUILD_BRIEF.md](./BUILD_BRIEF.md) for the anonymous-tier spec. An account tier (Supabase-backed sign-in, per-user prompts, admin-curated defaults) is in progress on top of that — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) for the *why* and [supabase/README.md](./supabase/README.md) for current schema/status.
+Personal-use prompt catalog. Static HTML/CSS/vanilla JS, no framework.
+
+Two tiers. **Anonymous visitors** get a pre-built static site — see
+[BUILD_BRIEF.md](./BUILD_BRIEF.md). **Signed-in users** get a Supabase-backed
+library of their own: signing up copies the whole published catalog into their
+account, and from then on every prompt they see is theirs to edit, archive,
+duplicate or delete. That model is specified in
+[BUILD_BRIEF_v5.md](./BUILD_BRIEF_v5.md) and the schema is documented in
+[supabase/README.md](./supabase/README.md).
+
+[BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) is historical — it describes an
+earlier fork-on-edit model that v5 replaced. Read it for the original *why*,
+not for how anything works now.
 
 ## Setup
 
@@ -9,7 +21,15 @@ npm install
 npm run build
 ```
 
-There is no dev server (no live-reload, no local HTTP serving) — `dist/` is a plain static folder, open the generated files directly or serve them with any static file server while iterating.
+`dist/` is a plain static folder. To preview it over HTTP (needed for the
+client-side JS, which uses ES modules and so won't run from `file://`):
+
+```bash
+node scripts/dev-server.mjs    # serves dist/ on http://localhost:4173
+```
+
+Set `PORT` to use a different port. It's a zero-dependency static file server,
+not part of the build pipeline.
 
 Every change (content, templates, styles, client JS) requires a rebuild before it shows up in `dist/` — nothing in `dist/` is live-edited or watched by itself. For active editing sessions, run the watcher instead of calling `npm run build` by hand after every change:
 
@@ -21,12 +41,18 @@ This runs an initial build, then rebuilds automatically whenever anything under 
 
 ## Adding a prompt
 
-Add a Markdown file to `prompts/`, following the frontmatter shape documented in `BUILD_BRIEF.md` §3 (and on `/contributing` once built). Then:
+**Through the app, not the filesystem.** Prompts live in Supabase — `prompts/*.md`
+is retired v3 test content and is no longer read by the build (see
+[supabase/README.md](./supabase/README.md), "There is no markdown catalog").
 
-```bash
-npm run validate   # checks required fields + duplicate slugs
-npm run build       # validates, then generates dist/ (pages + search index)
-```
+- **A prompt for yourself**: sign in, "+ New Prompt".
+- **A catalog prompt** (copied into every user's library): sign in as an admin,
+  tick "Publish to everyone" — it's created as a draft — then publish it from
+  `/admin/`. Publishing triggers a rebuild automatically if the deploy hook is
+  configured, so it reaches anonymous visitors too.
+
+`npm run validate` still lints `prompts/*.md`, but only as a standalone tool for
+that legacy directory; it has no bearing on what ships.
 
 ## Sequence Builder
 
@@ -34,8 +60,9 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 
 ## Structure
 
-- `prompts/` — one Markdown file per prompt, YAML frontmatter
-- `scripts/build.mjs` — reads `prompts/`, validates, generates every static page + the search index into `dist/` (exports `runBuild()`, reused by `watch.mjs`)
+- `prompts/` — retired v3 test content; **not read by the build** (see "Adding a prompt")
+- `scripts/build.mjs` — fetches published catalog prompts from Supabase, validates, generates every static page + the search index into `dist/` (exports `runBuild()`, reused by `watch.mjs`)
+- `scripts/dev-server.mjs` — zero-dependency static server for previewing `dist/`
 - `scripts/watch.mjs` — rebuilds automatically on changes under `prompts/`, `lib/`, `styles/`, `public/`
 - `scripts/validate-prompts.mjs` — standalone content validation (required fields, duplicate slugs)
 - `lib/render.mjs` — HTML template functions for every page type; also reused client-side by `search.js` (it's plain browser-safe JS)
@@ -43,13 +70,32 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
 - `lib/schema.mjs` — controlled category vocabulary
 - `lib/sequences.mjs` — sequence logic (collections have no build-time equivalent - they're user-generated only, live in Supabase, see `supabase/README.md`)
 - `styles/tokens.css`, `styles/base.css` — design tokens + component styles ("Stone & Signal"), now including the sidebar nav layout
-- `public/scripts/` — client-side JS: `favorites.js` (favorites + copy-to-clipboard + sidebar mobile-drawer toggle), `filters.js`/`categoryPills.js` (live pill filter toolbars), `quickview.js` (prompt quick-view modal), `search.js` (Fuse-powered search page), `auth.js` (sign-in/up UI + nav account state), `supabaseClient.js`/`db.js` (account-tier data layer)
+- `public/scripts/` — client-side JS:
+  - *data*: `supabaseClient.js`/`db.js` (data layer), `personalizeData.js` (loads the signed-in library, triggers seeding), `favoritesStore.js` (two-tier favourites: localStorage by slug when signed out, the `favorites` table by prompt id when signed in)
+  - *rendering*: `personalize.js` (rebuilds a static prompt table as the caller's library; owns row actions and bulk select), `viewToggle.js` (table/grid), `quickview.js` (prompt modal), `search.js` (Fuse-powered search), `filters.js`/`categoryPills.js` (pill filter bars)
+  - *pages/features*: `auth.js` (sign-in/up + nav state), `accountStats.js` (`/account/` library metrics), `newPrompt.js` (create/edit modal, incl. admin publish + notify controls), `newCollection.js`, `collections.js`, `collectionsNav.js`, `archived.js`, `admin.js`
+  - *chrome*: `favorites.js` (star/copy wiring, theme + mobile drawer), `sidebarCollapse.js`, `sidebarResize.js`, `confirmDialog.js`, `quickViewRegistry.js`
 - `lib/env.mjs` — dependency-free `.env.local` loader used by `scripts/build.mjs`
 - `supabase/` — account-tier schema/RLS migrations + setup docs (see [supabase/README.md](./supabase/README.md))
 - `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete/re-categorize)
 
 ## Status
 
-**Anonymous tier** (v3): content pipeline, full page generation, design system, search, favorites/copy, and Sequence Builder bulk admin are all built, verified, and deployed to Vercel production.
+Both tiers are built and deployed to Vercel production.
+[supabase/README.md](./supabase/README.md) is the source of truth for what's
+built vs. outstanding.
 
-**Account tier** (v4, in progress — see [BUILD_BRIEF_v4.md](./BUILD_BRIEF_v4.md) and [supabase/README.md](./supabase/README.md), the up-to-date source of truth, for current status and what's still open): Supabase schema/RLS, sign-in/up, and the account-tier data layer (`db.js`) are built and live in production, including admin curation/publishing, per-user forks, and a signed-in user's own prompts blending directly into the same Home/Category/Search pages everyone browses (no separate "your prompts" page). The site's nav was rebuilt as a left sidebar (replacing v3's top nav) as part of this work.
+**Anonymous tier**: content pipeline, full page generation, design system,
+search, favourites/copy, and Sequence Builder bulk admin.
+
+**Account tier** (owned copies — [BUILD_BRIEF_v5.md](./BUILD_BRIEF_v5.md)):
+Supabase schema/RLS, sign-in/up, per-user libraries seeded from the catalog,
+edit/archive/delete/duplicate with bulk actions, collections, database-backed
+favourites, admin curation with promote/publish, and automatic redeploy when
+the catalog changes. The nav is a left sidebar (replacing v3's top nav).
+
+**Known gaps before public launch**: transactional email/SMTP is unconfigured,
+so sign-up confirmation and password reset don't actually send; the
+notify-and-merge screen for catalog updates is specced but not built; and the
+database still holds test content to be cleared before canonical prompts are
+seeded.

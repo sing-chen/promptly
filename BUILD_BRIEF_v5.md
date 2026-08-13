@@ -416,10 +416,16 @@ further migration.
 
 ## 7. Sequencing
 
-**Pass 1 — the migration (this work).** Schema changes, `catalog_versions`,
+**Pass 1 — the migration. Built and live.** Schema changes, `catalog_versions`,
 `catalog_grants`, `ensure_seeded()`, the display rule, existing-data migration
 (§8), Archive/Delete on own prompts, bulk multi-select, removal of the forking
 machinery, `supabase/README.md` rewrite.
+
+Shipped alongside it, beyond the original list: Duplicate, promote/demote between
+personal and catalog, the notify override, database-backed favourites with a
+one-time merge from localStorage, a personalized `/favorites/`, account-page
+library stats, and `0005_publish_webhook.sql` (automatic redeploy when the catalog
+changes). The UI detail is logged as BUILD_BRIEF.md §9r.
 
 Done as one pass rather than two: the moment copies exist, a signed-in
 `loadPrompts()` returns both the catalog original and the user's copy — **every
@@ -427,7 +433,10 @@ prompt appears twice** — so the display rule cannot be deferred. With that in,
 remaining cleanup is deletion, which is easier to review inside the same change than
 alongside a half-live second model.
 
-**Pass 2 — notify and merge (§6).** Separate, self-contained.
+**Pass 2 — notify and merge (§6). Not built.** Separate and self-contained, and
+deliberately deferred: it has no users until a catalog prompt is edited *after*
+someone has signed up. Worth building before that first edit, since the schema it
+needs is already recording versions.
 
 ---
 
@@ -500,7 +509,12 @@ again afterwards.
   (`is_curated = true, published = false`) is the mitigation; `/admin/` should make
   publish feel weightier — e.g. confirm with "this will be copied to N libraries and
   can't be recalled."
-- **`/favorites/` coherence.** Today it only shows favourited *defaults* from the
+- ~~**`/favorites/` coherence.**~~ **Resolved.** Favourites are now two-tier —
+  localStorage by slug signed out, the `favorites` table by prompt id signed in,
+  with a one-time merge on first sign-in — and `/favorites/` is personalized, so
+  a favourited personal prompt appears there. Original note follows.
+
+  Today it only shows favourited *defaults* from the
   build-time list (a known open item). Once everything is an owned row this becomes
   fixable, but it also interacts with the localStorage/slug-based favourites used for
   guests. Follow-on, not in Pass 1.
