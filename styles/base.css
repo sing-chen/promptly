@@ -1510,3 +1510,9 @@ tr.is-flash, .prompt-card.is-flash {
 .pd-action-btn[data-tip]:focus-visible::after {
   visibility: visible; opacity: 1; transform: translateY(0);
 }
+
+/* Only for the one admin-hint case that describes a destructive change -
+   unticking "Publish to everyone" on an already-published catalog prompt
+   unpublishes it. The other three contexts describe additions and stay
+   muted, so this actually carries signal. */
+.np-admin-hint-warn { color: var(--danger); }

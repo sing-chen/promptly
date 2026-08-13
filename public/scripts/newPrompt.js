@@ -64,6 +64,7 @@ function init() {
   const notifyRow = document.getElementById('np-notify-row');
   const notifyCheckbox = document.getElementById('np-notify-checkbox');
   const notifyHint = document.getElementById('np-notify-hint');
+  const adminHint = document.getElementById('np-admin-hint');
   const titleEl = document.getElementById('np-title');
   const createAnotherBtn = document.getElementById('np-create-another');
 
@@ -138,6 +139,24 @@ function init() {
     return isAdmin().then(admin => { isAdminUser = admin; applyAdminState(); });
   }
 
+  // The same checkbox means four different things depending on what's being
+  // edited, and only one of them is "adds this to the catalog". Describing
+  // the add case while the user is editing something already published puts
+  // the explanation on the wrong side of the decision - the live consequence
+  // there is removal, not addition.
+  function adminHintText() {
+    if (!editingPrompt) {
+      return 'Adds this to the catalog as a draft — publish it from the Admin page to copy it into every user’s library. Leave unticked to keep it personal to you.';
+    }
+    if (!editingPrompt.is_curated) {
+      return 'Promotes this into the catalog as a draft — publish it from the Admin page to copy it into every user’s library. Leave unticked to keep it personal to you.';
+    }
+    if (!editingPrompt.published) {
+      return 'This is a catalog draft, visible only to you until you publish it from the Admin page. Unticking removes it from the catalog and makes it a personal prompt again.';
+    }
+    return 'This is published to everyone. Unticking unpublishes it and makes it personal — anyone who already has a copy keeps it, but nobody new will receive it.';
+  }
+
   function applyAdminState() {
     // Shown on create *and* edit. On edit it's what promotes a personal
     // prompt into the catalog, or demotes one back out - BUILD_BRIEF_v5.md
@@ -145,6 +164,13 @@ function init() {
     // admin; this is the missing UI, not a new capability.
     adminRow.hidden = !isAdminUser;
     adminCheckbox.checked = isAdminUser && (editingPrompt ? Boolean(editingPrompt.is_curated) : true);
+    adminHint.textContent = adminHintText();
+    // Only the published case is destructive, so only it gets the warning
+    // treatment - colouring all four would make the styling meaningless.
+    adminHint.classList.toggle(
+      'np-admin-hint-warn',
+      Boolean(editingPrompt?.is_curated && editingPrompt?.published)
+    );
 
     // The notify override (§6.2) only means anything for a catalog prompt
     // that's already published - nothing else has anyone holding copies to
