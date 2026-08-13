@@ -6,7 +6,7 @@
 // reused by whichever table on the page is currently active.
 import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
 import { isFavorite, toggleFavorite } from './favorites.js';
-import { deletePrompt } from './db.js';
+import { deletePrompt, archivePrompt, duplicatePrompt } from './db.js';
 import { confirmDialog } from './confirmDialog.js';
 
 function readEmbedded(gridId) {
@@ -91,6 +91,8 @@ export function initQuickView(gridId, opts = {}) {
     fav: document.getElementById('qv-fav'),
     copy: document.getElementById('qv-copy'),
     edit: document.getElementById('qv-edit'),
+    duplicate: document.getElementById('qv-duplicate'),
+    archive: document.getElementById('qv-archive'),
     delete: document.getElementById('qv-delete'),
     openFull: document.getElementById('qv-open-full'),
   };
@@ -113,6 +115,10 @@ export function initQuickView(gridId, opts = {}) {
     const active = isFavorite(slug);
     els.fav.classList.toggle('is-active', active);
     els.fav.setAttribute('aria-pressed', String(active));
+    // Matches the row/card star's tooltip wording (favorites.js
+    // applyFavState). The modal's button also carries a visible text label,
+    // but the tooltip shouldn't contradict it.
+    els.fav.title = active ? 'Remove from Favorites' : 'Add to Favorites';
   }
 
   function populate(item) {
@@ -158,6 +164,8 @@ export function initQuickView(gridId, opts = {}) {
     // of them - no ownership test, and no "View original", which only had
     // meaning when a fork pointed back at a borrowed default.
     els.edit.hidden = !personalization;
+    els.duplicate.hidden = !personalization;
+    els.archive.hidden = !personalization;
     els.delete.hidden = !personalization;
 
     // A sequence neighbor opened via fallback fetch (see ensureIndex) may not
@@ -267,6 +275,36 @@ export function initQuickView(gridId, opts = {}) {
   els.edit.addEventListener('click', () => {
     if (!currentItem || !personalization) return;
     document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: currentItem }));
+  });
+  els.duplicate.addEventListener('click', async () => {
+    if (!currentItem) return;
+    els.duplicate.disabled = true;
+    try {
+      const copy = await duplicatePrompt(currentItem);
+      // Same detail shape personalize.js's row/card Duplicate emits, so the
+      // list places the copy next to its original and flashes it either way.
+      document.dispatchEvent(new CustomEvent('personalization:changed', {
+        detail: { duplicatedId: copy?.id, sourceId: currentItem.id }
+      }));
+      close();
+    } catch (err) {
+      alert(err.message || 'Something went wrong.');
+    } finally {
+      els.duplicate.disabled = false;
+    }
+  });
+  els.archive.addEventListener('click', async () => {
+    if (!currentItem) return;
+    els.archive.disabled = true;
+    try {
+      await archivePrompt(currentItem.id);
+      document.dispatchEvent(new CustomEvent('personalization:changed'));
+      close();
+    } catch (err) {
+      alert(err.message || 'Something went wrong.');
+    } finally {
+      els.archive.disabled = false;
+    }
   });
   els.delete.addEventListener('click', async () => {
     if (!currentItem) return;

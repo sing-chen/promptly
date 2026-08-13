@@ -45,8 +45,10 @@ export function wireOwnerActions(container, items, personalization) {
       if (!prompt) return;
       btn.disabled = true;
       try {
-        await duplicatePrompt(prompt);
-        document.dispatchEvent(new CustomEvent('personalization:changed'));
+        const copy = await duplicatePrompt(prompt);
+        document.dispatchEvent(new CustomEvent('personalization:changed', {
+          detail: { duplicatedId: copy?.id, sourceId: prompt.id }
+        }));
       } catch (err) {
         alert(err.message || 'Something went wrong.');
         btn.disabled = false;
@@ -111,6 +113,10 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   // be redrawn with owner actions rather than staying stuck on the
   // action-less markup viewToggle.js produces.
   let lastList = null;
+  // Set by a duplicate, consumed by the next paint. A copy would otherwise
+  // land at the top of the list (it sorts newest-updated-first) and be easy
+  // to miss - showing it next to what it was copied from is the point.
+  let pendingDuplicate = null;
 
   function paintCards(cardGrid, pers, list) {
     if (!cardGrid) return;
@@ -234,7 +240,39 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     });
   }
 
+  function placeDuplicate(list) {
+    if (!pendingDuplicate) return list;
+    const { duplicatedId, sourceId } = pendingDuplicate;
+    const copyIdx = list.findIndex(p => p.id === duplicatedId);
+    const srcIdx = list.findIndex(p => p.id === sourceId);
+    if (copyIdx === -1 || srcIdx === -1) return list;
+    const reordered = list.slice();
+    const [copy] = reordered.splice(copyIdx, 1);
+    // Recompute the source index after the removal, so the copy lands
+    // directly after it rather than one slot off when the copy sorted above.
+    reordered.splice(reordered.findIndex(p => p.id === sourceId) + 1, 0, copy);
+    return reordered;
+  }
+
+  function flashDuplicate() {
+    if (!pendingDuplicate) return;
+    const { duplicatedId } = pendingDuplicate;
+    pendingDuplicate = null;
+    const block = ownBlock();
+    if (!block) return;
+    // The row and the card are separate elements for the same prompt; flash
+    // whichever is currently on screen (and harmlessly both if not).
+    block.querySelectorAll(`[data-select-id="${CSS.escape(duplicatedId)}"]`).forEach(cb => {
+      const target = cb.closest('tr, .prompt-card');
+      if (!target) return;
+      target.classList.add('is-flash');
+      target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      setTimeout(() => target.classList.remove('is-flash'), 1600);
+    });
+  }
+
   function paint(pers, list) {
+    list = placeDuplicate(list);
     lastList = list;
     // Drop any selection pointing at rows that no longer exist (deleted,
     // archived, or filtered out by an edit) so the count can't drift.
@@ -262,6 +300,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     if (toolbarId) rebuildToolbar(list);
     updateNewCallout(list);
     syncSelectionUI();
+    flashDuplicate();
   }
 
   // Home's "N new prompts" banner (lib/render.mjs's findNewPrompts) is
@@ -311,7 +350,10 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   paint(personalization, items);
   syncSelectionUI();
 
-  document.addEventListener('personalization:changed', refresh);
+  document.addEventListener('personalization:changed', (e) => {
+    if (e.detail?.duplicatedId) pendingDuplicate = e.detail;
+    refresh();
+  });
 }
 
 export function initPersonalizedTable(opts) {

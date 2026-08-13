@@ -707,7 +707,11 @@ button.nav-toggle { display: none; }
 /* Grid */
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  /* Widened from 260px: signed in, a card carries a six-icon action row, and
+     at the old width the title had ~90px to wrap in while the icons crowded
+     the edge. 320px fits the action row on one line with the title full
+     width above it. */
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
 
@@ -737,6 +741,11 @@ button.nav-toggle { display: none; }
   font-family: var(--display);
   font-weight: 700;
   font-size: 13.5px;
+  /* Takes the whole row now that the action icons have moved to their own
+     line below - .card-top is space-between, so without this the title stays
+     at its natural width and wraps far earlier than it needs to. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .card-purpose {
   font-size: 13px;
@@ -1071,7 +1080,29 @@ button.nav-toggle { display: none; }
 /* Card equivalent of the row checkbox - inline at the start of the card's
    top row rather than absolutely positioned, which would sit on top of the
    title. */
-.card-select { flex-shrink: 0; margin-right: 2px; }
+.card-select { flex-shrink: 0; margin-right: 2px; margin-top: 2px; }
+
+/* Actions moved onto their own full-width row (title / categories /
+   description / actions / updated) rather than sharing the title's row -
+   see renderPromptCard. Separated from the description above by a hairline
+   so the card reads as content-then-controls. */
+.card-actions {
+  border-top: 1px solid var(--line-soft);
+  padding-top: 8px;
+  margin-top: auto;
+}
+/* Card action tooltips open downward by default and would be clipped by the
+   card below; the right-most ones also overflow the card. Anchor them the
+   same way the table's do. */
+.card-actions .icon-btn[title]::after {
+  left: auto;
+  right: 0;
+  transform: translateX(0) translateY(-4px);
+}
+.card-actions .icon-btn[title]:hover::after,
+.card-actions .icon-btn[title]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
 
 /* The action icons sit at the table's right edge, and .icon-btn's tooltip is
    centred on its button (translateX(-50%), up to 190px wide) - so for the
@@ -1420,3 +1451,20 @@ label.np-admin-check {
 }
 .np-admin-check { display: flex; gap: 8px; align-items: flex-start; }
 .np-admin-check input { margin-top: 3px; flex-shrink: 0; }
+
+/* Brief highlight on a freshly duplicated prompt. The copy is placed next to
+   its original (personalize.js placeDuplicate) rather than jumping to the top
+   of a newest-first list, so without a flash there'd be nothing to tell you
+   where it went. Distinct from .is-new-highlight, which marks catalog
+   prompts that are new to you and persists rather than fading. */
+@keyframes promptly-flash {
+  0%   { background: var(--accent-soft); }
+  70%  { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+tr.is-flash, .prompt-card.is-flash {
+  animation: promptly-flash 1.6s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  tr.is-flash, .prompt-card.is-flash { animation: none; background: var(--accent-soft); }
+}
