@@ -551,11 +551,15 @@ a.sidebar-section-label:hover { color: var(--accent); }
   visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0);
 }
 
+/* Was a single row (email on the left, Log out on the right). It is now a
+   column: signed out, just the Log in link; signed in, the email above a row
+   of three actions (§9ag). */
 .sidebar-footer-row {
   margin-top: auto;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   padding-top: 12px;
   border-top: 1px solid var(--line-soft);
   font-size: 13px;
@@ -563,6 +567,58 @@ a.sidebar-section-label:hover { color: var(--accent); }
 }
 .sidebar-footer-row #nav-account-link { color: var(--ink-soft); }
 .sidebar-footer-row #nav-account-link[aria-current="page"] { color: var(--accent); }
+
+/* The address, as text. An email is long and arbitrary, and the sidebar is
+   resizable down to 240px, so it has to be allowed to break rather than push
+   the sidebar wide or overflow it - break-all because an address has no
+   useful break opportunities and overflow-wrap alone leaves it intact.
+   Lighter and non-bold: it is a label saying who you are, not a control, and
+   it should not compete with the nav above it. */
+.sidebar-email {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-size: 12px;
+  line-height: 1.35;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.sidebar-account-actions { display: flex; align-items: center; gap: 2px; margin-left: -6px; }
+.sidebar-account-actions .icon-btn { color: var(--ink-soft); }
+.sidebar-account-actions .icon-btn:hover { color: var(--accent); }
+/* Log out keeps the danger affordance the old text button had - it is the one
+   action here with a consequence, even a mild one. Matched specificity (0,2,0)
+   and placed after the rule above so it wins on document order, rather than
+   reaching for !important. */
+.sidebar-account-actions #nav-signout-btn:hover { color: var(--danger); }
+.sidebar-account-actions .icon-btn[aria-current="page"] { color: var(--accent); }
+
+/* Tooltips flip ABOVE these three. The shared .icon-btn rule puts them at
+   `top: calc(100% + 8px)`, which is correct everywhere else and wrong here:
+   this row is the last thing in the sidebar, hard against the bottom of the
+   viewport, so a tooltip below it is drawn off-screen. Same specificity trap
+   as everywhere else in this file - the base rule is (0,2,0) via
+   .icon-btn[data-tip], so this has to be (0,3,0) to win. */
+.sidebar-account-actions .icon-btn[data-tip]::after {
+  top: auto;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+}
+.sidebar-account-actions .icon-btn[data-tip]:hover::after,
+.sidebar-account-actions .icon-btn[data-tip]:focus-visible::after {
+  transform: translateX(-50%) translateY(0);
+}
+/* The first button sits at the sidebar's left edge, so a centred tooltip
+   would be clipped by it. Anchor that one from the left instead. */
+.sidebar-account-actions .icon-btn:first-child[data-tip]::after {
+  left: 0;
+  transform: translateX(0) translateY(4px);
+}
+.sidebar-account-actions .icon-btn:first-child[data-tip]:hover::after,
+.sidebar-account-actions .icon-btn:first-child[data-tip]:focus-visible::after {
+  transform: translateX(0) translateY(0);
+}
 
 /* Desktop sidebar collapse (public/scripts/sidebarCollapse.js) - the mobile
    off-canvas drawer below has its own independent open/close mechanics
@@ -1857,29 +1913,16 @@ tr.is-flash, .prompt-card.is-flash {
    muted, so this actually carries signal. */
 .np-admin-hint-warn { color: var(--danger); }
 
-/* Sign out, directly under the signed-in email in the sidebar footer. Styled
-   as a quiet text button rather than a .btn - it sits in nav chrome, and a
-   filled button there would out-shout "+ New Prompt" at the top. */
-.sidebar-footer-row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
-.sidebar-signout {
-  background: none;
-  border: none;
-  padding: 2px 0;
-  font-size: 12px;
-  color: var(--ink-faint);
-  cursor: pointer;
-  text-align: left;
-}
-.sidebar-signout:hover { color: var(--danger); text-decoration: underline; }
-/* Export library shares .sidebar-signout's layout and overrides its colours,
-   so it must come after: both selectors are (0,1,0) and (0,2,0) respectively,
-   and the tie is broken by document order. Two changes, each deliberate.
-   --ink-soft rather than the inherited --ink-faint, because that measures
-   2.79:1 (OPEN_ITEMS.md D5b) and new text should not enlarge a known failure.
-   And an accent hover rather than the danger red Log out uses - red signals
-   destructive, and downloading a copy of your own work is the opposite. */
-.sidebar-export { color: var(--ink-soft); text-decoration: none; }
-.sidebar-export:hover { color: var(--accent); text-decoration: underline; }
+/* A second `.sidebar-footer-row` rule used to sit here, ~1360 lines after the
+   first, quietly overriding its display/flex-direction/align-items/gap by
+   document order. Both are gone into the single rule near .sidebar-footer-row
+   above. Worth naming rather than silently tidying: two rules for one selector
+   in one file is the same hazard as the specificity collisions catalogued in
+   §9aa, except it does not even need a specificity difference to bite - it
+   just needs the reader to find the first one and stop. Editing the first had
+   no effect, which is exactly how long that costs to work out.
+   `.sidebar-signout` and `.sidebar-export` went with it: the footer's actions
+   are icon buttons now (§9ag), so both classes had no remaining users. */
 
 /* ── Account page stats (/account/, public/scripts/accountStats.js) ──
    Tiles for headline numbers, a bar chart for category spread. Reuses the

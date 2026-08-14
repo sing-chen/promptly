@@ -4,16 +4,29 @@ import { isAdmin } from './db.js';
 import { esc } from './lib/render.mjs';
 
 function setNavAccountState(session) {
+  // The sidebar footer is two mutually exclusive states (§9ag). Signed out:
+  // a "Log in" link. Signed in: the email as inert text, with View account /
+  // Export library / Log out beneath it.
+  //
+  // The email is deliberately NOT a link any more. It used to be the only
+  // route to /account/ from the sidebar, which nothing signalled - an email
+  // address does not read as a control, so the page went unfound unless you
+  // thought to click your own address. Naming the three actions fixes the
+  // discoverability; making the address inert is the other half, because a
+  // link that looks like plain text is worse than no link at all.
   const link = document.getElementById('nav-account-link');
-  if (link) link.textContent = session ? session.user.email : 'Log in';
-  // Sign out lives under the email in the sidebar so it's reachable from
-  // anywhere, rather than only via /account/. Nothing to sign out of when
-  // signed out, so it's hidden then.
-  document.getElementById('nav-signout-btn')?.toggleAttribute('hidden', !session);
-  // Sits alongside Log out for the same reason: reachable from any page, and
-  // meaningless without a session. It links to /account/ rather than
-  // downloading anything - see the comment on the element in lib/render.mjs.
-  document.getElementById('nav-export-link')?.toggleAttribute('hidden', !session);
+  if (link) link.hidden = Boolean(session);
+  const emailEl = document.getElementById('nav-account-email');
+  if (emailEl) {
+    // textContent, not innerHTML - this is user-supplied and rendered on
+    // every page of the site.
+    emailEl.textContent = session ? session.user.email : '';
+    emailEl.hidden = !session;
+  }
+  // One toggle for all three actions rather than three, so they cannot get
+  // out of step with each other. Every one of them is meaningless without a
+  // session: nothing to view, nothing to export, nothing to log out of.
+  document.getElementById('nav-account-actions')?.toggleAttribute('hidden', !session);
   // Open to any signed-in user (db.js's createPrompt() has no admin check) -
   // the New Prompt modal's own "make this a default prompt" checkbox is
   // admin-gated, not the button itself. Starts hidden server-side so
