@@ -444,8 +444,48 @@ main .container {
   padding: 0 10px;
 }
 a.sidebar-section-label:hover { color: var(--accent); }
-.sidebar-section-add { width: 22px; height: 22px; color: var(--ink-faint); }
-.sidebar-section-add:hover { color: var(--accent); background: var(--well); }
+/* This rule used to set width/height/color here and every declaration was
+   dead (§9aj found it, §9ak fixes it): .icon-btn declares the same properties
+   at identical specificity ~480 lines further down, so document order handed
+   it the win and these were never applied. The buttons have always rendered
+   at .icon-btn's 28px/--ink-soft.
+   Deleted rather than made to win, deliberately. Honouring the old values
+   would have shrunk the buttons to 22px and repainted them --ink-faint - the
+   2.79:1 token §9ai and §9aj spent effort removing - so the "correct" cascade
+   was the inaccessible one. The rendered result was already right.
+   What survives is the one piece of intent worth keeping: --accent on hover,
+   which .icon-btn:hover (--ink) was also silently overriding. Scoped through
+   .sidebar-section-label-row to make it (0,3,0) so it wins on specificity
+   rather than on where it happens to sit in the file - which is the whole
+   failure mode being fixed here. */
+.sidebar-section-label-row .sidebar-section-add:hover { color: var(--accent); background: var(--well); }
+/* Signed in, the gear is the only route to /categories/ left in this row, so
+   it inherits the job of showing you are on that page - the label it replaced
+   carried aria-current and now cannot. Same treatment as the account actions'
+   version at .sidebar-account-actions .icon-btn[aria-current]. */
+.sidebar-section-label-row .sidebar-section-add[aria-current="page"] { color: var(--accent); }
+
+/* The tooltip is cut off without this. .sidebar sets overflow-x: hidden (a
+   deliberate choice - it must never grow its own scrollbar), and the shared
+   .icon-btn[data-tip] rule centres the tooltip under its button with
+   translateX(-50%). This button sits hard against the sidebar's right edge,
+   so the right half of a centred tooltip lands outside the sidebar and is
+   clipped - and "Manage categories" is wide enough to make it obvious where
+   "New category" merely got away with it.
+   Anchored to the button's right edge instead, so it extends leftward into
+   the sidebar. Same class of fix as §9ag's, which flipped the footer icons'
+   tooltips above for the vertical version of this. (0,3,0) to beat the shared
+   (0,2,0) rule; the transform has to be restated in both rest and hover
+   states because the base rule packs translateX into both. */
+.sidebar-section-label-row .sidebar-section-add[data-tip]::after {
+  left: auto;
+  right: 0;
+  transform: translateY(-4px);
+}
+.sidebar-section-label-row .sidebar-section-add[data-tip]:hover::after,
+.sidebar-section-label-row .sidebar-section-add[data-tip]:focus-visible::after {
+  transform: translateY(0);
+}
 /* No overflow/scroll here on purpose - the sidebar must never grow its own
    scrollbar for a long Categories or Collections list. Both cap themselves
    instead (SIDEBAR_LIST_CAP in lib/render.mjs) and hand the rest to either

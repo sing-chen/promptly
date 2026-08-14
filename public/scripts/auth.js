@@ -144,6 +144,14 @@ function setNavAccountState(session) {
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('manage-categories-btn')?.toggleAttribute('hidden', !session);
+  // The Categories label swaps between a link and inert text alongside the
+  // gear appearing, because the gear is the thing that makes the link a
+  // duplicate (§9ak). Both halves ship in the static markup - see the comment
+  // on them in lib/render.mjs for why the signed-out link has to survive.
+  // Note these run opposite ways round: the link hides when there IS a
+  // session, the static label when there is not.
+  document.getElementById('nav-categories-label')?.toggleAttribute('hidden', !!session);
+  document.getElementById('nav-categories-label-static')?.toggleAttribute('hidden', !session);
   // Library is per-user content with no meaningful signed-out state - hide
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.
