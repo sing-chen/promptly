@@ -1745,7 +1745,19 @@ label.np-admin-check {
 .why-sign-in-page { max-width: 820px; }
 .why-compare { display: flex; flex-direction: column; gap: 16px; margin: 20px 0; }
 .why-compare-col { padding: 18px 20px; }
-.why-compare-col h2 { font-family: var(--display); font-size: 14px; margin: 0 0 10px; }
+/* The doubled selector is not redundant - it is the fourth instance of the
+   specificity collision catalogued in §9aa. `.prose-page h2:first-of-type`
+   is (0,2,1) and beats a plain `.why-compare-col h2` (0,1,1), and each
+   panel's heading IS its parent's first h2, so both panels were getting the
+   prose page's 24px top margin. `.prose-page h2`'s 4px padding-top was never
+   overridden either. Measured, that put a 42px gap above "Not signed in"
+   inside a panel whose own padding is 18px. Matching the (0,2,1) and winning
+   on document order is what pins it back to the panel padding. */
+.why-compare-col h2,
+.why-compare-col h2:first-of-type {
+  font-family: var(--display); font-size: 14px;
+  margin: 0 0 10px; padding-top: 0;
+}
 .why-compare-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--ink-soft); }
 /* The page gained .prose-page for its new prose sections, and `.prose-page li`
    sets an explicit 14px that would otherwise beat the 13.5px inherited from the

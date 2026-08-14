@@ -19,6 +19,11 @@ function setNavAccountState(session) {
   // Same reasoning as New Prompt - collections are per-user, no admin
   // concept (db.js's createCollection() has no admin check either).
   document.getElementById('new-collection-btn')?.toggleAttribute('hidden', !session);
+  // /why-sign-in/'s call to action - the one toggle here that runs the other
+  // way round. Everything above appears when you sign in; this disappears,
+  // because "Sign in / sign up" is nonsense to someone already signed in.
+  // Note the negation: `!!session`, not `!session`.
+  document.getElementById('why-signin-cta')?.toggleAttribute('hidden', !!session);
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('new-category-btn')?.toggleAttribute('hidden', !session);
