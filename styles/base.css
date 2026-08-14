@@ -584,14 +584,29 @@ a.sidebar-section-label:hover { color: var(--accent); }
   word-break: break-all;
 }
 
-.sidebar-account-actions { display: flex; align-items: center; gap: 2px; margin-left: -6px; }
-.sidebar-account-actions .icon-btn { color: var(--ink-soft); }
-.sidebar-account-actions .icon-btn:hover { color: var(--accent); }
+/* Grouped on a --well pad with a --line border, the same treatment as the
+   header's .sidebar-view-toggle. Bare icons on the sidebar's own background
+   read as decoration; the pad is what says "these are controls" before anyone
+   hovers to find a tooltip. Borrowed rather than invented so the two icon
+   clusters on screen look like one idea.
+   One deliberate departure: .view-toggle-btn colours its icons --ink-faint,
+   which measures 2.79:1 (OPEN_ITEMS.md D5b). Copying that would enlarge a
+   known failure, so these stay --ink-soft at 5.89 / 7.45. */
+.sidebar-account-actions {
+  display: flex;
+  gap: 0;
+  padding: 4px;
+  background: var(--well);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.sidebar-account-actions .icon-btn { width: 26px; height: 26px; color: var(--ink-soft); }
+.sidebar-account-actions .icon-btn:hover { background: var(--paper); color: var(--accent); box-shadow: var(--shadow-sm); }
 /* Log out keeps the danger affordance the old text button had - it is the one
    action here with a consequence, even a mild one. Matched specificity (0,2,0)
    and placed after the rule above so it wins on document order, rather than
    reaching for !important. */
-.sidebar-account-actions #nav-signout-btn:hover { color: var(--danger); }
+.sidebar-account-actions #nav-signout-btn:hover { background: var(--paper); color: var(--danger); box-shadow: var(--shadow-sm); }
 .sidebar-account-actions .icon-btn[aria-current="page"] { color: var(--accent); }
 
 /* Tooltips flip ABOVE these three. The shared .icon-btn rule puts them at
