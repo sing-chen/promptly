@@ -217,8 +217,13 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   at or under the ceiling. `verify_0007.sql` checks 4/5/6 assert the three
   properties the exemption rests on. Mirrored by `MAX_CATEGORIES_PER_USER` in
   `lib/schema.mjs`, which `/categories/` uses to disable the create button and
-  explain itself before the database ever refuses. **Not yet applied to the live
-  project** — see below.
+  explain itself before the database ever refuses. **Applied and verified against
+  the live project**, all 7 checks in [`verify_0007.sql`](verify_0007.sql) as
+  expected — 6 PASS plus check 7, which reads CHECK because it reports the
+  largest per-user category count. That one is deliberately not an assertion: a
+  user can legitimately sit above 20 after seeding grants them a new catalog
+  category, so a script asserting `<= 20` would eventually fail while the system
+  behaved exactly as designed.
 - Schema + RLS through [`0006_user_categories.sql`](migrations/0006_user_categories.sql):
   `categories`, `prompt_categories`, `category_grants`, the
   `prompt_categories_assert_nonempty` trigger enforcing "every prompt keeps at least
@@ -292,15 +297,14 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   (`catalog_grants` stayed at 7). `0005` verified separately - editing a published
   catalog prompt triggered a Vercel deployment, and a newly published prompt reached
   anonymous visitors after the resulting rebuild.
+- Verified against the live project during the `0007` pass, by querying PostgREST with
+  the anon key: `categories` and `prompt_categories` return rows, and
+  `prompts?select=categories` returns `42703 column prompts.categories does not exist`.
+  That last one is the useful check — the *absence* of the dropped column is what
+  distinguishes "0006 ran" from "0006's tables happen to exist", and it can be run in
+  seconds without opening the SQL editor.
 
 **Built, but needs configuration to take effect:**
-- **`0007_category_limit.sql` is written and unapplied.** There is no Supabase
-  CLI here and `.env.local` holds only the anon key, so migrations are pasted
-  into the SQL editor by hand — this one has not been. Until it is, the ceiling
-  exists only in the browser: `/categories/` will disable its create button at
-  20, and nothing in the database enforces it. Apply it, then run
-  [`verify_0007.sql`](verify_0007.sql) — all 7 rows should read PASS except
-  check 7, which is informational.
 - **Category CRUD and seeding are unexercised against a real database.** `0006` is
   applied and the schema is verified, but the signed-in paths — creating, renaming,
   recolouring and reordering a category, the delete-with-reassignment RPC, and

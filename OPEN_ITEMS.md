@@ -148,11 +148,9 @@ and why this is not urgent today.
   agree with both.
 *Source: BUILD_BRIEF_v5.md §6, §9.*
 
-**B3. Per-user category limit.** ~~None exists.~~ **Built — see H. One step outstanding:
-`0007_category_limit.sql` has not been applied to the live project.** Until it is, the
-ceiling exists only in the browser. It stays listed here rather than moving wholly to H
-because an unapplied migration is not a finished item.
-*Source: BUILD_BRIEF_v6.md §9; built in BUILD_BRIEF.md §9u.*
+**B3. Per-user category limit.** **Done — moved to H.** `0007_category_limit.sql` is
+applied and `verify_0007.sql` passes (7 rows; check 7 reads CHECK by design, being an
+informational count rather than an assertion).
 
 **B4. Make publish feel weightier in `/admin/`.** Publishing is irreversible in effect
 until B2 ships — once granted, a prompt can't be recalled or corrected across users. The
@@ -353,6 +351,6 @@ were still being listed as outstanding after they shipped.
 | **Search's category pills show site-wide catalog numbers** | **Resolved** in §9s — `search.js` now rebuilds its pills from the caller's own categories and counts. The separate "counts don't change as you toggle" behaviour is intended (D3). |
 | **What admin-unpublishing should do** | **Largely resolved** by v5: unpublishing stops *future* grants, existing copies are untouched, and seeding won't re-grant. The v4 framing of this question is obsolete — it worried about forks and "view original", which no longer exist. **Residual:** whether users holding a copy should be *told* the catalog original was withdrawn. Folds into B2. |
 | **Merged-catalog treatment for personalized views** | **Obsolete.** The merged catalog was the v4 model; v5 replaced it with owned copies, so there is nothing to merge. |
-| **B3 — per-user category limit** | **Built** in §9u: 20, as a clause on the `categories_insert` RLS policy (`0007`), deliberately *not* a trigger so `ensure_seeded()` stays exempt via table ownership — a capped seeding transaction would silently stop a user's catalog prompts too. Admins are capped as well, which is what keeps a newly seeded account under the ceiling; a user can still exceed 20 via seeding, by design. Mirrored by `MAX_CATEGORIES_PER_USER` in `lib/schema.mjs`. **The migration is still unapplied** — B3 stays in section B until it is. |
+| **B3 — per-user category limit** | **Built** in §9u: 20, as a clause on the `categories_insert` RLS policy (`0007`), deliberately *not* a trigger so `ensure_seeded()` stays exempt via table ownership — a capped seeding transaction would silently stop a user's catalog prompts too. Admins are capped as well, which is what keeps a newly seeded account under the ceiling; a user can still exceed 20 via seeding, by design. Mirrored by `MAX_CATEGORIES_PER_USER` in `lib/schema.mjs`. **Applied and verified** — `verify_0007.sql` passes, with check 7 reading CHECK as designed (it reports the largest per-user category count, which is data-dependent and can legitimately exceed 20 via seeding). Checks 4/5/6 are the ones to re-run if seeding ever misbehaves: they assert the three properties the cap's seeding exemption rests on. |
 | **D4 — sequence-builder's hardcoded category slugs** | **Retired** in §9u, along with the bulk re-categorize control the array existed to populate. Two independent reasons: per-user categories leave no fixed vocabulary to mirror (and `lib/schema.mjs`'s array is gone, so there is nothing to sync against), and the control had been inert anyway — it wrote a singular `category:` key while the schema reads a `categories:` list. Drag-and-drop sequences and bulk delete are untouched and still wanted; the tool is expected to matter again for D1/E4. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |
