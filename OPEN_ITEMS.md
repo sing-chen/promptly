@@ -81,8 +81,12 @@ subdomain, so there is nothing to publish records for.
 
 *Decided, 14 Aug 2026:* **Gmail SMTP as an explicit interim**, to unblock the test
 sequence without waiting on the domain question — `smtp.gmail.com:587` with a Google app
-password, ~500/day on Google's own reputation, disclosing nothing new since
-`singfenchen@gmail.com` is already the published controller contact. **The end state is a
+password, ~500/day on Google's own reputation. **Send from an account created for
+Promptly, not a personal one.** The original note here claimed the personal address was
+"already published as the controller contact" and that was **wrong**: `LEGAL_DETAILS.email`
+is the SimpleLogin alias, and the personal address appears nowhere on the site — so
+sending from it would expose to every new user exactly what the alias exists to avoid.
+Caught by asking the obvious question a day later. **The end state is a
 registered domain plus Resend** (free tier: 3,000/month capped at 100/day, one domain,
 30-day logs — never close to binding here), and **A5 gates it**: a domain bought for a name
 you then change is money spent twice. Runbook §1a sets the interim up, §6 is the cutover,

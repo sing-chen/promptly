@@ -89,7 +89,7 @@ are two real routes and one placeholder, and picking is a decision, not a task:
 | Route | What it costs | What it gets you |
 | --- | --- | --- |
 | **Register a domain** (the end state) | ~£10/year, plus pointing it at Vercel, plus an evening | Aligned SPF/DKIM/DMARC, `hello@yourdomain` as the sender, and a name that is yours — settle OPEN_ITEMS.md **A5** first, since a domain bought for a name you then change is money spent twice |
-| **Gmail SMTP with an app password** (works today, no domain) | Free, ~15 minutes | `smtp.gmail.com:587` with a Google app password, sending as `singfenchen@gmail.com`. ~500 recipients/day — orders of magnitude above what this needs — and Google's own sending reputation, so it lands. Costs no new disclosure: that address is already published as the controller contact in `LEGAL_DETAILS` |
+| **Gmail SMTP with an app password** (works today, no domain) | Free, ~15 minutes | `smtp.gmail.com:587` with a Google app password. ~500 recipients/day — orders of magnitude above what this needs — and Google's own sending reputation, so it lands. **Send from a Gmail account created for Promptly, not from a personal one** — see below |
 | **Provider sandbox** (e.g. Resend's `onboarding@resend.dev`) | Free, minutes | Proves the wiring and nothing else — sandboxes generally deliver only to *your own* verified address, so it cannot test a real sign-up |
 
 ### Resend's free tier, since it is the likely destination
@@ -157,12 +157,30 @@ under Project Settings). Values are in §2's table, Gmail column: host
 `smtp.gmail.com`, port 587, username the full Gmail address, password the app
 password, sender email the same address, sender name `Promptly`.
 
-**Step 3 — a note on what recipients will see.** Gmail rewrites `From` to the
-authenticated account, so the mail arrives from `singfenchen@gmail.com` under
-the display name Promptly, and replies land in that mailbox. That address is
-already the published controller contact in `LEGAL_DETAILS`, so this discloses
-nothing new — but it is why the interim cannot simply be left running once
-other people hold accounts: the service's mail should come from the service.
+**Step 3 — use an account created for Promptly, not a personal one.** Gmail
+rewrites `From` to the authenticated account, so **whichever mailbox holds the
+app password is the address every user sees**, and replies land there.
+
+This was got wrong on the first pass, and the correction is worth keeping
+because the reasoning was almost right: the site does publish a contact address
+in both legal documents, but it is the **SimpleLogin alias**, not a personal
+mailbox — `LEGAL_DETAILS.email` is `contact@promptly.simplelogin.com`, and its
+comment says exactly why. The personal address appears **nowhere** on the site.
+So sending from it does not "disclose nothing new"; it discloses a personal
+address to every person who signs up, which is precisely what the alias was
+adopted to avoid.
+
+A Gmail account registered for the project (`promptly…@gmail.com`) fixes that
+for the price of twenty minutes, and it is a real fix rather than a fig leaf:
+mail sent through Gmail SMTP from a `@gmail.com` address is properly SPF- and
+DKIM-aligned, because Google genuinely is the authorised sender for that
+domain. That is why it reaches the inbox.
+
+**Keep the SimpleLogin alias as the published contact.** It is in both legal
+documents and in the footer of every page; changing that means editing the
+legal pages for no gain. The sending account is a different job from the
+contact address. Supabase has no reply-to field, so set the new mailbox to
+auto-forward if you would rather not watch it.
 
 **What this does *not* change:** nothing in this repo, and nothing about the
 app. The `/account/` flows, the templates, the redirect allow-list and the
