@@ -506,7 +506,16 @@ export async function loadCollections() {
   // Nested select pulls each collection's linked prompts in one round trip
   // rather than N+1 queries - collection_prompts' own RLS still applies to
   // the join, so this can't leak prompts the caller can't otherwise see.
-  return unwrap(await supabase.from('collections').select('*, collection_prompts(prompt_id)'));
+  //
+  // Ordered by position (0009) with title as the tie-break, matching
+  // loadMyCategories(). The tie-break is not decoration: every row arrives at
+  // position 0 the moment the column is added, and rows created before the
+  // page started assigning positions would otherwise come back in whatever
+  // order the planner chose, which is stable right up until it isn't.
+  return unwrap(await supabase.from('collections')
+    .select('*, collection_prompts(prompt_id)')
+    .order('position', { ascending: true })
+    .order('title', { ascending: true }));
 }
 
 export async function createCollection(fields) {
@@ -517,6 +526,16 @@ export async function createCollection(fields) {
 export async function updateCollection(id, fields) {
   assertConfigured();
   return unwrap(await supabase.from('collections').update(fields).eq('id', id).select().single());
+}
+
+// Same shape as reorderCategories() above, and the same reasoning: n small
+// updates rather than an upsert, because an upsert would need every column
+// of every row and this needs one.
+export async function reorderCollections(idsInOrder) {
+  assertConfigured();
+  await Promise.all(idsInOrder.map((id, i) =>
+    supabase.from('collections').update({ position: i + 1 }).eq('id', id)
+      .then(({ error }) => { if (error) throw error; })));
 }
 
 export async function deleteCollection(id) {

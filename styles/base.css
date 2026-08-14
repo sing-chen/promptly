@@ -1825,21 +1825,11 @@ label.np-admin-check {
    collection cards. (Class names keep their "lib-" prefix from when this
    was part of a combined /library/ page - not worth a blind rename.) */
 .collections-page { max-width: 860px; }
-.lib-collection-list { display: flex; flex-direction: column; gap: 14px; }
-.lib-collection-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-.lib-collection-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.lib-collection-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.lib-collection-chip { display: inline-flex; align-items: center; gap: 6px; }
-.lib-chip-remove {
-  border: none; background: none; padding: 0; margin: 0; line-height: 1;
-  color: inherit; opacity: .6; cursor: pointer; font-size: 13px;
-}
-.lib-chip-remove:hover { opacity: 1; }
-.lib-collection-add { display: flex; gap: 8px; align-items: center; }
-.lib-collection-add select {
-  font: inherit; padding: 7px 10px; border-radius: var(--radius-sm);
-  border: 1px solid var(--line); background: var(--paper); color: var(--ink); flex: 1;
-}
+/* The .lib-collection-* card styles that used to live here went with §9an's
+   rewrite of /collections/ onto the /categories/ row layout. Their markup no
+   longer exists, so the rules were dead; the replacements are .col-* down in
+   the categories block, deliberately next to the .cat-* rules they share
+   declarations with rather than up here on their own. */
 .sidebar-empty-note { font-size: 12.5px; color: var(--ink-faint); padding: 4px 10px; margin: 0; }
 
 /* Sidebar Collections section, signed out (renderNav's default - collections
@@ -2297,20 +2287,67 @@ tr.is-flash, .prompt-card.is-flash {
    footnotes, not for the sole explanation of a blocked action. */
 .cat-limit-note { font-size: 12px; color: var(--ink-soft); margin: 0; text-align: right; }
 
-.cat-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-.cat-row {
+/* .col-* selectors are grouped in throughout this block rather than given
+   their own copy of it (§9an). /collections/ was rebuilt on this layout, and
+   two lists that are meant to look identical should fail identically when one
+   of these numbers changes - a parallel set of rules is how they drift. */
+.cat-list, .col-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+/* .cat-row is the whole row; .col-row-head is only the top line of one,
+   because a collection row also carries its prompts and an add control
+   beneath. Same grid either way. */
+.cat-row, .col-row-head {
   display: grid;
   grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 12px;
+}
+.cat-row { padding: 10px 14px; border-radius: var(--radius); }
+.col-row {
   padding: 10px 14px;
   border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.cat-row.is-dragging { opacity: .5; }
+.cat-row.is-dragging, .col-row.is-dragging { opacity: .5; }
+/* The title is the row's own heading, so it takes .card-title's treatment
+   rather than a badge - a collection has no colour of its own the way a
+   category does, which is the one real shape difference between the two
+   lists. */
+.col-row-title { font-family: var(--display); font-weight: 700; font-size: 15px; }
+
+/* Members. Each is a real <a href> to the prompt page carrying data-slug -
+   quickview.js preventDefault()s the ordinary click to open the modal
+   instead, leaving middle-click and "open in new tab" working. */
+.col-members { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.col-member {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--well); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 3px 8px;
+  font-size: 12.5px;
+}
+.col-member:hover { border-color: var(--accent); }
+/* --ink, not --accent: a dozen of these in a row is a lot of green, and the
+   chip itself already reads as a control. Underlined on hover so it still
+   announces itself as a link. */
+.col-member-link { color: var(--ink); cursor: pointer; }
+.col-member-link:hover { text-decoration: underline; }
+.col-member-remove {
+  border: none; background: none; padding: 0; margin: 0; line-height: 1;
+  color: var(--ink-soft); cursor: pointer; font-size: 14px;
+}
+.col-member-remove:hover { color: var(--danger); }
+.col-empty-note { font-size: 12.5px; color: var(--ink-soft); margin: 0; }
+.col-add-row { display: flex; gap: 8px; align-items: center; }
+.col-add-row select {
+  font: inherit; font-size: 13px; padding: 6px 9px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+  flex: 1; min-width: 0;
+}
 /* `cursor: grab` on the handle only, not the row: the row carries buttons,
    and a grab cursor over a button misreports what a click will do. */
 .cat-drag { cursor: grab; color: var(--ink-faint); letter-spacing: -2px; user-select: none; }
-.cat-row-desc { color: var(--ink-soft); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-row-desc, .col-row-desc { color: var(--ink-soft); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cat-row-count { color: var(--ink-faint); font-size: 12px; white-space: nowrap; }
 .cat-row-actions { display: inline-flex; gap: 4px; }
 
@@ -2354,7 +2391,7 @@ tr.is-flash, .prompt-card.is-flash {
 .categories-callout { padding: 18px; border-radius: var(--radius); }
 
 @media (max-width: 700px) {
-  .cat-row { grid-template-columns: auto 1fr; grid-auto-rows: auto; }
-  .cat-row-desc, .cat-row-count { grid-column: 1 / -1; white-space: normal; }
+  .cat-row, .col-row-head { grid-template-columns: auto 1fr; grid-auto-rows: auto; }
+  .cat-row-desc, .col-row-desc, .cat-row-count { grid-column: 1 / -1; white-space: normal; }
   .cat-row-actions { grid-column: 1 / -1; }
 }

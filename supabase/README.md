@@ -235,6 +235,19 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 
 ## Status
 
+**Not yet applied — apply this one:**
+- [`0009_collection_position.sql`](migrations/0009_collection_position.sql): adds
+  `position` to `collections`, so `/collections/` can offer the same
+  drag-to-reorder `/categories/` has had since `0006`. **Written and shipped in
+  the client, not run against the live project.** Until it is applied,
+  `loadCollections()`'s `.order('position')` will fail — the reorder is not the
+  only thing that breaks, the page is. Same shape as `categories.position`, and
+  idempotent (`if not exists` on both statements, and the backfill only touches
+  rows still at the default), so re-running is safe.
+  Apply it the same way as every migration before it: paste into the SQL editor
+  and run. There is no verify script for this one — `select position from
+  collections limit 5` is the whole check.
+
 **Built - current model (BUILD_BRIEF_v5.md):**
 - [`0008_delete_account.sql`](migrations/0008_delete_account.sql):
   `delete_my_account()`, a SECURITY DEFINER function letting a signed-in user

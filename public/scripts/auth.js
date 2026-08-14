@@ -147,6 +147,13 @@ function setNavAccountState(session) {
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('manage-categories-btn')?.toggleAttribute('hidden', !session);
+  // The "log in to…" half of each sidebar hint (§9an). Advice aimed at
+  // someone who has already taken it is noise in a tooltip trying to be
+  // brief, so it goes once there is a session. The rest of the hint - what
+  // the thing actually is - stays in both states, since that is the part a
+  // signed-in user might still be reading it for.
+  document.getElementById('collections-info-guest')?.toggleAttribute('hidden', !!session);
+  document.getElementById('categories-info-guest')?.toggleAttribute('hidden', !!session);
   // Library is per-user content with no meaningful signed-out state - hide
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.
