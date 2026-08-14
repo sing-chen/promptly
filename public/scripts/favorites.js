@@ -12,22 +12,21 @@ function favTarget(btn) {
   return favKeyFrom({ id: btn.dataset.favId, slug: btn.dataset.favSlug });
 }
 
-export function exportFavorites() {
-  // Derived from the rendered stars rather than the store, because the store
-  // holds prompt ids when signed in and an export keyed by ids would be
-  // meaningless outside this account. Every favourite is on screen when this
-  // button is (it lives on /favorites/), so the DOM is the better source.
-  const slugs = [...document.querySelectorAll('[data-fav-slug].is-active')]
-    .map(b => b.dataset.favSlug)
-    .filter(Boolean);
-  const blob = new Blob([JSON.stringify(slugs, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'promptly-favorites.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
+// exportFavorites() used to live here, with an "Export favorites" button on
+// /favorites/. It wrote a bare JSON array of slugs - a bookmark list with no
+// titles and no bodies - and it was the only thing on the site called an
+// export. Retired in §9ad, when a real one arrived on /account/ that carries
+// prompts, categories, collections and favourites in Markdown or JSON.
+//
+// Removed rather than pointed at the new one, because there is now exactly
+// one export and a second button labelled for a subset of it would only
+// raise the question of how the two differ. Its good idea survives in
+// lib/export.mjs: cross-references are by slug, never by row id, because an
+// export keyed by ids means nothing outside the account that produced it.
+//
+// The one thing genuinely lost is that the old button worked signed out. A
+// guest has no library to export - only local favourite slugs - so the honest
+// replacement for them is an account, not a file.
 
 function updateNavCount() {
   const el = document.getElementById('nav-fav-count-num');
@@ -146,10 +145,6 @@ function initFavoritesGrid() {
   document.addEventListener('favorites:changed', apply);
 }
 
-function initExportButton() {
-  document.getElementById('export-favorites-btn')?.addEventListener('click', exportFavorites);
-}
-
 const THEME_KEY = 'promptly:theme';
 
 function syncThemeToggleUI(btn) {
@@ -207,7 +202,6 @@ function initNavToggle() {
 document.addEventListener('DOMContentLoaded', () => {
   initInteractive(document);
   initFavoritesGrid();
-  initExportButton();
   initThemeToggle();
   initNavToggle();
 

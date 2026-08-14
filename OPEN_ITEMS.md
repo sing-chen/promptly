@@ -124,6 +124,47 @@ usual ones (proceed, differentiate the name, or check whether they hold a regist
 and the cost of choosing rises sharply once there are users.
 *Source: observed in BUILD_BRIEF.md §9v.*
 
+**A7. Prove `0008_delete_account.sql` end to end.** The code is written, the UI is
+built (BUILD_BRIEF.md §9ad), and the migration is **applied and structurally verified**
+— `verify_0008.sql` reads 7 PASS plus check 8 as CHECK. What is left is the only part
+that cannot be established from SQL: **no account has actually been deleted through it.**
+Still blocks launch, because `/privacy/` and `/terms/` now both tell users they can close
+their account themselves, and that promise is currently untested.
+
+~~1. Paste `0008_delete_account.sql` into the SQL editor.~~ **Done.**
+~~2. Run `verify_0008.sql`.~~ **Done** — 7 PASS + CHECK. Three results worth carrying
+   forward rather than re-deriving: the function's owner is `postgres`, which holds
+   DELETE on `auth.users` **by grant** (it is not a superuser and does not own the
+   table); `auth.users` **does have RLS enabled**, which is harmless here only because
+   `postgres` carries `BYPASSRLS`; and every FK to `auth.users` cascades. If a future
+   Supabase change removes that `BYPASSRLS` attribute, deletion would start succeeding
+   while removing nothing — check 6 is what would catch it.
+
+   *Checks 5 and 6 each FAILed on their first live run, and the script was wrong both
+   times, not the migration.* Check 5 tested whether the owner was a superuser or
+   owned `auth.users` — and `postgres` on Supabase is neither (superuser revoked;
+   the table belongs to `supabase_auth_admin`) while still being *granted* DELETE,
+   the route the list omitted. Check 6 then asserted `auth.users` has no RLS; it
+   does, and that turned out to prove nothing, because the question is not whether
+   RLS is enabled but whether it applies to this caller — `postgres` carries
+   `BYPASSRLS`. Both now ask directly (`has_table_privilege`, and the three
+   documented RLS exemptions with `row_security_active()` printed alongside).
+
+   Worth keeping as a shape rather than as two incidents: a check assembled from a
+   list of sufficient conditions is only as complete as the list, and it fails
+   **closed** — a red row sends you to read the migration rather than the test.
+   Reconstruct conditions only where the list is closed by definition.
+3. **Prove it on a throwaway non-admin signup.** The function deletes straight out of
+   `auth.users`, which is Supabase's own schema — supported by convention, not by
+   contract. Nothing in this repo can test it. Sign up a disposable account, let
+   `ensure_seeded()` give it a library, export both formats, then delete it and confirm
+   the rows are gone (`select count(*) from prompts where user_id = …`).
+
+Also worth doing once, from the admin account: press Delete account and confirm the
+dialog *explains* rather than proceeds. That path is guarded twice — the dialog and the
+function's `raise` — and it protects the catalog, so it is worth seeing work.
+*Source: BUILD_BRIEF.md §9ad.*
+
 **A4. Rate limiting / sign-up abuse.** Supabase has baseline protection; whether it is
 sufficient has never been assessed. Unassessed is not the same as insufficient — this is
 a "spend an hour looking" item, not necessarily a build.
@@ -249,6 +290,8 @@ Darkening the token fixes the first group and slightly muddies the third, so the
 answer is a second token rather than a change to this one — but that is the decision, and
 it wants making once with the whole list in view rather than incrementally.
 *Source: measured in BUILD_BRIEF.md §9u and §9v.*
+
+**D5c. `.btn-danger` fails AA in dark mode.** **Resolved — see H.**
 
 **D5. `supabase/seed_default_prompts.sql` no longer runs.** Writes to the dropped
 `prompts.categories` column. Left broken with a header explaining the fix rather than
@@ -400,4 +443,6 @@ were still being listed as outstanding after they shipped.
 | **D4 — sequence-builder's hardcoded category slugs** | **Retired** in §9u, along with the bulk re-categorize control the array existed to populate. Two independent reasons: per-user categories leave no fixed vocabulary to mirror (and `lib/schema.mjs`'s array is gone, so there is nothing to sync against), and the control had been inert anyway — it wrote a singular `category:` key while the schema reads a `categories:` list. Drag-and-drop sequences and bulk delete are untouched and still wanted; the tool is expected to matter again for D1/E4. |
 | **D1 — sequences weren't personalization-aware** | **Fixed** in §9z. `initPersonalizedRail()` rebuilds both rails from the caller's own copies, with quick-view handed the same steps so a card opens *their* text and offers Edit/Delete. The data was never missing — `ensure_seeded()` already copies `sequence`/`sequence_step` and remaps `depends_on` — only the rendering was, exactly as this entry's corrected premise said. Personalized cards drop their `href` (a user's copy has no static page, and where the slug collides the page that exists shows the catalog's text) and take `role="button" tabindex="0"` instead, so keyboard access survives. An emptied chain hides its section on `/sequences/` and explains itself on the detail page. |
 | **Contact form backed by Supabase** | **Considered and deliberately not built** (§9y). A guest-usable form means `anon` INSERT — a permanent open write path from the internet — needing length CHECKs, a honeypot and an IP rate limit, and *then* a notification path, since a table row tells nobody. That last part depends on A1, which is unresolved. `/contact/` is a `mailto:` page with subject-prefilled links instead. Revisit only if email genuinely proves insufficient; the hardening list above is the price of entry. |
+| **D5c — `.btn-danger` fails AA in dark mode** | **Fixed** in §9ae. White on `--danger` measured 2.38:1 in dark (6.47:1 in light, where the fill is a deep red rather than a pale one). Fixed with a `--danger-ink` token paired to `--danger` exactly as `--accent-ink` is paired to `--accent` — white in light, `#2A0F0B` in dark — consumed by both `.btn-danger` and `.btn-danger-outline:hover`, since a hover state on a danger fill is a filled danger button in all but name. Now 6.47 / 7.54. The principle, which is the part not to lose: **a filled button's label colour follows its fill**, the same conclusion `readableInk()` reaches for category badges. Do not reintroduce a literal `#fff` on anything sitting on `--danger`; it fails in one theme only, so it survives casual review. Distinct from D5b, which remains open — that is a token used *as text*, this was a token used *as a fill* with an assumed label. |
+| **Library export — one engine or several** | **Resolved** in §9ad. There is one (`lib/export.mjs`), offered in one place (`/account/`), in Markdown and JSON. The `/favorites/` "Export favorites" button — a slug-only JSON array, the site's only previous export — is **retired**, not repointed: a second button labelled for a subset would only raise the question of how the two differ. Its rule survives and now governs the whole export — cross-references by slug, never row id, so the file still means something after the account is gone. CSV was asked for and rejected on its own stated grounds (a multi-line prompt body in a spreadsheet cell is worse to copy from than Markdown, not better) plus a formula-injection footgun; revisit only if a spreadsheet workflow appears, with escaping as the price of entry. Guests lost their slug-list export, knowingly — they have no library, only local favourites. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |

@@ -87,6 +87,24 @@ function renderSignedIn(root, session) {
 <p class="account-identity">${greeting} logged in as <strong>${esc(session.user.email)}</strong></p>
 <div id="account-stats"></div>`;
   initAccountStats(document.getElementById('account-stats'), session.user);
+  // Export and Delete account, appended below the stats rather than baked
+  // into the markup above, because both need the async isAdmin() answer and
+  // the library reads before they can say anything specific. See
+  // accountDelete.js. This is also the only place the export lives now - the
+  // slug-list export that used to sit on /favorites/ is retired (§9ad).
+  //
+  // Imported dynamically, unlike everything else this file pulls in. auth.js
+  // runs on every page (it paints the nav), and accountDelete.js drags in the
+  // whole export engine - which is wanted on exactly one page, by users who
+  // are signed in, at the moment they open it. A static import would put that
+  // on the critical path of every anonymous visitor's first load for no
+  // benefit at all.
+  //
+  // The dialog shell it drives is rendered only by renderAccountPage(), so
+  // this is also the only page where its getElementById calls resolve.
+  import('./accountDelete.js')
+    .then(m => m.initAccountTools(document.getElementById('account-root'), session.user))
+    .catch(err => console.error('Account tools failed to load', err));
 }
 
 function renderSignedOut(root) {

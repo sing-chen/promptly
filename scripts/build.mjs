@@ -121,6 +121,11 @@ export async function runBuild() {
   cpSync('lib/render.mjs', join(DIST_DIR, 'scripts', 'lib', 'render.mjs'));
   cpSync('lib/sequences.mjs', join(DIST_DIR, 'scripts', 'lib', 'sequences.mjs'));
   cpSync('lib/schema.mjs', join(DIST_DIR, 'scripts', 'lib', 'schema.mjs'));
+  // export.mjs is browser-only in practice (accountDelete.js imports it) but
+  // lives in lib/ for the same reason as the others: it is pure, has no Node
+  // dependencies, and is far easier to reason about and test outside a
+  // browser than inside one.
+  cpSync('lib/export.mjs', join(DIST_DIR, 'scripts', 'lib', 'export.mjs'));
 
   // Account-tier config, generated fresh every build from SUPABASE_URL/
   // SUPABASE_ANON_KEY (read from .env.local locally, or real env vars in

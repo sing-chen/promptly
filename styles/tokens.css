@@ -20,6 +20,15 @@
   --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
+  /* Label colour for a filled danger button, paired with --danger the way
+     --accent-ink is paired with --accent - and added for a measured reason
+     (OPEN_ITEMS.md D5c). .btn-danger hardcoded #fff, which is right on the
+     light theme's deep red (6.47:1) and wrong on the dark theme's pale one,
+     where it measured 2.38:1. A fill light enough to read against a dark
+     background is necessarily too light to carry white text; the label has to
+     follow the fill, which is the same conclusion readableInk() reaches for
+     category badges in lib/schema.mjs. */
+  --danger-ink: #FFFFFF;
 
   --radius-sm: 4px;
   --radius: 8px;
@@ -91,6 +100,9 @@
     --seq-soft: #1B3530;
     --danger: #E2948A;
     --danger-soft: #3A1F1B;
+    /* Dark ink on the pale fill - see the base :root definition. Hue-tinted
+       rather than neutral black, matching --accent-ink's treatment. */
+    --danger-ink: #2A0F0B;
     --cat-soft-mix: 22%;
     --new: #E0B152;
     --new-soft: #3A2E13;
@@ -118,6 +130,7 @@
   --seq-soft: #1B3530;
   --danger: #E2948A;
   --danger-soft: #3A1F1B;
+  --danger-ink: #2A0F0B;
   --cat-soft-mix: 22%;
   --new: #E0B152;
   --new-soft: #3A2E13;
@@ -144,6 +157,7 @@
   --seq-soft: #E1EBE6;
   --danger: #A6392E;
   --danger-soft: #F1DAD3;
+  --danger-ink: #FFFFFF;
   --cat-soft-mix: 16%;
   --new: #B8891E;
   --new-soft: #FBF0DA;

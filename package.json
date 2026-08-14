@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/watch.mjs",
-    "validate": "node scripts/validate-prompts.mjs"
+    "validate": "node scripts/validate-prompts.mjs",
+    "test": "node scripts/test-export.mjs"
   },
   "devDependencies": {
     "gray-matter": "^4.0.3"

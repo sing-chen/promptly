@@ -16,7 +16,8 @@ Already provisioned and live in production — see "Status" below for what's act
    [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql) →
    [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql) →
    [`0006_user_categories.sql`](migrations/0006_user_categories.sql) →
-   [`0007_category_limit.sql`](migrations/0007_category_limit.sql).
+   [`0007_category_limit.sql`](migrations/0007_category_limit.sql) →
+   [`0008_delete_account.sql`](migrations/0008_delete_account.sql).
    - 0001–0003 build up the *old* fork-based model, and 0004 then replaces it. That's
      wasteful on a fresh project but keeps one true migration history rather than a
      rewritten 0001 that no existing project matches. 0002 and 0003 are idempotent
@@ -34,13 +35,17 @@ Already provisioned and live in production — see "Status" below for what's act
    - 0007 caps categories at 20 per user by adding a clause to 0006's
      `categories_insert` policy. It recreates that policy in full rather than
      patching it, so it must run after 0006, never interleaved.
+   - 0008 adds `delete_my_account()`, the self-serve account-deletion RPC. It
+     depends on every user-scoped table cascading from `auth.users`, which
+     0001/0004/0006 already provide, so it can run any time after 0006.
    - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks),
      [`verify_0005.sql`](verify_0005.sql) (8 checks),
-     [`verify_0006.sql`](verify_0006.sql) (27 checks) and
-     [`verify_0007.sql`](verify_0007.sql) (7 checks); all should read PASS, except
-     0005's hook-URL check until step 7 below, 0006's checks 12/13, and 0007's
-     check 7, which read CHECK where the answer depends on what data the project
-     happens to hold.
+     [`verify_0006.sql`](verify_0006.sql) (27 checks),
+     [`verify_0007.sql`](verify_0007.sql) (7 checks) and
+     [`verify_0008.sql`](verify_0008.sql) (8 checks); all should read PASS, except
+     0005's hook-URL check until step 7 below, 0006's checks 12/13, 0007's check 7
+     and 0008's check 8, which read CHECK where the answer depends on what data
+     the project happens to hold.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -205,6 +210,39 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 ## Status
 
 **Built - current model (BUILD_BRIEF_v5.md):**
+- [`0008_delete_account.sql`](migrations/0008_delete_account.sql):
+  `delete_my_account()`, a SECURITY DEFINER function letting a signed-in user
+  close their own account from `/account/`. **Applied and verified against the
+  live project** — all 8 checks in [`verify_0008.sql`](verify_0008.sql) as
+  expected (7 PASS plus check 8 reading CHECK, which reports the admin count).
+  The behavioural half is still outstanding: no account has actually been
+  deleted through it yet, and that test cannot be skipped — see "Needs
+  configuration" below.
+  It takes no parameter and deletes `auth.uid()`, so it can only ever act on
+  its caller; `search_path` is pinned, which is the standard escalation guard
+  for SECURITY DEFINER. One row is deleted and ON DELETE CASCADE removes the
+  rest — `verify_0008.sql` check 7 asserts that every FK to `auth.users` still
+  cascades, enumerated from the catalog so a future table is covered without
+  anyone updating the check. Checks 5 and 6 are the pair establishing that the
+  function can reach `auth.users` at all, and both are worth reading because
+  the answers are counter-intuitive. Its owner (`postgres`) holds DELETE there
+  **by grant** — it is neither a superuser (Supabase revokes that; `supabase_admin`
+  holds it) nor the table's owner (`supabase_auth_admin`). And `auth.users`
+  **does have RLS enabled**, which sounds fatal and is not: `postgres` carries
+  the `BYPASSRLS` attribute, so the policies do not apply to it. Check 6 tests
+  for that exemption rather than for the absence of RLS, and prints which of
+  the three exemptions applies plus `row_security_active()` as a second
+  opinion. If that check ever reads FAIL, the delete would *succeed while
+  removing nothing* — the account would survive and the UI would report it
+  closed. **It refuses for admins**, and that refusal is the
+  important part: an admin's library *is* the catalog, so deleting the admin
+  would cascade every curated prompt and every version, then fire 0005's
+  rebuild trigger, redeploying the site with an empty catalog and nothing to
+  restore from. `/account/` shows an explanatory dialog rather than hiding the
+  button; the database raises regardless. The client pairs the RPC with
+  `signOut({ scope: 'local' })` — the default variant asks the auth server
+  about a user who no longer exists and can fail, stranding the browser with a
+  JWT for a deleted account.
 - [`0007_category_limit.sql`](migrations/0007_category_limit.sql): a ceiling of
   20 categories per user, as a clause on `categories_insert`. Written to the
   RLS policy rather than a trigger **specifically so that `ensure_seeded()` is
@@ -305,6 +343,21 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   seconds without opening the SQL editor.
 
 **Built, but needs configuration to take effect:**
+- **`0008_delete_account.sql` is applied and structurally verified, but no
+  account has been deleted through it.** Every precondition now checks out
+  against the live project — the owner holds DELETE by grant, it escapes the
+  RLS that *is* enabled on `auth.users` via `BYPASSRLS`, and every FK cascades.
+  What remains unproven is the act itself: the function deletes straight out of
+  `auth.users`, which is Supabase's own schema where the supported path is the
+  admin API. The delete cascades correctly to `auth.identities`,
+  `auth.sessions` and `auth.refresh_tokens`, and this is the conventional way
+  to do self-serve deletion without a backend, but it is supported **by
+  convention, not by contract**. Prove it end-to-end on a **throwaway
+  non-admin signup** — never from the admin account, which the function is
+  written to refuse and which would be unrecoverable if that refusal ever
+  failed. Testing the refusal itself *is* worth doing from the admin account:
+  press the button and confirm the dialog explains rather than proceeds.
+  Re-check after any Supabase auth upgrade.
 - **Category CRUD and seeding are unexercised against a real database.** `0006` is
   applied and the schema is verified, but the signed-in paths — creating, renaming,
   recolouring and reordering a category, the delete-with-reassignment RPC, and

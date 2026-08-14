@@ -539,6 +539,30 @@ export async function removePromptFromCollection(collectionId, promptId) {
   if (error) throw error;
 }
 
+// ── account deletion ─────────────────────────────────────────────────
+
+// Deletes the caller's own account and, by ON DELETE CASCADE, every row they
+// own (0008_delete_account.sql). There is no id to pass: the function acts on
+// auth.uid() and nothing else, so this wrapper takes no argument by design
+// rather than by omission - see the migration header.
+//
+// Two things the caller must handle, neither of which belongs in here:
+//
+// 1. The session outlives the row. The browser goes on holding a valid JWT
+//    until it expires, for a user that no longer exists. RLS returns nothing
+//    so there is no exposure, but the UI would sit there looking signed in
+//    and quietly broken. accountDelete.js signs out locally and reloads.
+// 2. It refuses for admins, whose library is the catalog. That arrives here
+//    as a Postgres exception, not as a friendly message, so the caller is
+//    responsible for saying something readable - and for not offering the
+//    action in the first place, which is why isAdmin() is checked before the
+//    dialog opens.
+export async function deleteMyAccount() {
+  assertConfigured();
+  const { error } = await supabase.rpc('delete_my_account');
+  if (error) throw error;
+}
+
 // ── admin status ─────────────────────────────────────────────────────
 
 // Whether the signed-in user can author curated prompts - drives whether

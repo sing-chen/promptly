@@ -220,9 +220,14 @@ main .container {
 /* For the confirm dialog's destructive action (renderConfirmDialog in
    lib/render.mjs) - --danger, not --accent, same reasoning as the field
    validation messages that already use it. */
+/* The label is --danger-ink, not #fff. See tokens.css: white reads at 6.47:1
+   on the light theme's deep red and 2.38:1 on the dark theme's pale one, so a
+   fixed white label fails AA in dark mode on every destructive button on the
+   site - this dialog, bulk Delete, and the account-deletion flow. Measured in
+   BUILD_BRIEF.md §9ad, fixed in §9ae. */
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--danger-ink);
   box-shadow: var(--shadow-sm);
 }
 .btn-danger:hover { filter: brightness(1.08); box-shadow: var(--shadow); }
@@ -1206,7 +1211,10 @@ button.nav-toggle { display: none; }
 }
 .bulk-count { font-size: 13px; font-weight: 700; color: var(--accent); margin-right: auto; }
 .btn-danger-outline { color: var(--danger); border-color: var(--danger); }
-.btn-danger-outline:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+/* Same fill, so the same label token - the hover state is a filled danger
+   button in all but name, and hardcoding #fff here would have left half the
+   problem behind. */
+.btn-danger-outline:hover { background: var(--danger); color: var(--danger-ink); border-color: var(--danger); }
 
 /* Card equivalent of the row checkbox - inline at the start of the card's
    top row rather than absolutely positioned, which would sit on top of the
@@ -1907,6 +1915,91 @@ tr.is-flash, .prompt-card.is-flash {
    colour without either knowing about the other. */
 .stat-bar-fill { background: var(--cat, var(--accent)); }
 .stat-bar-count { font-size: 12px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* Export + Delete account (public/scripts/accountDelete.js), appended below
+   the stats on /account/. Both are .stat-section-shaped so the page reads as
+   one column of sections rather than as a dashboard with two strangers
+   bolted on the end. */
+.account-tools { margin: 40px 0 0; border-top: 1px solid var(--line-soft); padding-top: 28px; }
+.account-tools h2 { font-size: 15px; margin: 0 0 4px; }
+/* --ink-soft, not the --ink-faint that .stat-section-note above uses for the
+   same visual role. Following that precedent would have been consistent and
+   wrong: --ink-faint measures 2.79:1 against --paper, below the 4.5:1 AA
+   threshold, which is already logged as OPEN_ITEMS.md D5b. Matching a known
+   defect for the sake of symmetry just makes it larger - this is new text, so
+   it starts correct. --ink-soft measures 5.42:1. */
+.account-tools > p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 16px; }
+.export-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+.export-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 16px 18px;
+  background: var(--well);
+  border-radius: var(--radius);
+}
+/* Explicit margin/padding reset: .stat-section h2 above is (0,1,1) and would
+   otherwise win nothing here, but .account-tools h2 is - and these are h3s
+   inside it, which inherit neither. Stated rather than inherited so the two
+   heading levels in this section can't drift apart. */
+.export-option h3 { font-family: var(--display); font-size: 13.5px; margin: 0; padding: 0; }
+.export-option p { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin: 0; flex: 1; }
+
+.account-danger { margin: 32px 0 0; border-top: 1px solid var(--line-soft); padding-top: 28px; }
+.account-danger h2 { font-size: 15px; margin: 0 0 4px; color: var(--danger); }
+/* --ink-soft for the same reason as .account-tools > p above, and with more
+   at stake: this is the sentence explaining what the Delete account button
+   does. */
+.account-danger p { font-size: 12.5px; color: var(--ink-soft); margin: 0 0 14px; }
+
+/* Deletion dialog. Wider than .confirm-modal's 380px, which it otherwise
+   shares everything with - this one carries a list, a warning, an export
+   offer and two buttons, and at 380px the export buttons wrapped onto three
+   lines. */
+.del-modal { max-width: 480px; }
+.del-modal p { font-size: 13.5px; line-height: 1.55; color: var(--ink-soft); margin: 0 0 12px; }
+#del-title { margin: 0 0 12px; font-family: var(--display); font-size: 15px; font-weight: 700; }
+.del-summary { margin: 0 0 14px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.del-summary li { font-size: 13.5px; color: var(--ink-soft); }
+.del-summary strong { color: var(--ink); }
+/* Doubled selector rather than !important, and for a documented reason: this
+   is the same collision catalogued in §9aa and §9ab. `.del-modal p` is (0,2,0)
+   and a bare `.del-warning` is (0,1,0), so the warning would have quietly kept
+   the muted body colour - on the one sentence in this dialog that must not be
+   muted. Matching (0,2,0) and winning on document order is the fix; reaching
+   for !important would have worked here and taught the next person the wrong
+   lesson about why. */
+.del-modal .del-warning { color: var(--ink); }
+.del-export-offer {
+  background: var(--well);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 0 0 18px;
+}
+.del-export-offer p { margin: 0 0 10px; }
+.del-export-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.del-confirm-label {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--ink-soft);
+  margin: 0 0 14px;
+}
+.del-confirm-label input {
+  font: inherit; font-weight: 400;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+}
+.del-confirm-label input:focus { outline: none; border-color: var(--accent); }
+/* Same (0,2,0) match as .del-warning above, for the same reason - an error
+   message rendered in the muted body colour reads as more prose. */
+.del-modal .del-error { color: var(--danger); font-size: 13px; margin: -6px 0 12px; }
 
 .stat-empty { color: var(--ink-faint); font-size: 13px; }
 .stat-footnote { font-size: 12px; color: var(--ink-faint); border-top: 1px solid var(--line-soft); padding-top: 14px; }
