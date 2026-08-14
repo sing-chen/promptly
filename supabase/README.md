@@ -203,6 +203,32 @@ admin, your library *is* the catalog, so your changes are the canonical set (and
 anonymous visitors on the next rebuild; existing users keep theirs — divergence is the
 point, so there is no notify-and-merge for categories).
 
+## Auth settings that live only in the dashboard
+
+Everything else in this file is reconstructible from `migrations/`. This section is not:
+it records **project configuration**, which no migration captures and no amount of reading
+the schema will reveal. If the project ever has to be rebuilt from this repo, these have
+to be re-set by hand or they silently revert to Supabase's defaults.
+
+Authentication → Sign In / Providers → Email:
+
+| Setting | Value | Why |
+|---|---|---|
+| Minimum password length | **10** | Was Supabase's default of 6, which is inside offline-crack range in seconds. See BUILD_BRIEF.md §9ah. |
+| Password Requirements | **No required characters** | Deliberate, not unconfigured. Requiring a capital/digit/symbol reliably produces `Password1!`; length does more work than variety. NIST SP 800-63B and NCSC both put length first. |
+| Leaked password protection | **off — unavailable on Free tier** | Not a judgement. It is the highest-value auth setting here and costs one toggle on Pro. Tracked as OPEN_ITEMS.md E8. |
+
+The minimum is **duplicated** in `public/scripts/auth.js` as `MIN_PASSWORD_LENGTH`, and
+there is no mechanism keeping the two honest — the client cannot read the project's auth
+settings back. Changing one without the other does not break anything loudly; it just
+makes the form's message disagree with the server's answer. Change both.
+
+Note the enforcement boundary: Supabase applies the minimum **when a password is set or
+changed**, never at sign-in. Accounts predating a change keep working with shorter
+passwords, and `auth.js` deliberately puts no length rule on the log-in form so that stays
+true. Bringing such an account into line requires a password reset — which requires
+working mail (OPEN_ITEMS.md A1).
+
 ## Deferred: `example_output`
 
 The v3-era "attach an example output image, shown on the prompt detail page" feature (`prompts.example_output`, plus the matching frontmatter field and detail-page section) has been **removed from the shipped product**, not carried forward into the account tier. It may come back as a real feature later — if so, redesign it rather than resurrecting the column, since the old shape (a single image URL) was a v3-era placeholder, not a considered account-tier design. Tracked in BUILD_BRIEF_v4.md §7 and noted in BUILD_BRIEF.md. [`migrations/0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) drops the column from the live project (and updates `mark_edited_from_source`, which used to check it).

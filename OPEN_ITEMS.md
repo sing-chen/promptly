@@ -47,6 +47,16 @@ Supabase Auth itself sends (confirm sign-up, magic link, reset, invite, email ch
 a *separate* marketing-style welcome email is not covered and would need its own sender;
 and metadata is read when the mail is triggered, so it must be passed at `signUp` time —
 which it is.
+*A consequence added by §9ah, and the sharpest reason this matters:* the password
+minimum is now 10 characters, enforced by Supabase on **set and change only**. Every
+account created before that — currently the admin account, i.e. the only real one — keeps
+whatever shorter password it has and carries on working, and the log-in form deliberately
+imposes no length rule precisely so it can. The only route to bringing such an account
+into line is a password reset, which needs mail that works. So until A1 is done: a
+forgotten password is an unrecoverable account, and a *known* one below the minimum
+cannot be upgraded. Both are accepted for now on the basis that there is a single user
+who is also the person who would fix it — that reasoning stops holding the moment anyone
+else signs up.
 *Not to be confused with E6:* this is **transactional** mail — confirmation, password
 reset — which the user asked for by acting, and which rides on contract as its lawful
 basis. Configuring SMTP does not make **marketing** mail permissible; that needs consent
@@ -360,6 +370,18 @@ before there is a second field of it** — metadata with client-side-only valida
 `profiles` table with RLS and a deletion path that `0008`'s cascade already knows how to
 handle. Worth answering once, deliberately, rather than per field.
 *Source: observed on the live account page during the §9ag session.*
+
+**E8. Leaked-password protection (blocked on plan tier, not on a decision).** Supabase Auth
+can check a new password against Have I Been Pwned before accepting it — k-anonymity, so
+no password or full hash leaves the browser. It is a **Pro-tier feature and this project
+is on Free**, so the toggle is unavailable; §9ah shipped the 10-character minimum without
+it. Worth being clear about the ranking: a breach check catches far more genuinely bad
+passwords than any length or composition rule can, because `chocolate1` is long, varied
+enough, and already in every wordlist. This is therefore the **single highest-value auth
+improvement available**, and it costs one toggle the day the tier changes — not a design
+question, just a switch nobody can currently reach. Confirmed unavailable in the dashboard
+on 14 Aug 2026.
+*Source: §9ah.*
 
 ---
 
