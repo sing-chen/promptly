@@ -8,7 +8,7 @@
 // prompts, with an overrides table deciding which defaults were hidden. All
 // of that is gone along with the borrowing model.
 import { supabase } from './supabaseClient.js';
-import { loadMyPrompts, loadMyCategories, ensureSeeded } from './db.js';
+import { loadMyPrompts, loadMyCategories, loadCollections, ensureSeeded } from './db.js';
 
 let cache = null; // { userId, ... } - reset whenever the session changes
 
@@ -41,9 +41,19 @@ export async function getPersonalization() {
   // now creates the caller's category rows too (BUILD_BRIEF_v6.md §7), so a
   // parallel read would race a brand-new account to an empty list and leave
   // the sidebar and the filter pills blank until the next navigation.
-  const [all, categories] = await Promise.all([
+  // Collections ride along here rather than being fetched by whoever needs
+  // them (§9ap). They are read on every personalized page now that the
+  // sidebar's collection links filter Home, and this module is already the
+  // one place that caches per-session reads - a second caller doing its own
+  // fetch would mean two round trips and two things to invalidate.
+  //
+  // Unlike categories, this does not have to wait for seeding: ensure_seeded()
+  // creates no collections (there is no catalog set of them - they are
+  // user-generated only), so there is no empty-list race to lose.
+  const [all, categories, collections] = await Promise.all([
     granted > 0 ? loadMyPrompts() : Promise.resolve(initial),
-    loadMyCategories()
+    loadMyCategories(),
+    loadCollections()
   ]);
 
   const userId = session.user.id;
@@ -51,7 +61,24 @@ export async function getPersonalization() {
   const prompts = all.filter(p => !p.is_archived);
   const archived = all.filter(p => p.is_archived);
 
-  cache = { userId, byId, all, prompts, archived, categories, grantedThisLoad: granted };
+  // prompt id -> [collection slug, …]. Built once here because the filter
+  // toolbar needs the inverse of what loadCollections() returns: it has
+  // collections each holding prompt ids, and every row needs to know which
+  // collections it belongs to.
+  const collectionSlugsByPromptId = new Map();
+  for (const c of collections) {
+    for (const cp of c.collection_prompts || []) {
+      const list = collectionSlugsByPromptId.get(cp.prompt_id) || [];
+      list.push(c.slug);
+      collectionSlugsByPromptId.set(cp.prompt_id, list);
+    }
+  }
+
+  cache = {
+    userId, byId, all, prompts, archived, categories,
+    collections, collectionSlugsByPromptId,
+    grantedThisLoad: granted
+  };
   return cache;
 }
 

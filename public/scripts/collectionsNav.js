@@ -23,8 +23,17 @@ function renderLive(collections) {
   // the sidebar ignored it. loadCollections() orders by `position` (0009) with
   // title as the tie-break, exactly as loadMyCategories() does - so the right
   // thing to do here is what categoriesNav.js already does, which is nothing.
+  // /?collection=<slug>, not /collections/ (§9ap). These used to go to the
+  // management page, which answered "show me what is in this" with a form for
+  // renaming it. They now land on Home filtered to that collection, exactly
+  // as categoriesNav.js's links land on Home filtered to a category - list or
+  // grid, whichever view the caller last chose.
+  //
+  // The count is the one thing not mirrored from categories: it would need
+  // every prompt loaded here purely to compute it, and this module currently
+  // reads collections alone.
   const items = collections.slice(0, SIDEBAR_LIST_CAP).map(c => `
-<a href="/collections/"><span class="nav-icon" aria-hidden="true">${ICON.collection}</span><span class="nav-label">${esc(c.title)}</span></a>`).join('');
+<a href="/?collection=${encodeURIComponent(c.slug)}" data-collection-slug="${esc(c.slug)}"><span class="nav-icon" aria-hidden="true">${ICON.collection}</span><span class="nav-label">${esc(c.title)}</span></a>`).join('');
   const more = collections.length > SIDEBAR_LIST_CAP
     ? `<a href="/collections/" class="sidebar-view-all">View all ${collections.length} →</a>`
     : '';

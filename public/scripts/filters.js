@@ -90,12 +90,22 @@ export function initTableFilterToolbar(toolbarId, gridId) {
     // already server-scoped to one category) - matchesCategory is then
     // always true below, so this is a no-op there.
     const activeCats = toolbar.getActive('category');
+    // Same story for collections (§9ap): empty on every anonymous page and on
+    // any signed-in one where the caller has no collections, in which case
+    // matchesCollection is always true and this costs nothing.
+    const activeCols = toolbar.getActive('collection');
 
     const cards = Array.from(grid.children);
     let visibleCount = 0;
     for (const card of cards) {
       const cardCats = (card.dataset.categories || '').split(',').filter(Boolean);
-      const visible = activeCats.size === 0 || cardCats.some(c => activeCats.has(c));
+      const cardCols = (card.dataset.collections || '').split(',').filter(Boolean);
+      // OR within a group, AND across groups - the contract initFilterToolbar
+      // documents. "Marketing prompts that are in my Launch kit", not
+      // "Marketing prompts plus everything in my Launch kit".
+      const matchesCat = activeCats.size === 0 || cardCats.some(c => activeCats.has(c));
+      const matchesCol = activeCols.size === 0 || cardCols.some(c => activeCols.has(c));
+      const visible = matchesCat && matchesCol;
       card.hidden = !visible;
       if (visible) visibleCount++;
     }

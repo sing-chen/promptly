@@ -274,6 +274,12 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   function paint(pers, list) {
     list = placeDuplicate(list);
     lastList = list;
+    // Refreshed from `pers` on every paint rather than captured once when ctx
+    // was built (§9ap). Adding or removing a prompt from a collection fires
+    // personalization:changed, which re-reads and repaints - and a ctx still
+    // holding the map from page load would re-render the rows with the old
+    // membership, so the filter would disagree with the collections page.
+    ctx.collectionSlugsByPromptId = pers.collectionSlugsByPromptId;
     // Drop any selection pointing at rows that no longer exist (deleted,
     // archived, or filtered out by an edit) so the count can't drift.
     const present = new Set(list.map(p => p.id));
@@ -297,7 +303,7 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
     const emptyEl = document.getElementById(`${gridId}-empty`);
     if (emptyEl) emptyEl.hidden = list.length !== 0;
 
-    if (toolbarId) rebuildToolbar(list, pers.categories);
+    if (toolbarId) rebuildToolbar(list, pers.categories, pers.collections);
     updateNewCallout(list);
     syncSelectionUI();
     flashDuplicate();
@@ -330,33 +336,67 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
   // which is the whole point of BUILD_BRIEF_v6.md: a user who renamed
   // "Marketing" to "Growth", recoloured it, or invented "Client work" sees
   // exactly that here, in their own order.
-  function rebuildToolbar(list, categories) {
+  function rebuildToolbar(list, categories, collections) {
     const bar = document.getElementById(toolbarId);
     if (!bar) return;
     const options = (categories || [])
       .map(c => ({ ...c, count: list.filter(p => promptHasCategory(p, c.slug)).length }))
       .filter(c => c.count > 0)
       .map(c => ({ value: c.slug, label: categoryName(c), count: c.count, color: c.color }));
-    bar.outerHTML = renderFilterToolbar([{ key: 'category', label: 'Category Filter(s)', options }], { id: toolbarId });
+
+    // Collections get their own group (§9ap), which is what makes a sidebar
+    // collection link land on a filtered Home rather than the management
+    // page. No colour: collections have none, and renderFilterToolbar only
+    // adds .is-hued when one is supplied - so these render as plain pills and
+    // read as a different axis at a glance, which they are.
+    //
+    // Empty-collection rows are dropped by the same count filter categories
+    // use. renderFilterToolbar then omits the whole group when nothing
+    // survives, so a user with no collections sees exactly the toolbar they
+    // saw before this existed.
+    const ids = new Set(list.map(p => p.id));
+    const collectionOptions = (collections || [])
+      .map(c => ({
+        value: c.slug,
+        label: c.title,
+        count: (c.collection_prompts || []).filter(cp => ids.has(cp.prompt_id)).length
+      }))
+      .filter(c => c.count > 0);
+
+    bar.outerHTML = renderFilterToolbar([
+      { key: 'category', label: 'Category Filter(s)', options },
+      { key: 'collection', label: 'Collection(s)', options: collectionOptions }
+    ], { id: toolbarId });
     initTableFilterToolbar(toolbarId, gridId);
-    applyCatFromUrl();
+    applyFiltersFromUrl();
   }
 
-  // ?cat=<slug> pre-activates a pill. This is where the signed-in sidebar
-  // sends every category link (BUILD_BRIEF_v6.md §5): a user-created category
-  // has no statically generated /browse/ page, so Home-filtered-by-category
-  // is the destination for all of them rather than only some.
+  // ?cat=<slug> and ?collection=<slug> pre-activate a pill. This is where the
+  // signed-in sidebar sends every category link (BUILD_BRIEF_v6.md §5): a
+  // user-created category has no statically generated /browse/ page, so
+  // Home-filtered-by-category is the destination for all of them rather than
+  // only some. §9ap put collection links on the same footing - clicking one
+  // used to open the management page, which answered "let me see what is in
+  // this" with "here is a form for renaming it".
   //
   // Applied after each toolbar rebuild, not once at startup, because the
   // pills don't exist until the caller's categories have loaded - and only
   // when nothing is active yet, so a rebuild triggered by an edit doesn't
   // fight a filter the user has since changed.
-  function applyCatFromUrl() {
-    const slug = new URLSearchParams(location.search).get('cat');
-    if (!slug) return;
+  function applyFiltersFromUrl() {
+    const params = new URLSearchParams(location.search);
     const bar = document.getElementById(toolbarId);
+    // One guard for both: if anything is already active the user has taken
+    // over, and a rebuild triggered by an edit must not re-assert the URL's
+    // filter over the one they have since chosen.
     if (!bar || bar.querySelector('.filter-pill.is-active')) return;
-    bar.querySelector(`.filter-pill[data-value="${CSS.escape(slug)}"]`)?.click();
+    // Scoped by group, unlike the original which matched on value alone - a
+    // collection and a category are free to share a slug, and "launch" meaning
+    // both would otherwise activate whichever pill happened to come first.
+    const activate = (group, slug) => slug &&
+      bar.querySelector(`.filter-pill[data-group="${group}"][data-value="${CSS.escape(slug)}"]`)?.click();
+    activate('category', params.get('cat'));
+    activate('collection', params.get('collection'));
   }
 
   async function refresh() {
