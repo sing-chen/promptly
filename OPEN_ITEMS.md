@@ -71,8 +71,10 @@ because no template covers "these prompts are now copies you own".
   Article 13 requires contact details, which an email satisfies, and "available on request"
   would have been a standing commitment to disclose a home address. The build warning is
   silent, which is how you know none were missed.
-- **The under-13 exclusion is a live decision.** Currently in place (terms §2, privacy
-  §11) and recommended to stay. Removing it invites the ICO's Children's Code, which
+- ~~**The under-13 exclusion is a live decision.**~~ **Decided: it stays.** In place at
+  terms §2 ("at least 13 years old to create an account") and privacy §11. No code change
+  was needed — this was already the shipped wording — so what is recorded here is the
+  reasoning, to stop it being reopened as an oversight. Removing it would invite the ICO's Children's Code, which
   covers under-18s and applies to any service "likely to be accessed by children" — a
   threshold the ICO has refused to quantify beyond "more than de minimis", and one that
   an absent age floor argues *for*. Its fifteen standards include a DPIA and
