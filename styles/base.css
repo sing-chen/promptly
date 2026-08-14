@@ -1706,6 +1706,90 @@ footer.site-footer {
 .auth-strength[data-score="2"] .auth-strength-label { color: var(--ink-soft); }
 .auth-strength[data-score="3"] .auth-strength-label { color: var(--accent); }
 
+/* Email-confirmation and password-reset states (§9ar) - the "check your
+   email" panel, the reset-link detour off the log-in form, and the banner
+   shown once after a confirmation link is followed. All of these live inside
+   .account-page, so they inherit its 380px measure. */
+
+/* The subheading the form grows when it stops being tabbed - forgot-password
+   mode and the sent-email panel both replace the tab row, which was carrying
+   the title. Sized between h1 and body so it reads as the screen's name
+   rather than a section within it. */
+.auth-subhead { font-size: 17px; margin: 18px 0 8px; }
+
+/* The row under the form holding "Forgotten your password?" / "Back to log
+   in". One row, two mutually exclusive buttons, so the form's height does not
+   change as the mode does. */
+.auth-aside { margin: 10px 0 0; font-size: 13px; }
+
+/* A button that has to read as a link, used where the action is navigation
+   *within* this screen rather than a form control - making these real buttons
+   keeps them keyboard-operable and out of the tab order's link semantics,
+   while the underline is what tells a reader they can be pressed. --accent
+   rather than --ink-faint: this is a control, so 1.4.11's 3:1 applies and
+   --ink-faint measures 2.79:1 (D5b). */
+.linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.linkish:hover { color: var(--ink); }
+
+/* The panel that replaces the form once an email has gone out. --well rather
+   than --paper so it reads as a different surface from the form it replaced,
+   which is the whole signal that the screen has moved on. */
+.auth-panel {
+  margin-top: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.auth-panel .auth-subhead { margin-top: 0; }
+.auth-panel p { margin: 0 0 10px; }
+.auth-sent-to { color: var(--ink-soft); }
+/* The spam-folder advice. A list rather than a paragraph because it is three
+   independent things to try, and the first of them is the one that actually
+   works most often - which a paragraph buries. */
+.auth-checklist {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+.auth-checklist li { margin-bottom: 6px; }
+.auth-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+#auth-panel-message, #pwreset-message { font-size: 13px; color: var(--ink-soft); margin: 10px 0 0; }
+#auth-panel-message[role="alert"], #pwreset-message[role="alert"] { color: var(--danger); }
+
+/* Shown once, at the top of the page, after a confirmation or a password
+   change. Left accent border rather than a filled tint: the text sits on
+   --paper, so it keeps body contrast, and the colour is carried by a rule
+   that is decorative and needs no contrast ratio of its own. */
+.auth-banner {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--well);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 /* New Prompt modal (renderNewPromptModal in lib/render.mjs, behavior in
    public/scripts/newPrompt.js) - reuses .backdrop/.qv-chrome/.qv-close-btn
    from the quick-view modal for the dialog frame, .account-form for

@@ -26,28 +26,68 @@ Section H records items that are *finished*, so they aren't raised a third time.
 
 ## A. Blocks public launch
 
-These four share one gate: the first non-admin user. None of them is code you write in
-this repo, and that is exactly why they get forgotten.
+These share one gate: the first non-admin user. Almost none of what remains here is code
+you write in this repo — it is dashboard settings, DNS, a name decision and a solicitor —
+and that is exactly why they get forgotten. (It said "these four" until §9ar built A2 and
+the app half of A1; counting them in the heading was always going to go stale.)
 
-**A1. Transactional email / SMTP.** The project is on Supabase's built-in sender, which
-is explicitly test-only — a few messages an hour, frequently undelivered. Sign-up
-already says "check your email" (`public/scripts/auth.js`) but nothing reliably arrives;
-discovered when a test signup produced no email at all. Password reset has the same
-dependency and is equally untested.
-*Two things to settle:* configure custom SMTP under Authentication → Emails, **and**
-decide whether email confirmation is wanted at all for a personal prompt library, or
-whether sign-up should be immediate. Pre-release you can turn "Confirm email" off, or
-confirm an account by hand with
-`update auth.users set email_confirmed_at = now() where email = '…'`.
-*Worth knowing when you get to the templates:* sign-up now captures a first name into
-`auth.users.raw_user_meta_data`, and Supabase's email templates expose exactly that as
-`{{ .Data }}` — so `{{ .Data.first_name }}` personalises the confirmation and
-password-reset mails with no extra plumbing. Two limits: it only reaches the templates
-Supabase Auth itself sends (confirm sign-up, magic link, reset, invite, email change), so
-a *separate* marketing-style welcome email is not covered and would need its own sender;
-and metadata is read when the mail is triggered, so it must be passed at `signUp` time —
-which it is.
-*A consequence added by §9ah, and the sharpest reason this matters:* the password
+**A1. Transactional email / SMTP.** **The app side is built (§9ar); what remains is
+dashboard configuration, and one genuine decision inside it.**
+
+*Built and verified in-browser:* email confirmation required before log-in, a sign-up
+screen that says an activation email is coming and warns it may land in spam, a "check
+your email" panel with a resend button on a 60-second cooldown matching Supabase's own
+throttle, an "activate your account first" answer when someone logs in against an
+unconfirmed address, forgotten-password at `/account/#forgot`, and `/reset-password/` as
+the page the reset link lands on. `public/scripts/password.js` holds the rules both
+password-setting screens use. The welcome email **is** the confirmation email, decided
+rather than defaulted — see the runbook for the three reasons.
+
+*What is left, in order, all of it in the Supabase dashboard and none of it in this repo:*
+[`supabase/email-templates/README.md`](supabase/email-templates/README.md) is the runbook
+— custom SMTP, "Confirm email" on, the two templates, the redirect allow-list, and a
+seven-step test sequence.
+
+*Two options that look like they should work, and don't — asked and answered, do not
+re-derive:*
+- **Supabase's own sender cannot do this**, and not merely because of its 2-per-hour
+  limit. It **refuses to deliver to any address that is not a member of the project's
+  team**, so the first stranger who signs up receives nothing at all while the app waits
+  on "check your email". No paid tier changes it; custom SMTP is the supported path on
+  every plan. Once custom SMTP *is* set, Supabase's own auth limit is 30 new users/hour,
+  adjustable — a ceiling, not a wall.
+- **SimpleLogin cannot either.** It is an alias/forwarding service with **no SMTP
+  access**, by policy: sending from an alias means a reverse-alias, which is a person
+  replying by hand. And the alias sits on `simplelogin.com`, a domain *they* control, so
+  it could not carry your SPF/DKIM records either — the same problem, one layer over.
+  It stays exactly where it is useful: the contact address and the reply-to.
+
+*The one real decision, and it is not a setting:* **a transactional sender needs a domain
+you control**, because SPF and DKIM are DNS records. The site is on a `*.vercel.app`
+subdomain, so there is nothing to publish records for.
+
+*Decided, 14 Aug 2026:* **Gmail SMTP as an explicit interim**, to unblock the test
+sequence without waiting on the domain question — `smtp.gmail.com:587` with a Google app
+password, ~500/day on Google's own reputation, disclosing nothing new since
+`singfenchen@gmail.com` is already the published controller contact. **The end state is a
+registered domain plus Resend** (free tier: 3,000/month capped at 100/day, one domain,
+30-day logs — never close to binding here), and **A5 gates it**: a domain bought for a name
+you then change is money spent twice. Runbook §1a sets the interim up, §6 is the cutover,
+and it was written *before* the interim was switched on, because a temporary arrangement
+with no written exit is a permanent one nobody has admitted to. Two things §6 exists to
+stop being forgotten: the app password is a credential to a whole mailbox and must be
+**revoked**, not merely abandoned; and none of a cutover touches this repo — five dashboard
+fields, no rebuild, which is a property worth preserving.
+
+*The privacy edit that comes with either sender:* `/privacy/` §7 names Supabase and Vercel
+as the processors and credits "service email" to Supabase. Custom SMTP makes that untrue —
+Google on the interim, Resend after, because the sender sees the address every
+confirmation and reset goes to. The list needs a fourth entry naming whichever provider is
+live. **Not owed while you are the only account** (the only address being processed is your
+own); owed the day anyone else can sign up. `lib/render.mjs` carries the same warning
+beside `LEGAL_DETAILS`.
+
+*Still true, and still the sharpest reason this matters:* the password
 minimum is now 10 characters, enforced by Supabase on **set and change only**. Every
 account created before that — currently the admin account, i.e. the only real one — keeps
 whatever shorter password it has and carries on working, and the log-in form deliberately
@@ -61,14 +101,14 @@ else signs up.
 reset — which the user asked for by acting, and which rides on contract as its lawful
 basis. Configuring SMTP does not make **marketing** mail permissible; that needs consent
 collected separately, and E6 explains why the account address cannot just be reused.
-*Source: BUILD_BRIEF_v5.md §9; email-template variables per
+*Source: BUILD_BRIEF_v5.md §9, BUILD_BRIEF.md §9ar; email-template variables per
 [Supabase docs](https://supabase.com/docs/guides/auth/auth-email-templates).*
 
-**A2. Auth UX — the pages, not the delivery.** Distinct from A1 and easy to conflate:
-Supabase handles the mechanics, but the actual screens and copy for "check your email",
-"reset your password" and "confirm your address" have never been designed. A1 makes the
-mail arrive; A2 is where it lands.
-*Source: BUILD_BRIEF_v4.md §7.*
+**A2. Auth UX — the pages, not the delivery.** **Built in §9ar — moved to H.** Every
+screen this asked for exists: check-your-email, activate-first, forgotten-password,
+set-a-new-password, link-expired, and the confirmed banner. The residual is not UX at
+all — it is A1's dashboard configuration, without which the screens are correct and the
+mail never comes.
 
 **A3. Terms of Service and Privacy Policy.** **Drafted and live at `/privacy/` and
 `/terms/`, linked from the footer — but not finishable without you.** Written for the UK
@@ -459,4 +499,5 @@ were still being listed as outstanding after they shipped.
 | **A7 — self-serve account deletion** | **Built, applied and proven end to end** (§9ad, §9ae). `delete_my_account()` is live, `verify_0008.sql` reads 7 PASS + CHECK, and a throwaway non-admin account has been deleted through the real UI — which was the one thing no script here could establish, since the function deletes straight out of `auth.users`, a schema Supabase owns and where the supported path is the admin API. Three facts to carry rather than re-derive: the function's owner (`postgres`) reaches `auth.users` **by grant**, not as superuser or owner; `auth.users` **has RLS enabled**, harmless only because `postgres` carries `BYPASSRLS`; and every FK cascades, so one delete removes everything. That middle one is a standing dependency on a Supabase role attribute this project does not control — if it is ever withdrawn, deletion would succeed while removing nothing, the account would survive, and the UI would say it was closed. `verify_0008.sql` check 6 is the only thing that would surface it, so **re-run it after any Supabase auth upgrade**. Checks 5 and 6 both FAILed on their first runs against a *correct* migration, each by reconstructing the conditions under which permission would exist instead of asking whether it did; both now interrogate directly. A wrong check fails closed, which sends you to read the migration rather than the test. |
 | **D5c — `.btn-danger` fails AA in dark mode** | **Fixed** in §9ae. White on `--danger` measured 2.38:1 in dark (6.47:1 in light, where the fill is a deep red rather than a pale one). Fixed with a `--danger-ink` token paired to `--danger` exactly as `--accent-ink` is paired to `--accent` — white in light, `#2A0F0B` in dark — consumed by both `.btn-danger` and `.btn-danger-outline:hover`, since a hover state on a danger fill is a filled danger button in all but name. Now 6.47 / 7.54. The principle, which is the part not to lose: **a filled button's label colour follows its fill**, the same conclusion `readableInk()` reaches for category badges. Do not reintroduce a literal `#fff` on anything sitting on `--danger`; it fails in one theme only, so it survives casual review. Distinct from D5b, which remains open — that is a token used *as text*, this was a token used *as a fill* with an assumed label. |
 | **Library export — one engine or several** | **Resolved** in §9ad. There is one (`lib/export.mjs`), offered in one place (`/account/`), in Markdown and JSON. The `/favorites/` "Export favorites" button — a slug-only JSON array, the site's only previous export — is **retired**, not repointed: a second button labelled for a subset would only raise the question of how the two differ. Its rule survives and now governs the whole export — cross-references by slug, never row id, so the file still means something after the account is gone. CSV was asked for and rejected on its own stated grounds (a multi-line prompt body in a spreadsheet cell is worse to copy from than Markdown, not better) plus a formula-injection footgun; revisit only if a spreadsheet workflow appears, with escaping as the price of entry. Guests lost their slug-list export, knowingly — they have no library, only local favourites. |
+| **A2 — auth UX screens for confirmation and reset** | **Built** in §9ar, and worth recording what it settled rather than only that it shipped. Confirmation is **required** before log-in — the app reads `signUp()` returning no session as "the mail went out", and says so explicitly if a session ever comes back instead, because that would mean the dashboard toggle had been turned off underneath it. The **welcome email is the confirmation email**: a separate one needs its own sender and its own trigger, arrives seconds after the one that must be acted on, and starts to look like the marketing mail E6 blocks. Resend is offered in the two places it is actually wanted (after sign-up, and after a log-in against an unconfirmed address) on a 60-second cooldown that mirrors Supabase's own throttle rather than discovering it by failing. `/reset-password/` serves a signed-in visitor too, so "change my password" and "I forgot my password" end in the same place instead of two copies of one form. And the fragment carrying a dead link's error is read **synchronously at module load** in `auth.js` — supabase-js strips it during its own async init, so a moment later there is nothing to read and an expired link is indistinguishable from one that silently did nothing. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |

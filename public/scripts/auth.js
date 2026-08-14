@@ -2,97 +2,47 @@ import { supabase } from './supabaseClient.js';
 import { initAccountStats } from './accountStats.js';
 import { isAdmin } from './db.js';
 import { esc, ICON } from './lib/render.mjs';
+import {
+  MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, PASSWORD_RULES_TEXT,
+  validatePassword, attachPasswordToggle, renderStrength
+} from './password.js';
 
-// These two mirror a rule that is actually enforced somewhere else: Supabase
-// Auth's own password policy (dashboard → Authentication → Sign In / Providers
-// → Email → Minimum password length, currently 10). Nothing in this file is a
-// security control - a determined user can edit it out in devtools in about
-// four seconds. What it buys is a decent error *before* a round trip, and a
-// statement of the rules before someone has already picked a password.
-//
-// If you change the number in the dashboard, change it here too. There is no
-// way to read the setting back from the client, so the two are kept in step by
-// hand and by nothing else.
-const MIN_PASSWORD_LENGTH = 10;
-// Not a policy choice. Supabase hashes with bcrypt, which ignores everything
-// past 72 *bytes* - so a longer password is silently truncated, and two
-// passwords sharing their first 72 bytes are the same password as far as
-// logging in is concerned. Better to say so than to let it happen invisibly.
-// Bytes, not characters, is the real limit; this counts characters, which is
-// the conservative direction for ASCII and the wrong one for heavy emoji use.
-// Not worth a TextEncoder for a limit nobody is going near.
-const MAX_PASSWORD_LENGTH = 72;
+// Where Supabase sends people back to after they click a link in one of its
+// emails. Both are absolute URLs because that is what the `redirect_to`
+// parameter requires, and both must be listed under Authentication → URL
+// Configuration → Redirect URLs in the dashboard or Supabase silently
+// substitutes the Site URL instead - the failure mode is a confirmed account
+// that lands on the home page with no explanation, which reads as the link
+// not having worked.
+const CONFIRM_LANDING = () => new URL('/account/?confirmed=1', location.origin).href;
+const RESET_LANDING = () => new URL('/reset-password/', location.origin).href;
 
-// Deliberately NOT checking for capitals, digits or symbols. Composition rules
-// of that kind mostly produce "Password1!" - which satisfies every one of them
-// and is far weaker than a long lowercase phrase. Current guidance (NIST
-// SP 800-63B, NCSC) is length first, and the Supabase side is configured to
-// match: minimum length raised, "Password Requirements" left at no required
-// characters.
+// Read the URL fragment *now*, at module-evaluation time, before anything is
+// awaited. supabase-js is configured with detectSessionInUrl on (the default),
+// which consumes the fragment and strips it as part of its own async
+// initialisation - so by the time init() below runs, an error carried in the
+// hash may already be gone. This is the one thing on the page that has to be
+// read synchronously.
 //
-// The one content rule here is the containment check, which catches a pattern
-// composition rules never do: a password built out of the account's own email
-// or the first name typed into the field directly above it.
-//
-// Returns an array of human-readable problems, empty when the password passes.
-function validatePassword(password, { email = '', firstName = '' } = {}) {
-  const problems = [];
-  if (password.length < MIN_PASSWORD_LENGTH) {
-    problems.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-  }
-  // Reachable despite the maxlength attribute on the input: maxlength only
-  // constrains what a *person* types or pastes, and a password manager filling
-  // the field by assigning to .value walks straight past it.
-  if (password.length > MAX_PASSWORD_LENGTH) {
-    problems.push(`Password must be ${MAX_PASSWORD_LENGTH} characters or fewer.`);
-  }
-
-  const haystack = password.toLowerCase();
-  // The part before the @, not the whole address - "sing@gmail.com" as a
-  // password is the local part plus a domain everyone shares, and it is the
-  // local part that makes it guessable.
-  const localPart = email.split('@')[0].trim().toLowerCase();
-  // The 3-character floor on both checks is what stops this being obnoxious.
-  // A two-letter name or local part would reject any password happening to
-  // contain those letters in order, which is most of them.
-  if (localPart.length >= 3 && haystack.includes(localPart)) {
-    problems.push('Password must not contain your email address.');
-  }
-  const name = firstName.trim().toLowerCase();
-  if (name.length >= 3 && haystack.includes(name)) {
-    problems.push('Password must not contain your name.');
-  }
-  return problems;
-}
-
-// Advisory only - nothing here can block a submit, and it is deliberately not
-// wired into validatePassword(). A meter that vetoes is a composition rule
-// wearing a different hat, and it fails the same way: it rejects long
-// memorable phrases for lacking variety while waving through short noisy ones.
-//
-// No zxcvbn. It is the better estimator by some distance, but it is ~400KB for
-// a hint, on a site whose entire dependency list is two packages. The scoring
-// below is length-dominant on purpose, because that is what the policy above
-// says matters - a meter rewarding a different thing to the rule it sits under
-// would just be arguing with itself on screen.
-//
-// Returns 0-3, indexing STRENGTH_LEVELS.
-function scorePassword(password) {
-  const len = password.length;
-  if (len < MIN_PASSWORD_LENGTH) return 0;
-  let score = len >= 16 ? 3 : len >= 12 ? 2 : 1;
-  // Variety earns at most one step, and only once the password is long enough
-  // for that step to mean something. Cheap approximation of "search space is
-  // bigger than 26 characters wide".
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/]
-    .filter(re => re.test(password)).length;
-  if (classes >= 3 && len >= 12) score = Math.min(3, score + 1);
-  return score;
-}
-
-// Index 0 is what shows below the minimum - phrased as the rule rather than as
-// a judgement ("Weak" would be misleading; it is not weak, it is not allowed).
-const STRENGTH_LEVELS = [`Under ${MIN_PASSWORD_LENGTH} characters`, 'Weak', 'Good', 'Strong'];
+// A failed link arrives as #error=access_denied&error_code=otp_expired&…
+// rather than as a rejected promise anywhere, so without this an expired
+// confirmation link is indistinguishable from a working one that quietly did
+// nothing.
+export const LINK_ERROR = (() => {
+  const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const code = params.get('error_code');
+  if (!params.get('error') && !code) return null;
+  // Supabase's own description is URL-encoded prose written for a developer;
+  // the two cases people actually hit get their own sentence, and anything
+  // else falls back to what the server said rather than to a shrug.
+  // Deliberately does not name a lifetime: this one string is shown for both
+  // kinds of link, and they expire on different clocks (24 hours for a signup
+  // confirmation, one hour for a password reset). The screen that knows which
+  // is which says so; this one only knows the link is dead.
+  if (code === 'otp_expired') return 'That link has expired. Links are single-use — request a new one below.';
+  if (code === 'access_denied') return 'That link has already been used, or was replaced by a newer one. Request a new one below.';
+  return params.get('error_description')?.replace(/\+/g, ' ') || 'That link could not be used.';
+})();
 
 function setNavAccountState(session) {
   // The sidebar footer is two mutually exclusive states (§9ag). Signed out:
@@ -177,6 +127,23 @@ function setNavAccountState(session) {
   isAdmin().then(admin => { adminLink.hidden = !admin; });
 }
 
+// True when the caller arrived here by clicking the activation link in their
+// welcome email. Under Supabase's implicit flow that link both confirms the
+// address and signs them in, so the usual landing is the dashboard - which
+// would otherwise say nothing at all about the thing they just did.
+//
+// Read once and cleared from the URL, so a refresh (or a bookmark of the
+// landing URL) doesn't re-announce a confirmation that happened days ago.
+function takeConfirmedFlag() {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('confirmed')) return false;
+  params.delete('confirmed');
+  const qs = params.toString();
+  history.replaceState(null, '', location.pathname + (qs ? `?${qs}` : ''));
+  return true;
+}
+let justConfirmed = false;
+
 function renderSignedIn(root, session) {
   // Sign out lives in the sidebar footer now (reachable from anywhere), so
   // this page's job is what the sidebar can't do: say something about the
@@ -202,7 +169,16 @@ function renderSignedIn(root, session) {
   // in as…".
   const firstName = (session.user.user_metadata?.first_name || '').trim();
   const greeting = firstName ? `Hi ${esc(firstName)}, you are` : 'You are';
+  // Rendered above the heading rather than inside the stats, because it is
+  // about the *event* that just happened rather than about the library. It is
+  // shown once and never again - see takeConfirmedFlag().
+  const confirmedBanner = justConfirmed ? `
+<div class="auth-banner" role="status">
+  <strong>Your email address is confirmed.</strong>
+  Your account is active and you are logged in. Your library already holds a copy of every prompt in the catalog — they are yours to edit, file and delete.
+</div>` : '';
   root.innerHTML = `
+${confirmedBanner}
 <h1>Account</h1>
 <p class="account-identity">${greeting} logged in as <strong>${esc(session.user.email)}</strong></p>
 <div id="account-stats"></div>`;
@@ -227,17 +203,29 @@ function renderSignedIn(root, session) {
     .catch(err => console.error('Account tools failed to load', err));
 }
 
+// Supabase throttles auth mail per address (60 seconds by default). A resend
+// button that fires into that limit produces a rate-limit error where the user
+// expected an email, so the button counts down instead of failing.
+const RESEND_COOLDOWN_SECONDS = 60;
+
 function renderSignedOut(root) {
   root.closest('.account-page')?.classList.remove('is-dashboard');
   root.innerHTML = `
 <h1>Account</h1>
-<div class="filter-pill-group account-tabs">
+<div class="filter-pill-group account-tabs" id="auth-tabs">
   <button type="button" class="filter-pill is-active" data-tab="sign-in" aria-pressed="true">Log in</button>
   <button type="button" class="filter-pill" data-tab="sign-up" aria-pressed="false">Sign up</button>
 </div>
+<!-- Forgot-password mode has no tabs (it is not a third peer of log in and
+     sign up, it is a detour off one of them), so it needs its own heading or
+     the form loses its title entirely. -->
+<div id="auth-forgot-head" hidden>
+  <h2 class="auth-subhead">Reset your password</h2>
+  <p class="auth-rules">Tell us the address on the account and we'll email you a link to set a new password. The link lasts an hour and can be used once.</p>
+</div>
 <form id="auth-form" class="account-form">
-  <!-- Sign-up only. One form serves both modes, so this field is hidden (and
-       un-required) in sign-in mode by the tab handler below, rather than
+  <!-- Sign-up only. One form serves all three modes, so this field is hidden
+       (and un-required) elsewhere by the mode handler below, rather than
        living in a separate form. The "required" property MUST be toggled
        alongside "hidden": a hidden required input is an invalid control the
        browser cannot focus, so the form silently refuses to submit, with a
@@ -256,7 +244,7 @@ function renderSignedOut(root) {
        made before this policy existed have shorter passwords, and the login
        form refusing a password that genuinely works is a lockout with no
        explanation and no way round it. -->
-  <label>Password
+  <label id="auth-password-field">Password
     <!-- The wrapper exists purely so the toggle has something to be
          positioned against. .account-form label is a flex column, and an
          absolutely-positioned child of that would anchor to the label - i.e.
@@ -269,21 +257,38 @@ function renderSignedOut(root) {
     </span>
   </label>
   <!-- Stated before the attempt rather than revealed by failing one. Both of
-       these are hidden in sign-in mode - the rules do not apply to a password
-       that already exists, and rating one the user cannot change here would be
-       a pointless thing to do to somebody trying to log in. -->
-  <p id="auth-password-rules" class="auth-rules" hidden>At least ${MIN_PASSWORD_LENGTH} characters. No capitals, digits or symbols needed — length does more for security than variety does.</p>
+       these are hidden outside sign-up mode - the rules do not apply to a
+       password that already exists, and rating one the user cannot change here
+       would be a pointless thing to do to somebody trying to log in. -->
+  <p id="auth-password-rules" class="auth-rules" hidden>${PASSWORD_RULES_TEXT}</p>
   <div id="auth-strength" class="auth-strength" hidden>
     <div class="auth-strength-bar"><span></span></div>
     <!-- aria-live so the rating is announced as it changes; the bar itself is
          decorative and carries no text of its own. -->
     <span class="auth-strength-label" aria-live="polite"></span>
   </div>
+  <!-- Sign-up only, and shown *before* the button rather than after the
+       submit. Someone who has already pressed Sign up and is staring at a
+       "check your email" screen is past the point where "we will email you"
+       is news; the person who benefits is the one deciding whether to give
+       an address they can actually receive mail at. -->
+  <p id="auth-signup-note" class="auth-rules" hidden>We'll send a welcome email with a link that activates your account. You'll need to click it before you can log in — and if it hasn't arrived within a few minutes, check your spam or junk folder.</p>
   <button type="submit" id="auth-submit-btn" class="btn btn-primary">Log in</button>
   <p id="auth-message" hidden></p>
-</form>`;
+</form>
+<p class="auth-aside">
+  <button type="button" class="linkish" id="auth-forgot-link">Forgotten your password?</button>
+  <button type="button" class="linkish" id="auth-back-link" hidden>Back to log in</button>
+</p>
+<!-- Replaces the form outright for the two states where the next step is not
+     on this screen at all: "we have sent you an email". A message under the
+     submit button would leave a filled-in form sitting above it inviting a
+     second attempt, which is how people end up requesting four links and
+     using the oldest one. -->
+<div id="auth-panel" class="auth-panel" hidden></div>`;
 
-  const tabs = [...root.querySelectorAll('[data-tab]')];
+  const tabsEl = root.querySelector('#auth-tabs');
+  const tabs = [...tabsEl.querySelectorAll('[data-tab]')];
   const submitBtn = root.querySelector('#auth-submit-btn');
   const passwordInput = root.querySelector('input[name=password]');
   const form = root.querySelector('#auth-form');
@@ -292,11 +297,15 @@ function renderSignedOut(root) {
 
   const firstNameField = root.querySelector('#auth-firstname-field');
   const firstNameInput = firstNameField.querySelector('input');
+  const passwordField = root.querySelector('#auth-password-field');
   const pwToggle = root.querySelector('#auth-pw-toggle');
   const rulesEl = root.querySelector('#auth-password-rules');
+  const signupNote = root.querySelector('#auth-signup-note');
   const strengthEl = root.querySelector('#auth-strength');
-  const strengthFill = strengthEl.querySelector('.auth-strength-bar span');
-  const strengthLabel = strengthEl.querySelector('.auth-strength-label');
+  const forgotHead = root.querySelector('#auth-forgot-head');
+  const forgotLink = root.querySelector('#auth-forgot-link');
+  const backLink = root.querySelector('#auth-back-link');
+  const panel = root.querySelector('#auth-panel');
 
   // Both call sites set role as well as text - a message that stays role=alert
   // from a previous failure would have the next success announced as an error.
@@ -306,69 +315,126 @@ function renderSignedOut(root) {
     messageEl.hidden = false;
   }
 
-  // Show/hide password (§9ai). Worth having on both tabs, not just sign-up:
-  // the commonest use is checking a password manager's generated string
-  // actually landed in the field, and the second commonest is working out why
-  // a login keeps failing.
-  //
-  // aria-pressed carries the state, aria-label and data-tip carry the action.
-  // The icon alone names nothing to a screen reader, and an eye with no label
-  // is ambiguous even visually - it reads equally as "is shown" or "click to
-  // show".
-  function setPasswordVisible(visible) {
-    // Guard: this runs from setMode() too, which fires on every tab click.
-    // Without it, switching tabs would re-render the icon and reset the
-    // selection below for no reason.
-    if ((passwordInput.type === 'text') === visible) return;
-    // Restoring the caret is the whole reason this is more than one line.
-    // Changing an input's type discards its selection in every engine tested,
-    // so a toggle mid-typing would otherwise dump the cursor at one end of the
-    // field - which is exactly when someone reaches for this control.
-    const { selectionStart, selectionEnd } = passwordInput;
-    const hadFocus = document.activeElement === passwordInput;
-    passwordInput.type = visible ? 'text' : 'password';
-    if (hadFocus) {
-      passwordInput.focus();
-      // try/catch because selectionStart is null on some input types and
-      // setSelectionRange throws on those; not worth failing a toggle over.
-      try { passwordInput.setSelectionRange(selectionStart, selectionEnd); } catch {}
-    }
-    pwToggle.innerHTML = visible ? ICON.eyeOff : ICON.eye;
-    pwToggle.setAttribute('aria-pressed', String(visible));
-    const label = visible ? 'Hide password' : 'Show password';
-    pwToggle.setAttribute('aria-label', label);
-    pwToggle.dataset.tip = label;
-  }
-
-  pwToggle.addEventListener('click', () => {
-    setPasswordVisible(passwordInput.type === 'password');
+  const setPasswordVisible = attachPasswordToggle(passwordInput, pwToggle, {
+    eye: ICON.eye, eyeOff: ICON.eyeOff
   });
 
-  function updateStrength(password) {
-    // Nothing to rate on an empty field, and an empty field is the state the
-    // form opens in - showing "Under 10 characters" before a single keystroke
-    // reads as a complaint about something the user has not done yet.
-    if (!password) { strengthEl.hidden = true; return; }
-    const score = scorePassword(password);
-    strengthEl.hidden = false;
-    strengthEl.dataset.score = String(score);
-    strengthFill.style.width = `${((score + 1) / 4) * 100}%`;
-    strengthLabel.textContent = STRENGTH_LEVELS[score];
+  // ---- the "check your email" panel -------------------------------------
+  //
+  // One renderer for both cases (a new signup, and a password reset) because
+  // the screens differ only in their heading and one sentence. What they share
+  // is the part that matters and the part people get wrong: naming the address
+  // it went to, saying what to do when it does not arrive, and offering a
+  // resend that cannot be hammered.
+  //
+  // `kind` is 'signup' or 'recovery' and selects which Supabase call the
+  // resend button makes.
+  function showEmailSentPanel({ kind, email, heading, lead }) {
+    form.hidden = true;
+    tabsEl.hidden = true;
+    forgotHead.hidden = true;
+    forgotLink.hidden = true;
+    backLink.hidden = true;
+    panel.hidden = false;
+    panel.innerHTML = `
+<h2 class="auth-subhead">${esc(heading)}</h2>
+<p>${lead}</p>
+<p class="auth-sent-to">Sent to <strong>${esc(email)}</strong></p>
+<ul class="auth-checklist">
+  <li><strong>Check your spam or junk folder.</strong> Mail from a service you have only just used is the most likely of all to land there. Marking it "not spam" keeps the rest out of it.</li>
+  <li>Give it a few minutes. Mail is not instant, and some providers hold new senders back briefly.</li>
+  <li>Check the address above is right. If it isn't, start again with the correct one.</li>
+</ul>
+<div class="auth-panel-actions">
+  <button type="button" class="btn btn-secondary" id="auth-resend">Resend email</button>
+  <button type="button" class="linkish" id="auth-panel-back">Back to log in</button>
+</div>
+<p id="auth-panel-message" hidden></p>`;
+
+    const resendBtn = panel.querySelector('#auth-resend');
+    const panelMessage = panel.querySelector('#auth-panel-message');
+    // Starts on cooldown, because an email was sent to get here. Without this
+    // the button is immediately pressable and the first press is guaranteed to
+    // hit Supabase's own throttle.
+    startCooldown(resendBtn, RESEND_COOLDOWN_SECONDS);
+
+    resendBtn.addEventListener('click', async () => {
+      panelMessage.hidden = true;
+      resendBtn.disabled = true;
+      const { error } = kind === 'signup'
+        ? await supabase.auth.resend({
+            type: 'signup', email,
+            options: { emailRedirectTo: CONFIRM_LANDING() }
+          })
+        : await supabase.auth.resetPasswordForEmail(email, { redirectTo: RESET_LANDING() });
+      if (error) {
+        panelMessage.textContent = error.message;
+        panelMessage.setAttribute('role', 'alert');
+        panelMessage.hidden = false;
+        resendBtn.disabled = false;
+        return;
+      }
+      panelMessage.textContent = 'Sent again. The newest link is the one that works — older ones stop working as soon as a new one is issued.';
+      panelMessage.setAttribute('role', 'status');
+      panelMessage.hidden = false;
+      startCooldown(resendBtn, RESEND_COOLDOWN_SECONDS);
+    });
+
+    panel.querySelector('#auth-panel-back').addEventListener('click', () => {
+      panel.hidden = true;
+      panel.innerHTML = '';
+      form.hidden = false;
+      tabsEl.hidden = false;
+      setMode(tabs.find(t => t.dataset.tab === 'sign-in'));
+    });
   }
 
+  // Counts the button down rather than just disabling it, so the wait is
+  // legible. Any previous timer on the same button is cleared first - two
+  // overlapping intervals would race to re-enable it and the earlier one would
+  // win, unlocking the button before the cooldown it belongs to has expired.
+  function startCooldown(btn, seconds) {
+    clearInterval(btn._cooldown);
+    let left = seconds;
+    btn.disabled = true;
+    const tick = () => {
+      btn.textContent = left > 0 ? `Resend email (${left}s)` : 'Resend email';
+      if (left <= 0) { clearInterval(btn._cooldown); btn.disabled = false; }
+      left -= 1;
+    };
+    tick();
+    btn._cooldown = setInterval(tick, 1000);
+  }
+
+  // ---- modes -------------------------------------------------------------
+  //
+  // Three now: sign-in, sign-up, forgot. `tab` is a tab button for the first
+  // two and null for forgot, which has no tab of its own.
   function setMode(tab) {
-    mode = tab.dataset.tab;
+    mode = tab ? tab.dataset.tab : 'forgot';
     tabs.forEach(t => {
       const active = t === tab;
       t.classList.toggle('is-active', active);
       t.setAttribute('aria-pressed', String(active));
     });
-    submitBtn.textContent = mode === 'sign-in' ? 'Log in' : 'Sign up';
-    passwordInput.autocomplete = mode === 'sign-in' ? 'current-password' : 'new-password';
-    // Both, together, always - see the comment on the field itself.
     const signingUp = mode === 'sign-up';
+    const forgot = mode === 'forgot';
+
+    tabsEl.hidden = forgot;
+    forgotHead.hidden = !forgot;
+    forgotLink.hidden = mode !== 'sign-in';
+    backLink.hidden = !forgot;
+
+    submitBtn.textContent = forgot ? 'Email me a reset link' : signingUp ? 'Sign up' : 'Log in';
+    passwordInput.autocomplete = signingUp ? 'new-password' : 'current-password';
+    // Both, together, always - see the comment on the field itself.
     firstNameField.hidden = !signingUp;
     firstNameInput.required = signingUp;
+    // Same hidden/required pairing as the first name, for the same reason: a
+    // hidden required password field makes the reset form refuse to submit
+    // with nothing on screen to explain it.
+    passwordField.hidden = forgot;
+    passwordInput.required = !forgot;
     // The length rules are sign-up-only for the reason given on the input
     // itself: an existing password predating the policy still has to work.
     // Set as attributes on the way in and removed on the way out, rather than
@@ -383,37 +449,57 @@ function renderSignedOut(root) {
       passwordInput.removeAttribute('maxlength');
     }
     rulesEl.hidden = !signingUp;
-    // Re-mask on every tab switch. Leaving a password on screen because the
+    signupNote.hidden = !signingUp;
+    // Re-mask on every mode switch. Leaving a password on screen because the
     // user changed tabs is a decision nobody made - the reveal was asked for
     // in one context and should not silently carry into another.
     setPasswordVisible(false);
     // Re-rate rather than just hide: switching tabs with a password already
     // typed would otherwise leave the previous mode's rating on screen, or
     // leave a sign-up password unrated until the next keystroke.
-    if (signingUp) updateStrength(passwordInput.value);
+    if (signingUp) renderStrength(strengthEl, passwordInput.value);
     else strengthEl.hidden = true;
     messageEl.hidden = true;
   }
 
-  // Only meaningful in sign-up mode; updateStrength is a no-op elsewhere
+  // Only meaningful in sign-up mode; renderStrength is not called elsewhere
   // because setMode has already hidden the meter and nothing here shows it
   // again.
   passwordInput.addEventListener('input', () => {
-    if (mode === 'sign-up') updateStrength(passwordInput.value);
+    if (mode === 'sign-up') renderStrength(strengthEl, passwordInput.value);
   });
 
   tabs.forEach(tab => tab.addEventListener('click', () => setMode(tab)));
+  forgotLink.addEventListener('click', () => {
+    setMode(null);
+    // Carry whatever they had already typed. Someone who reaches for "forgotten
+    // your password" has usually just typed their address into the field above.
+    root.querySelector('input[name=email]').focus();
+  });
+  backLink.addEventListener('click', () => setMode(tabs.find(t => t.dataset.tab === 'sign-in')));
 
-  // /why-sign-in/ links Sign up at /account/#sign-up. Without this the split
-  // into two buttons would be cosmetic - both would land on the log-in form
-  // and the reader would have to find the tab themselves. Reusing setMode()
-  // rather than setting `mode` directly is what keeps the first-name field's
-  // hidden/required pair in step; setting the variable alone would show a
-  // sign-up form that silently refuses to submit.
+  // /why-sign-in/ links Sign up at /account/#sign-up, and the expired-link
+  // message below points at /account/#forgot. Without this the deep links
+  // would be cosmetic - all of them would land on the log-in form and the
+  // reader would have to find the right mode themselves. Reusing setMode()
+  // rather than setting `mode` directly is what keeps every hidden/required
+  // pair in step; setting the variable alone would show a form that silently
+  // refuses to submit.
   if (location.hash === '#sign-up') {
     const tab = tabs.find(t => t.dataset.tab === 'sign-up');
     if (tab) setMode(tab);
+  } else if (location.hash === '#forgot') {
+    setMode(null);
   }
+
+  // A dead link (expired, already used, superseded) is the one auth failure
+  // that arrives with no form submission behind it, so it has to be surfaced
+  // on load or not at all.
+  if (LINK_ERROR) showMessage(LINK_ERROR, 'alert');
+  // Confirmed, but no session - the address is now verified and they simply
+  // need to log in. Happens when the link is opened somewhere that cannot
+  // keep the session (a mail app's in-app browser, most often).
+  else if (justConfirmed) showMessage('Your email address is confirmed. Log in to get started.', 'status');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -422,6 +508,25 @@ function renderSignedOut(root) {
     const email = form.email.value.trim();
     const password = form.password.value;
     const firstName = form.first_name.value.trim();
+
+    // ---- forgot password -------------------------------------------------
+    //
+    // Deliberately says the same thing whether or not an account exists, and
+    // Supabase deliberately returns success either way. The alternative turns
+    // this form into an oracle for which addresses have accounts here, which
+    // is a privacy leak dressed up as helpfulness.
+    if (mode === 'forgot') {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: RESET_LANDING() });
+      submitBtn.disabled = false;
+      if (error) { showMessage(error.message, 'alert'); return; }
+      showEmailSentPanel({
+        kind: 'recovery',
+        email,
+        heading: 'Check your email',
+        lead: 'If there is an account with that address, a link to set a new password is on its way. It lasts an hour and can be used once.'
+      });
+      return;
+    }
 
     // Sign-up only. Running this on sign-in would lock out any account whose
     // password predates the policy - the whole point of checking here rather
@@ -451,24 +556,69 @@ function renderSignedOut(root) {
     // migration and no profiles table for one field - and deliberately not a
     // column on a table of ours, since that would mean a row that has to be
     // created in step with the auth user and kept in step with deletions.
-    const { error } = mode === 'sign-in'
+    //
+    // It is also what the confirmation email greets them by: Supabase exposes
+    // exactly this as {{ .Data.first_name }} in its templates, read at the
+    // moment the mail is triggered, which is why it has to be passed here at
+    // signUp time rather than set afterwards.
+    const { data, error } = mode === 'sign-in'
       ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({
           email, password,
-          options: { data: { first_name: firstName } }
+          options: { data: { first_name: firstName }, emailRedirectTo: CONFIRM_LANDING() }
         });
     submitBtn.disabled = false;
 
     if (error) {
+      // The one error worth intercepting rather than printing. "Email not
+      // confirmed" is not a failure the user can fix by trying again, and the
+      // action it calls for (send me that link again) is not on screen - so
+      // the panel replaces the message and puts the resend in front of them.
+      if (error.code === 'email_not_confirmed' || /not confirmed/i.test(error.message)) {
+        showEmailSentPanel({
+          kind: 'signup',
+          email,
+          heading: 'Activate your account first',
+          lead: 'This account exists but its email address has not been confirmed yet. The welcome email we sent has the activation link in it — clicking it is the last step.'
+        });
+        return;
+      }
       showMessage(error.message, 'alert');
       return;
     }
     if (mode === 'sign-up') {
-      showMessage('Check your email to confirm your account, then sign in.', 'status');
+      // With "Confirm email" on, a successful signUp returns no session -
+      // that is the signal that a confirmation mail went out and the account
+      // is not usable yet. If it ever DOES return a session, confirmation has
+      // been switched off in the dashboard, and pretending otherwise would
+      // strand the user waiting for an email nobody sent.
+      if (data?.session) {
+        showMessage('Account created. You are logged in.', 'status');
+        return;
+      }
+      // Note this same panel appears when the address is already registered:
+      // Supabase returns a success with an obfuscated user rather than telling
+      // a stranger which addresses have accounts here, and this screen does
+      // not second-guess that. The mail that arrives in that case tells the
+      // real owner what happened.
+      showEmailSentPanel({
+        kind: 'signup',
+        email,
+        heading: 'Check your email to activate your account',
+        lead: 'We have sent you a welcome email with a link that activates your account. You need to click it before you can log in.'
+      });
     }
     // A successful sign-in re-renders via onAuthStateChange below, not here.
   });
 }
+
+// Tracks what is currently painted, so a repeat notification of the state
+// already on screen does not repaint it. This matters now that the signed-out
+// view holds *state* - a "check your email" panel, or a half-filled reset form.
+// onAuthStateChange fires INITIAL_SESSION on subscribe and can fire again for
+// events that change nothing here, and each of those used to rebuild the form
+// from scratch, throwing away whatever the user was in the middle of.
+let paintedState = null;
 
 function renderAccountRoot(session) {
   const root = document.getElementById('account-root');
@@ -477,6 +627,11 @@ function renderAccountRoot(session) {
     root.innerHTML = '<h1>Account</h1><p style="color:var(--ink-faint);">Account features aren’t configured for this build yet.</p>';
     return;
   }
+  // Keyed by user id rather than by a boolean, so signing in as someone else
+  // (which the delete-then-signup path can produce) still repaints.
+  const next = session ? `in:${session.user.id}` : 'out';
+  if (next === paintedState) return;
+  paintedState = next;
   if (session) renderSignedIn(root, session);
   else renderSignedOut(root);
 }
@@ -502,6 +657,11 @@ async function init() {
       btn.disabled = false;
     }
   });
+
+  // Read before the first render, and only on the page that can say anything
+  // about it. Both branches of renderAccountRoot use it - signed in it is a
+  // banner, signed out it is the message above the form.
+  justConfirmed = takeConfirmedFlag();
 
   const { data: { session } } = await supabase.auth.getSession();
   setNavAccountState(session);

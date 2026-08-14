@@ -10,7 +10,8 @@ import {
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
   renderArchivedPage, renderWhySignInPage, renderCategoriesPage, setAssetVersion,
-  renderPrivacyPage, renderTermsPage, renderContactPage, legalPlaceholdersRemaining
+  renderPrivacyPage, renderTermsPage, renderContactPage, renderResetPasswordPage,
+  legalPlaceholdersRemaining
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -153,6 +154,10 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('search', renderSearchPage(data));
   writeRoute('about', renderAboutPage(data));
   writeRoute('account', renderAccountPage(data));
+  // Unlinked from the nav by design - it is where Supabase's password-reset
+  // email lands, and the URL has to exist in the build for that link to work
+  // at all. See renderResetPasswordPage.
+  writeRoute('reset-password', renderResetPasswordPage(data));
   writeRoute('admin', renderAdminPage(data));
   // The two filtered-prompt screens (§9aq). Static shells like Home's, with
   // one pill row each; personalize.js swaps in the caller's own rows and
@@ -198,7 +203,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in/privacy/terms/contact, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in/privacy/terms/contact, the account-tier shells (account/reset-password/admin/collections/categories/archived) and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).

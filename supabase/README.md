@@ -217,8 +217,23 @@ Authentication → Sign In / Providers → Email:
 | Minimum password length | **10** | Was Supabase's default of 6, which is inside offline-crack range in seconds. See BUILD_BRIEF.md §9ah. |
 | Password Requirements | **No required characters** | Deliberate, not unconfigured. Requiring a capital/digit/symbol reliably produces `Password1!`; length does more work than variety. NIST SP 800-63B and NCSC both put length first. |
 | Leaked password protection | **off — unavailable on Free tier** | Not a judgement. It is the highest-value auth setting here and costs one toggle on Pro. Tracked as OPEN_ITEMS.md E8. |
+| **Confirm email** | **on** (required by §9ar) | Nobody can log in until they click the link in their welcome email. The app is written for this: `signUp()` returning no session is the signal that the mail went out. |
 
-The minimum is **duplicated** in `public/scripts/auth.js` as `MIN_PASSWORD_LENGTH`, and
+| **Custom SMTP** | **Gmail, as a deliberate interim** (Aug 2026) | `smtp.gmail.com:587` with a Google app password, sending as the controller's own address. Chosen to unblock testing without waiting on a domain decision (A5). It is temporary by design and the exit is written down before the entrance — see §1a and §6 of the runbook. Two consequences not to lose: the credential is a password to a whole mailbox, so it is revoked rather than merely abandoned at cutover; and the service's mail comes from a personal address, which is why this cannot still be the sender when sign-ups open. |
+
+Authentication → URL Configuration, and Authentication → **Emails** (which
+carries the SMTP settings *and* the templates — it is not under Project
+Settings, whatever older guides say): both are covered in
+[`email-templates/README.md`](email-templates/README.md), which is the
+operator runbook for A1 — custom SMTP, the sending-domain problem, the two
+email templates and the redirect allow-list, with a test sequence at the end.
+**The redirect allow-list is the entry that fails quietly**: an unlisted target
+is not rejected, it is silently replaced by the Site URL, so the visitor lands
+on the home page instead of the page that was going to finish the job.
+
+The minimum is **duplicated** in `public/scripts/password.js` as `MIN_PASSWORD_LENGTH`
+(it lived in `auth.js` until §9ar moved it, so that `/reset-password/` enforces the same
+rules sign-up does rather than a second copy of them), and
 there is no mechanism keeping the two honest — the client cannot read the project's auth
 settings back. Changing one without the other does not break anything loudly; it just
 makes the form's message disagree with the server's answer. Change both.
@@ -323,7 +338,13 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 - `public/scripts/supabaseClient.js` (esm.sh CDN, not vendored) and
   `public/scripts/db.js` - prompts CRUD, admin curate/publish, promote/demote,
   archive/unarchive, duplicate, seeding, favorites, collections.
-- `public/scripts/auth.js` - email/password sign-in/up/out. **Sign out lives in the
+- `public/scripts/auth.js` - email/password sign-in/up/out, plus the three
+  email-dependent flows added in §9ar: confirmation (including a resend that
+  matches Supabase's own 60-second throttle), the "activate your account first"
+  answer to a log-in against an unconfirmed address, and password reset, whose
+  link lands on `/reset-password/` (`public/scripts/resetPassword.js`). The
+  password rules are shared with that page from `public/scripts/password.js`.
+  **Sign out lives in the
   sidebar footer**, under the signed-in email, so it's reachable from any page.
   Sign-up also collects a **first name**, passed as `signUp({ options: { data } })` and
   stored by Supabase on `auth.users.raw_user_meta_data`, read back as
@@ -408,13 +429,27 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 - Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
   `SUPABASE_ANON_KEY`.
 
+**Built, but needs dashboard configuration — the email flows (§9ar):**
+- Sign-up, confirmation, resend and password reset are **built in the app** and
+  verified in-browser: `/account/` carries the sign-up spam-folder warning, the
+  "check your email" panel with a rate-limit-matched resend, a
+  forgotten-password mode, and an "activate your account first" panel for a
+  log-in against an unconfirmed address; `/reset-password/` is a new route
+  where the reset link lands. Password rules moved to
+  `public/scripts/password.js` so that page enforces the same ones sign-up
+  does.
+- **None of it delivers anything until custom SMTP is configured**, "Confirm
+  email" is switched on, the two templates in
+  [`email-templates/`](email-templates/) are pasted in, and `/account/**` and
+  `/reset-password/**` are on the redirect allow-list. That is OPEN_ITEMS.md
+  A1, and its blocking sub-problem is not a setting at all: a transactional
+  sender needs a domain you control for SPF/DKIM, and this site is on a
+  `*.vercel.app` subdomain. See the runbook for the three routes out of that.
+
 **Not built:**
 - **Notify-and-merge screen** (BUILD_BRIEF_v5.md §6) - versions and the `notifiable`
   flag are recorded now, but nothing consumes them yet. Deliberate: the feature has no
   users until a catalog prompt is edited *after* someone has signed up.
-- **Transactional email / SMTP** - unconfigured, and blocks public launch. Sign-up says
-  "check your email", but that mail comes from Supabase's built-in test-only sender.
-  Password reset has the same dependency. See BUILD_BRIEF_v5.md §9.
 - **User-authored sequences.** Signed-in users see their *own* copies in every sequence
   rail (fixed in BUILD_BRIEF.md §9z — `initPersonalizedRail()`), but they cannot build a
   new chain of their own: sequence pages are generated at build time from the catalog, so
@@ -432,7 +467,12 @@ outstanding across the project, ordered by what has to be true before each item 
 The **Status** section above stays here and is not duplicated there: it answers "what
 exists in this database", which is a different question from "what is left to do".
 
-The two things in the register that are specifically Supabase-side:
+The three things in the register that are specifically Supabase-side:
+
+- **Custom SMTP, "Confirm email", the two templates and the redirect
+  allow-list** — the dashboard half of A1, written up as a runbook in
+  [`email-templates/README.md`](email-templates/README.md). The app side is
+  built and waiting on it.
 
 - **Deploy Hook URL** (setup step 7) — `0005` is inert until it is set, and the failure
   is quiet: catalog changes stop reaching anonymous visitors while signed-in users are
