@@ -1658,8 +1658,19 @@ label.np-admin-check {
    Underlined as well as coloured, because these are mid-sentence prose links
    rather than buttons - colour alone is never sufficient. --accent measures
    5.76:1 against --paper. */
-.prose-page a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.prose-page a:hover { color: var(--accent-hover); }
+/* :not(.btn) is load-bearing, and this is the THIRD time this exact trap has
+   bitten in one pass. `.prose-page a` is (0,1,1) and beats `.btn-primary`
+   (0,1,0), so an unqualified rule here repainted the "Sign in / sign up"
+   button's label in --accent - which is that button's own background colour.
+   The result was a solid green rectangle with invisible text at 1:1 contrast,
+   and it survived a full contrast audit because every measurement sampled
+   prose elements, not the button.
+   The other two instances were `.legal-page p` beating `.legal-updated`, and
+   the same rule beating the global `a { color: inherit }`. The pattern: any
+   descendant rule added to a page wrapper silently outranks single-class
+   component styles inside it. Prefer excluding components explicitly. */
+.prose-page a:not(.btn) { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-page a:not(.btn):hover { color: var(--accent-hover); }
 .prose-page code { font-family: var(--mono, monospace); font-size: 12.5px; }
 /* Scoped under .legal-page deliberately. Unscoped, `.legal-updated` (0,1,0)
    loses to `.legal-page p` (0,1,1) above and silently renders at 14px/--ink-soft
