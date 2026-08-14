@@ -1,6 +1,7 @@
 import { supabase } from './supabaseClient.js';
 import { initAccountStats } from './accountStats.js';
 import { isAdmin } from './db.js';
+import { esc } from './lib/render.mjs';
 
 function setNavAccountState(session) {
   const link = document.getElementById('nav-account-link');
@@ -49,9 +50,21 @@ function renderSignedIn(root, session) {
   // Widens the page for the stat grid; the signed-out form keeps the narrow
   // measure .account-page was sized for.
   root.closest('.account-page')?.classList.add('is-dashboard');
+  // The first name captured at sign-up is used here, and this is the only
+  // place it is used - which is the point rather than an afterthought. Under
+  // UK GDPR's data-minimisation principle, collecting a name and then never
+  // showing it is collecting personal data with no purpose; either it earns a
+  // place on screen or the field should not be asking for it. The email stays
+  // regardless: it is what identifies *which* account you are signed in to,
+  // which matters more than the greeting does.
+  //
+  // esc() because this is free text the user typed, rendered into innerHTML.
+  // The exposure is only to themselves, but "only self-XSS" is not a reason to
+  // interpolate raw user input into markup.
+  const firstName = (session.user.user_metadata?.first_name || '').trim();
   root.innerHTML = `
-<h1>Account</h1>
-<p class="account-identity">Signed in as <strong>${session.user.email}</strong></p>
+<h1>${firstName ? `Hello, ${esc(firstName)}` : 'Account'}</h1>
+<p class="account-identity">Signed in as <strong>${esc(session.user.email)}</strong></p>
 <div id="account-stats"></div>`;
   initAccountStats(document.getElementById('account-stats'), session.user);
 }
@@ -65,6 +78,17 @@ function renderSignedOut(root) {
   <button type="button" class="filter-pill" data-tab="sign-up" aria-pressed="false">Sign up</button>
 </div>
 <form id="auth-form" class="account-form">
+  <!-- Sign-up only. One form serves both modes, so this field is hidden (and
+       un-required) in sign-in mode by the tab handler below, rather than
+       living in a separate form. The "required" property MUST be toggled
+       alongside "hidden": a hidden required input is an invalid control the
+       browser cannot focus, so the form silently refuses to submit, with a
+       console warning and no visible cause.
+       (No backticks in this comment - it sits inside a template literal, and
+       a stray one ends the string. That is exactly how it broke once.) -->
+  <label id="auth-firstname-field" hidden>First name
+    <input type="text" name="first_name" maxlength="60" autocomplete="given-name">
+  </label>
   <label>Email
     <input type="email" name="email" required autocomplete="email">
   </label>
@@ -82,6 +106,9 @@ function renderSignedOut(root) {
   const messageEl = root.querySelector('#auth-message');
   let mode = 'sign-in';
 
+  const firstNameField = root.querySelector('#auth-firstname-field');
+  const firstNameInput = firstNameField.querySelector('input');
+
   tabs.forEach(tab => tab.addEventListener('click', () => {
     mode = tab.dataset.tab;
     tabs.forEach(t => {
@@ -91,6 +118,10 @@ function renderSignedOut(root) {
     });
     submitBtn.textContent = mode === 'sign-in' ? 'Sign in' : 'Sign up';
     passwordInput.autocomplete = mode === 'sign-in' ? 'current-password' : 'new-password';
+    // Both, together, always - see the comment on the field itself.
+    const signingUp = mode === 'sign-up';
+    firstNameField.hidden = !signingUp;
+    firstNameInput.required = signingUp;
     messageEl.hidden = true;
   }));
 
@@ -100,9 +131,18 @@ function renderSignedOut(root) {
     submitBtn.disabled = true;
     const email = form.email.value.trim();
     const password = form.password.value;
+    const firstName = form.first_name.value.trim();
+    // First name rides in options.data, which Supabase Auth stores on
+    // auth.users.raw_user_meta_data and returns as user.user_metadata. No
+    // migration and no profiles table for one field - and deliberately not a
+    // column on a table of ours, since that would mean a row that has to be
+    // created in step with the auth user and kept in step with deletions.
     const { error } = mode === 'sign-in'
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+      : await supabase.auth.signUp({
+          email, password,
+          options: { data: { first_name: firstName } }
+        });
     submitBtn.disabled = false;
 
     if (error) {

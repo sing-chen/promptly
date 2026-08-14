@@ -77,7 +77,7 @@ A local drag-and-drop tool for managing prompt chains lives in `tools/sequence-b
   - *chrome*: `favorites.js` (star/copy wiring, theme + mobile drawer), `sidebarCollapse.js`, `sidebarResize.js`, `confirmDialog.js`, `quickViewRegistry.js`
 - `lib/env.mjs` — dependency-free `.env.local` loader used by `scripts/build.mjs`
 - `supabase/` — account-tier schema/RLS migrations + setup docs (see [supabase/README.md](./supabase/README.md))
-- `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete/re-categorize)
+- `tools/sequence-builder/` — standalone local authoring tool (sequence drag-and-drop + bulk delete; its bulk re-categorize control was retired when categories became per-user data — see OPEN_ITEMS.md H)
 
 ## Status
 

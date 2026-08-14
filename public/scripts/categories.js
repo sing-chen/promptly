@@ -21,7 +21,9 @@ import {
   reorderCategories, categoryUsage, loadMyPrompts
 } from './db.js';
 import { esc, catColorVars, categoryName } from './lib/render.mjs';
-import { CATEGORY_COLOR_PRESETS, readableInk, promptHasCategory } from './lib/schema.mjs';
+import {
+  CATEGORY_COLOR_PRESETS, readableInk, promptHasCategory, MAX_CATEGORIES_PER_USER
+} from './lib/schema.mjs';
 import { confirmDialog } from './confirmDialog.js';
 
 const root = document.getElementById('categories-root');
@@ -104,9 +106,22 @@ async function render() {
   const counts = new Map(categories.map(c =>
     [c.slug, active.filter(p => promptHasCategory(p, c.slug)).length]));
 
+  // The per-user ceiling (B3). The database enforces it too, as a clause on
+  // the categories_insert policy (0007) - but an RLS refusal surfaces as
+  // "new row violates row-level security policy", which tells the user
+  // nothing. So the real user-facing job is done here, before the attempt:
+  // the button goes away and says why. The policy is the backstop.
+  //
+  // `>=` rather than `===` on purpose. Seeding is exempt from the cap, so a
+  // user who created 20 and was then granted a new catalog category is
+  // legitimately above it - and must still see a coherent page rather than an
+  // enabled button that cannot possibly work.
+  const atLimit = categories.length >= MAX_CATEGORIES_PER_USER;
+
   root.innerHTML = `
 <div class="cat-page-head">
-  <button type="button" class="btn btn-primary" id="cat-new-btn">+ New category</button>
+  ${atLimit ? `<p class="cat-limit-note">You have ${categories.length} categories — the limit is ${MAX_CATEGORIES_PER_USER}. Delete one to add another.</p>` : ''}
+  <button type="button" class="btn btn-primary" id="cat-new-btn"${atLimit ? ' disabled' : ''}>+ New category</button>
 </div>
 <div id="cat-editor-slot"></div>
 ${categories.length
@@ -166,7 +181,18 @@ function wire(categories, counts) {
         announce();
         await render();
       } catch (err) {
-        message.textContent = err?.message || 'Could not save that category.';
+        // A 42501 on this table is the 0007 cap in all but pathological
+        // cases (the policy's other clauses - own row, admin-for-curated -
+        // can't be tripped by this form, which always writes the caller's own
+        // non-curated row). Translating it matters because the raw text is
+        // "new row violates row-level security policy for table categories",
+        // which reads as a bug rather than as a limit. This should be
+        // unreachable: the button is disabled above before it can be clicked.
+        const isLimit = err?.code === '42501'
+          || /row-level security/i.test(err?.message || '');
+        message.textContent = isLimit
+          ? `You've reached the limit of ${MAX_CATEGORIES_PER_USER} categories. Delete one to add another.`
+          : (err?.message || 'Could not save that category.');
         message.hidden = false;
       }
     });

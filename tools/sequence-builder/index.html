@@ -96,8 +96,10 @@
 
   <div id="bulk-bar" hidden>
     <span id="bulk-count">0 selected</span>
-    <select id="bulk-category"><option value="">Change category…</option></select>
-    <button id="bulk-apply">Apply</button>
+    <!-- A "Change category…" dropdown + Apply button used to sit here. Both
+         are gone: categories are per-user rows now, so the tool's hardcoded
+         vocabulary had nothing left to mirror, and the control wrote a
+         frontmatter key the schema doesn't read. See app.js's header. -->
     <button id="bulk-delete">Delete selected</button>
     <button id="bulk-clear">Clear selection</button>
   </div>

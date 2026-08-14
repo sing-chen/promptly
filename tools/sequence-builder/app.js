@@ -1,14 +1,30 @@
 // Local-only tool. No network calls. Reads/writes .md files directly via
 // the File System Access API against the /prompts folder.
 
-// Duplicated from lib/schema.mjs rather than imported: this tool is opened
-// directly via file:// (per BUILD_BRIEF.md §4), where ES module imports
-// across files are blocked by the browser's CORS rules for local files.
-// Keep in sync with lib/schema.mjs by hand if the category vocabulary changes.
-const CATEGORIES = [
-  'writing', 'code', 'marketing', 'research', 'data-analysis',
-  'product', 'education', 'creative', 'ops-admin'
-];
+// This file used to open with a hardcoded nine-slug CATEGORIES array, copied
+// by hand from lib/schema.mjs because a file:// page can't import across
+// files. It fed one control: the bulk "Change category…" dropdown. Both the
+// array and that control are gone (OPEN_ITEMS.md D4), for two independent
+// reasons, either of which would have been enough:
+//
+// 1. There is no longer a fixed category vocabulary to copy. Categories are
+//    per-user rows in the `categories` table (BUILD_BRIEF_v6.md), so no
+//    hardcoded list can be correct for anyone — not even the admin, whose set
+//    is now editable at /categories/ and therefore not knowable from source.
+//    lib/schema.mjs's array is gone, so there is nothing left to "keep in
+//    sync with" either.
+//
+// 2. The control had stopped working regardless. It wrote a singular
+//    `category:` frontmatter key, while the markdown schema reads a
+//    `categories:` list (lib/content.mjs) — so a file it touched kept its old
+//    categories and gained a key nothing reads. BUILD_BRIEF.md §386 recorded
+//    the narrowing to `category` as deliberate; against the schema as it
+//    stands it was simply inert.
+//
+// What remains is what still works and is still wanted: drag-and-drop
+// sequence assignment, and bulk delete. Sequences are the part of this tool
+// with a future — see OPEN_ITEMS.md D1 and E4 — and none of that depends on
+// the category vocabulary.
 
 let dirHandle = null;
 let files = []; // { name, handle, rawFrontmatter, bodyText, data }
@@ -21,20 +37,11 @@ const boardsEl = document.getElementById('boards');
 const newBoardRow = document.getElementById('new-board-row');
 const bulkBar = document.getElementById('bulk-bar');
 const bulkCount = document.getElementById('bulk-count');
-const bulkCategory = document.getElementById('bulk-category');
 
 document.getElementById('pick-folder').addEventListener('click', pickFolder);
 document.getElementById('create-board').addEventListener('click', createBoard);
-document.getElementById('bulk-apply').addEventListener('click', applyBulkRecategorize);
 document.getElementById('bulk-delete').addEventListener('click', applyBulkDelete);
 document.getElementById('bulk-clear').addEventListener('click', () => { selected.clear(); render(); });
-
-CATEGORIES.forEach(c => {
-  const opt = document.createElement('option');
-  opt.value = c;
-  opt.textContent = c;
-  bulkCategory.appendChild(opt);
-});
 
 async function pickFolder() {
   if (!window.showDirectoryPicker) {
@@ -285,29 +292,5 @@ async function applyBulkDelete() {
     selected.delete(name);
   }
   flashStatus(`Deleted ${count} file(s) ✓`);
-  render();
-}
-
-async function applyBulkRecategorize() {
-  const count = selected.size;
-  if (count === 0) return;
-  const category = document.getElementById('bulk-category').value;
-
-  if (!category) {
-    alert('Choose a category first.');
-    return;
-  }
-
-  const names = Array.from(selected);
-  for (const name of names) {
-    const entry = files.find(f => f.name === name);
-    if (!entry) continue;
-
-    entry.data.category = category;
-    await writeFile(entry, { category });
-  }
-
-  document.getElementById('bulk-category').value = '';
-  flashStatus(`Re-categorized ${count} file(s) ✓`);
   render();
 }

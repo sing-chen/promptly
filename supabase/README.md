@@ -15,7 +15,8 @@ Already provisioned and live in production — see "Status" below for what's act
    [`0003_remove_example_output.sql`](migrations/0003_remove_example_output.sql) →
    [`0004_owned_copies.sql`](migrations/0004_owned_copies.sql) →
    [`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql) →
-   [`0006_user_categories.sql`](migrations/0006_user_categories.sql).
+   [`0006_user_categories.sql`](migrations/0006_user_categories.sql) →
+   [`0007_category_limit.sql`](migrations/0007_category_limit.sql).
    - 0001–0003 build up the *old* fork-based model, and 0004 then replaces it. That's
      wasteful on a fresh project but keeps one true migration history rather than a
      rewritten 0001 that no existing project matches. 0002 and 0003 are idempotent
@@ -30,11 +31,16 @@ Already provisioned and live in production — see "Status" below for what's act
    - 0006 needs an admin row to exist first (it seeds the catalog categories to
      them), so run it *after* step 6 below, not before. It raises rather than
      seeding nothing if you forget.
+   - 0007 caps categories at 20 per user by adding a clause to 0006's
+     `categories_insert` policy. It recreates that policy in full rather than
+     patching it, so it must run after 0006, never interleaved.
    - Verify with [`verify_0004.sql`](verify_0004.sql) (11 checks),
-     [`verify_0005.sql`](verify_0005.sql) (8 checks) and
-     [`verify_0006.sql`](verify_0006.sql) (27 checks); all should read PASS, except
-     0005's hook-URL check until step 7 below, and 0006's checks 12/13, which read
-     CHECK where the answer depends on what data the project happens to hold.
+     [`verify_0005.sql`](verify_0005.sql) (8 checks),
+     [`verify_0006.sql`](verify_0006.sql) (27 checks) and
+     [`verify_0007.sql`](verify_0007.sql) (7 checks); all should read PASS, except
+     0005's hook-URL check until step 7 below, 0006's checks 12/13, and 0007's
+     check 7, which read CHECK where the answer depends on what data the project
+     happens to hold.
 3. From Project Settings → API, copy the **Project URL** and **anon public key**. These are safe to ship client-side — RLS is the actual security boundary, not key secrecy (§9).
 4. Add them as env vars in Vercel's project settings (and locally, e.g. `.env.local`, gitignored) — consumed by `public/scripts/db.js`/`supabaseClient.js` client-side (via a generated `dist/scripts/config.js`, since browsers can't read `.env` files) and by `scripts/build.mjs`, which uses the same anon key server-side to fetch published default prompts at build time (see "Static build vs. live reads" below).
 5. Enable email/password auth under Authentication → Providers (already on by default). OAuth providers are explicitly deferred (§7).
@@ -128,7 +134,7 @@ remapping (a copied prompt must point at *the user's* copy of its dependency).
 Anonymous visitors stay on the existing static site rather than reading Supabase live on every page view — this keeps their pages fast, working without JS, and off the free tier's read quota. Two pieces make that work together with a single Supabase source of truth:
 
 1. **`scripts/build.mjs` queries Supabase for published defaults** (`is_curated = true, published = true`) at build time (`lib/supabaseBuild.mjs`'s `fetchPublishedPrompts()`, a plain `fetch()` against PostgREST — no `@supabase/supabase-js` dependency needed for one GET request), using the `anon` key, instead of reading `prompts/*.md`. This is the only place `anon`'s `GRANT SELECT` actually gets used for anonymous traffic — real anonymous visitors hit pre-built HTML, not Supabase. If `SUPABASE_URL`/`SUPABASE_ANON_KEY` aren't set, the build proceeds with zero default prompts (a warning is logged) rather than failing.
-2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. Not yet configured — needs both a Vercel project (Deploy Hooks live under Project Settings → Git) and the webhook set up in the Supabase dashboard (Database → Webhooks) once the project exists. Until this is wired up, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
+2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. **Whether the hook URL is currently set is an open question, not a settled one** — this paragraph used to end "Not yet configured", while the Status section below records `0005` being verified by an edit that produced a real Vercel deployment, which cannot happen with an unset hook. One of the two was stale and neither says which. That contradiction is OPEN_ITEMS.md C1; resolve it with `select deploy_hook_url is not null from deploy_settings;` in the SQL editor rather than by trusting either sentence. It cannot be checked from app code — `deploy_settings` has RLS with no policies, so an anon read returns an empty set either way. While unset, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
 
 ## Categories are user-owned too
 
@@ -199,6 +205,20 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 ## Status
 
 **Built - current model (BUILD_BRIEF_v5.md):**
+- [`0007_category_limit.sql`](migrations/0007_category_limit.sql): a ceiling of
+  20 categories per user, as a clause on `categories_insert`. Written to the
+  RLS policy rather than a trigger **specifically so that `ensure_seeded()` is
+  exempt** — it is SECURITY DEFINER and its owner owns `categories`, so it
+  bypasses RLS. That is not incidental: a trigger would abort the whole seeding
+  transaction for a user already at the ceiling, silently stopping their
+  catalog prompts as well. Two intended consequences: a user can exceed 20 via
+  seeding (the cap governs creation, not possession), and admins are not exempt,
+  which is what keeps the catalog — and therefore every newly seeded account —
+  at or under the ceiling. `verify_0007.sql` checks 4/5/6 assert the three
+  properties the exemption rests on. Mirrored by `MAX_CATEGORIES_PER_USER` in
+  `lib/schema.mjs`, which `/categories/` uses to disable the create button and
+  explain itself before the database ever refuses. **Not yet applied to the live
+  project** — see below.
 - Schema + RLS through [`0006_user_categories.sql`](migrations/0006_user_categories.sql):
   `categories`, `prompt_categories`, `category_grants`, the
   `prompt_categories_assert_nonempty` trigger enforcing "every prompt keeps at least
@@ -226,6 +246,14 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   archive/unarchive, duplicate, seeding, favorites, collections.
 - `public/scripts/auth.js` - email/password sign-in/up/out. **Sign out lives in the
   sidebar footer**, under the signed-in email, so it's reachable from any page.
+  Sign-up also collects a **first name**, passed as `signUp({ options: { data } })` and
+  stored by Supabase on `auth.users.raw_user_meta_data`, read back as
+  `session.user.user_metadata.first_name`. This is the only thing this project keeps in
+  user metadata, and deliberately not a column on a table of ours: a `profiles` row would
+  have to be created in step with the auth user and deleted in step with it, which is a
+  lot of machinery for one field used in one place (the `/account/` greeting). Note it is
+  therefore **outside RLS** - metadata is scoped by Supabase Auth, not by a policy - so
+  don't reach for it to hold anything that needs row-level protection.
 - `/account/` (`public/scripts/accountStats.js`) - library metrics: prompts, written
   by you vs. received from the catalog, how many catalog prompts you've customised,
   collections, uncollected, recently added, favourites, a category-distribution bar
@@ -266,6 +294,13 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   anonymous visitors after the resulting rebuild.
 
 **Built, but needs configuration to take effect:**
+- **`0007_category_limit.sql` is written and unapplied.** There is no Supabase
+  CLI here and `.env.local` holds only the anon key, so migrations are pasted
+  into the SQL editor by hand — this one has not been. Until it is, the ceiling
+  exists only in the browser: `/categories/` will disable its create button at
+  20, and nothing in the database enforces it. Apply it, then run
+  [`verify_0007.sql`](verify_0007.sql) — all 7 rows should read PASS except
+  check 7, which is informational.
 - **Category CRUD and seeding are unexercised against a real database.** `0006` is
   applied and the schema is verified, but the signed-in paths — creating, renaming,
   recolouring and reordering a category, the delete-with-reassignment RPC, and

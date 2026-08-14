@@ -39,7 +39,16 @@ decide whether email confirmation is wanted at all for a personal prompt library
 whether sign-up should be immediate. Pre-release you can turn "Confirm email" off, or
 confirm an account by hand with
 `update auth.users set email_confirmed_at = now() where email = '…'`.
-*Source: BUILD_BRIEF_v5.md §9.*
+*Worth knowing when you get to the templates:* sign-up now captures a first name into
+`auth.users.raw_user_meta_data`, and Supabase's email templates expose exactly that as
+`{{ .Data }}` — so `{{ .Data.first_name }}` personalises the confirmation and
+password-reset mails with no extra plumbing. Two limits: it only reaches the templates
+Supabase Auth itself sends (confirm sign-up, magic link, reset, invite, email change), so
+a *separate* marketing-style welcome email is not covered and would need its own sender;
+and metadata is read when the mail is triggered, so it must be passed at `signUp` time —
+which it is.
+*Source: BUILD_BRIEF_v5.md §9; email-template variables per
+[Supabase docs](https://supabase.com/docs/guides/auth/auth-email-templates).*
 
 **A2. Auth UX — the pages, not the delivery.** Distinct from A1 and easy to conflate:
 Supabase handles the mechanics, but the actual screens and copy for "check your email",
@@ -47,11 +56,43 @@ Supabase handles the mechanics, but the actual screens and copy for "check your 
 mail arrive; A2 is where it lands.
 *Source: BUILD_BRIEF_v4.md §7.*
 
-**A3. Terms of Service and Privacy Policy.** Not drafted. Becomes necessary rather than
-optional once real email addresses and personal libraries are being stored — which is
-already true of the admin account, and becomes true of other people the moment sign-ups
-open.
-*Source: BUILD_BRIEF_v4.md §7.*
+**A3. Terms of Service and Privacy Policy.** **Drafted and live at `/privacy/` and
+`/terms/`, linked from the footer — but not finishable without you.** Written for the UK
+(UK GDPR + Data Protection Act 2018, ICO as supervisory authority, England and Wales as
+governing law) and describing this system specifically rather than a generic one: no
+analytics or tracking cookies, esm.sh disclosed as a third party that sees visitor IPs,
+Supabase and Vercel as the two processors, and a Terms section on the owned-copies model
+because no template covers "these prompts are now copies you own".
+*Three things remain, and the first is the blocker:*
+- **`LEGAL_DETAILS` in `lib/render.mjs` still holds placeholders** — controller name,
+  contact email, postal address, last-updated date. A privacy notice that does not
+  identify its controller fails the one thing Article 13 actually requires, so
+  `scripts/build.mjs` warns on every run until they are filled in.
+- ~~**The cookie-consent judgement is worth confirming.**~~ **Answered in §9v.** The site
+  sets **no cookies at all** — verified in-browser (`document.cookie` empty) and in code
+  (`createClient` takes no options, so supabase-js keeps the session in localStorage).
+  PECR governs storing *any* information on a device rather than cookies specifically, so
+  the obligation is the same either way; what discharges it is disclosure of the three
+  things stored and why, which is now the policy's section 6. No separate cookie policy:
+  cookies are section 5 of the privacy policy, following the BBC's own "Privacy and
+  Cookies Policy" pattern, and the footer link reads "Privacy & Cookies" so the word is
+  findable. A banner would have nothing to ask about. *This becomes untrue the moment any
+  analytics, embed or advertising is added — at which point a consent mechanism is
+  required, not optional.*
+- **A solicitor's read**, if these are to cover more than a personal project. They are
+  researched drafts, not legal advice.
+*Source: BUILD_BRIEF_v4.md §7; drafted in BUILD_BRIEF.md §9u, restructured in §9v.*
+
+**A5. "Promptly" is already a live product in this exact space.**
+[promptly.fyi](https://www.promptly.fyi) is "Promptly AI" — a browser extension with a
+curated prompt library, custom folders and saved favourites, claiming 10,000+ users and
+listed on the Chrome, Edge and Firefox stores. Found while reviewing it as a privacy-policy
+reference. Not a legal opinion and not necessarily a problem — but a same-name, same-category
+product with an established user base is worth a deliberate decision *before* sign-ups open
+and the name is attached to other people's accounts, rather than after. The options are the
+usual ones (proceed, differentiate the name, or check whether they hold a registered mark),
+and the cost of choosing rises sharply once there are users.
+*Source: observed in BUILD_BRIEF.md §9v.*
 
 **A4. Rate limiting / sign-up abuse.** Supabase has baseline protection; whether it is
 sufficient has never been assessed. Unassessed is not the same as insufficient — this is
@@ -88,9 +129,11 @@ and why this is not urgent today.
   agree with both.
 *Source: BUILD_BRIEF_v5.md §6, §9.*
 
-**B3. Per-user category limit.** None exists. A sanity ceiling (~50?) mainly so the
-sidebar and filter toolbar can't be driven into a state nobody designed.
-*Source: BUILD_BRIEF_v6.md §9.*
+**B3. Per-user category limit.** ~~None exists.~~ **Built — see H. One step outstanding:
+`0007_category_limit.sql` has not been applied to the live project.** Until it is, the
+ceiling exists only in the browser. It stays listed here rather than moving wholly to H
+because an unapplied migration is not a finished item.
+*Source: BUILD_BRIEF_v6.md §9; built in BUILD_BRIEF.md §9u.*
 
 **B4. Make publish feel weightier in `/admin/`.** Publishing is irreversible in effect
 until B2 ships — once granted, a prompt can't be recalled or corrected across users. The
@@ -153,9 +196,37 @@ re-raised as a bug. The *related* defect — search showing the admin's categori
 than the caller's — is fixed (H4).
 
 **D4. `tools/sequence-builder/app.js` holds its own hardcoded copy of the nine category
-slugs.** A standalone tool outside the build; nothing imports it, and it was already out
-of step before categories became per-user. Update it or retire it deliberately.
-*Source: BUILD_BRIEF_v6.md §9.*
+slugs.** **Resolved — see H.**
+
+**D5b. `--ink-faint` fails AA.** Measured at **2.79:1** against `--paper`, below the
+4.5:1 floor for normal text. Found while building §9u's legal pages, and not fixed there:
+the token is used across the site (`.stat-empty`, `.cat-slug-note`, `.stat-footnote` and
+others), so changing its value is a design decision with a blast radius, not a
+one-line correction. §9u simply declined to *adopt* it for two new pieces of text — the
+legal date stamp and the at-limit note on `/categories/` — both of which use `--ink-soft`
+at 12px instead, letting size rather than contrast carry "this is secondary".
+*The decision to make:* darken the token (and re-measure everywhere it lands), or accept
+it as decorative-only and write down which uses are legitimate. Note WCAG exempts
+disabled controls, so `.btn:disabled` is not part of this.
+
+~~**The sharpest instance, found in §9v: the footer's links.**~~ **Fixed in §9v** — the
+footer moved to `--ink-soft` (3.03 → 5.89 light, 3.73 → 7.45 dark) once it became the only
+route to the privacy notice. That resolved the *instance*; the token is untouched.
+
+**Scale, counted rather than guessed: `var(--ink-faint)` appears 46 times in
+`styles/base.css`.** That is the reason this is a register item and not a quick fix. They
+are not all the same problem, and triaging them is most of the work:
+- **Text that must pass** — sidebar section labels and counts, `.purpose-line`,
+  `.filter-result-count`, table column headers, `.qv-position`, `.pd-meta-row` keys.
+  Currently 2.79:1 wherever they sit on `--paper`.
+- **Genuinely exempt** — `.btn-primary:disabled` / `.btn-danger:disabled` (WCAG excludes
+  inactive controls) and `.footer-sep` (decorative, `aria-hidden`).
+- **Not text at all** — several are `background:` values, including the `--cat` fallback,
+  where the 4.5:1 rule simply doesn't apply.
+Darkening the token fixes the first group and slightly muddies the third, so the likely
+answer is a second token rather than a change to this one — but that is the decision, and
+it wants making once with the whole list in view rather than incrementally.
+*Source: measured in BUILD_BRIEF.md §9u and §9v.*
 
 **D5. `supabase/seed_default_prompts.sql` no longer runs.** Writes to the dropped
 `prompts.categories` column. Left broken with a header explaining the fix rather than
@@ -263,3 +334,6 @@ were still being listed as outstanding after they shipped.
 | **Search's category pills show site-wide catalog numbers** | **Resolved** in §9s — `search.js` now rebuilds its pills from the caller's own categories and counts. The separate "counts don't change as you toggle" behaviour is intended (D3). |
 | **What admin-unpublishing should do** | **Largely resolved** by v5: unpublishing stops *future* grants, existing copies are untouched, and seeding won't re-grant. The v4 framing of this question is obsolete — it worried about forks and "view original", which no longer exist. **Residual:** whether users holding a copy should be *told* the catalog original was withdrawn. Folds into B2. |
 | **Merged-catalog treatment for personalized views** | **Obsolete.** The merged catalog was the v4 model; v5 replaced it with owned copies, so there is nothing to merge. |
+| **B3 — per-user category limit** | **Built** in §9u: 20, as a clause on the `categories_insert` RLS policy (`0007`), deliberately *not* a trigger so `ensure_seeded()` stays exempt via table ownership — a capped seeding transaction would silently stop a user's catalog prompts too. Admins are capped as well, which is what keeps a newly seeded account under the ceiling; a user can still exceed 20 via seeding, by design. Mirrored by `MAX_CATEGORIES_PER_USER` in `lib/schema.mjs`. **The migration is still unapplied** — B3 stays in section B until it is. |
+| **D4 — sequence-builder's hardcoded category slugs** | **Retired** in §9u, along with the bulk re-categorize control the array existed to populate. Two independent reasons: per-user categories leave no fixed vocabulary to mirror (and `lib/schema.mjs`'s array is gone, so there is nothing to sync against), and the control had been inert anyway — it wrote a singular `category:` key while the schema reads a `categories:` list. Drag-and-drop sequences and bulk delete are untouched and still wanted; the tool is expected to matter again for D1/E4. |
+| **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |

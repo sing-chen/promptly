@@ -9,7 +9,8 @@ import {
   renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
-  renderArchivedPage, renderWhySignInPage, renderCategoriesPage, setAssetVersion
+  renderArchivedPage, renderWhySignInPage, renderCategoriesPage, setAssetVersion,
+  renderPrivacyPage, renderTermsPage, legalPlaceholdersRemaining
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -152,6 +153,20 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('categories', renderCategoriesPage(data));
   writeRoute('archived', renderArchivedPage(data));
   writeRoute('why-sign-in', renderWhySignInPage(data));
+  writeRoute('privacy', renderPrivacyPage(data));
+  writeRoute('terms', renderTermsPage(data));
+
+  // A privacy notice that still says "[CONTROLLER NAME]" is worse than no
+  // privacy notice: it looks like a considered document while failing the one
+  // thing UK GDPR Article 13 actually requires of it, which is identifying who
+  // is responsible. The build warns rather than fails, because a broken build
+  // is the wrong lever for content that is only wrong once it is public - but
+  // it warns on every single run, loudly, until they are filled in.
+  const missing = legalPlaceholdersRemaining();
+  if (missing.length) {
+    console.warn(`\n  !! /privacy/ and /terms/ still contain placeholders: ${missing.join(', ')}.`);
+    console.warn('     Fill in LEGAL_DETAILS in lib/render.mjs before these pages are public.\n');
+  }
 
   // Statically generated for CATALOG categories only (BUILD_BRIEF_v6.md §5).
   // A user-created category can't have a build-time page, and rather than add
@@ -172,7 +187,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in/privacy/terms, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).
