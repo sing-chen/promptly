@@ -5,7 +5,7 @@ import { validatePrompts, buildData, buildSearchIndex, PUBLIC_DIR } from '../lib
 import { fetchPublishedPrompts, fetchCatalogCategories } from '../lib/supabaseBuild.mjs';
 import { promptHasCategory } from '../lib/schema.mjs';
 import {
-  renderHomePage, renderCategoryPage,
+  renderHomePage, renderCategoryPage, renderByCategoryPage, renderByCollectionPage,
   renderSequencesIndex, renderSequencePage,
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
@@ -154,6 +154,11 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('about', renderAboutPage(data));
   writeRoute('account', renderAccountPage(data));
   writeRoute('admin', renderAdminPage(data));
+  // The two filtered-prompt screens (§9aq). Static shells like Home's, with
+  // one pill row each; personalize.js swaps in the caller's own rows and
+  // pills once there is a session.
+  writeRoute('by-category', renderByCategoryPage(data));
+  writeRoute('by-collection', renderByCollectionPage(data));
   writeRoute('collections', renderCollectionsPage(data));
   writeRoute('categories', renderCategoriesPage(data));
   writeRoute('archived', renderArchivedPage(data));

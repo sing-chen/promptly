@@ -82,6 +82,23 @@ export async function getPersonalization() {
   return cache;
 }
 
+// Which of the caller's collections hold this prompt, as [{slug, title}] in
+// the user's own collection order (§9aq). Shared by the quick-view modal and
+// the static prompt page, which need the same answer in the same shape and
+// would otherwise each re-derive it from collection_prompts.
+//
+// Returns [] for anything unknown - no session, no collections, or a prompt id
+// belonging to someone else's row - so callers can treat "nothing to show" and
+// "nothing found" identically, which is what they both want to do.
+export function collectionsForPrompt(pers, promptId) {
+  if (!pers || !promptId) return [];
+  const slugs = new Set(pers.collectionSlugsByPromptId?.get(promptId) || []);
+  if (!slugs.size) return [];
+  return (pers.collections || [])
+    .filter(c => slugs.has(c.slug))
+    .map(c => ({ slug: c.slug, title: c.title }));
+}
+
 // Called after any write that changes the library (edit, archive, delete,
 // duplicate) - every page's own listener re-fetches via getPersonalization(),
 // which will now hit Supabase again instead of the stale cache.

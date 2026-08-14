@@ -11,7 +11,7 @@ import {
 } from './lib/render.mjs';
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
-import { initTableFilterToolbar } from './filters.js';
+import { initTableFilterToolbar, applyFiltersFromUrl } from './filters.js';
 import { deletePrompt, archivePrompt, duplicatePrompt } from './db.js';
 import { getPersonalization } from './personalizeData.js';
 import { confirmDialog } from './confirmDialog.js';
@@ -99,7 +99,7 @@ export function wireOwnerActions(container, items, personalization) {
   });
 }
 
-async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
+async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals, filterGroups }) {
   const tbody = document.getElementById(gridId);
   if (!tbody) return;
 
@@ -363,40 +363,26 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
       }))
       .filter(c => c.count > 0);
 
-    bar.outerHTML = renderFilterToolbar([
+    // Which pill rows this page gets (§9aq). Home asks for categories only,
+    // /by-category/ for categories, /by-collection/ for collections - because
+    // one screen carrying both rows was the complaint: it made "All Prompts"
+    // the destination for two things that are not all prompts, and stacked
+    // two filter axes on a page that needed neither.
+    // Defaults to categories alone, which is what every caller predating
+    // filterGroups (Favorites, Category pages) already showed.
+    const wanted = filterGroups || ['category'];
+    const groups = [
       { key: 'category', label: 'Category Filter(s)', options },
       { key: 'collection', label: 'Collection(s)', options: collectionOptions }
-    ], { id: toolbarId });
+    ].filter(g => wanted.includes(g.key));
+    bar.outerHTML = renderFilterToolbar(groups, { id: toolbarId });
     initTableFilterToolbar(toolbarId, gridId);
-    applyFiltersFromUrl();
-  }
-
-  // ?cat=<slug> and ?collection=<slug> pre-activate a pill. This is where the
-  // signed-in sidebar sends every category link (BUILD_BRIEF_v6.md §5): a
-  // user-created category has no statically generated /browse/ page, so
-  // Home-filtered-by-category is the destination for all of them rather than
-  // only some. §9ap put collection links on the same footing - clicking one
-  // used to open the management page, which answered "let me see what is in
-  // this" with "here is a form for renaming it".
-  //
-  // Applied after each toolbar rebuild, not once at startup, because the
-  // pills don't exist until the caller's categories have loaded - and only
-  // when nothing is active yet, so a rebuild triggered by an edit doesn't
-  // fight a filter the user has since changed.
-  function applyFiltersFromUrl() {
-    const params = new URLSearchParams(location.search);
-    const bar = document.getElementById(toolbarId);
-    // One guard for both: if anything is already active the user has taken
-    // over, and a rebuild triggered by an edit must not re-assert the URL's
-    // filter over the one they have since chosen.
-    if (!bar || bar.querySelector('.filter-pill.is-active')) return;
-    // Scoped by group, unlike the original which matched on value alone - a
-    // collection and a category are free to share a slug, and "launch" meaning
-    // both would otherwise activate whichever pill happened to come first.
-    const activate = (group, slug) => slug &&
-      bar.querySelector(`.filter-pill[data-group="${group}"][data-value="${CSS.escape(slug)}"]`)?.click();
-    activate('category', params.get('cat'));
-    activate('collection', params.get('collection'));
+    // Re-applied after each rebuild, not once at startup: the caller's own
+    // pills do not exist until their categories and collections have loaded,
+    // so the inline script's earlier call had nothing to match against. The
+    // helper's own "already active" guard is what stops a rebuild triggered by
+    // an edit from fighting a filter the user has since changed.
+    applyFiltersFromUrl(toolbarId);
   }
 
   async function refresh() {

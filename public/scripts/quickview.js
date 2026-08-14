@@ -8,6 +8,7 @@ import { renderCatBadges, esc, fmtDate } from '/scripts/lib/render.mjs';
 import { favKeyFrom, isFavoriteKey, toggleFavoriteKey } from './favoritesStore.js';
 import { deletePrompt, archivePrompt, duplicatePrompt } from './db.js';
 import { confirmDialog } from './confirmDialog.js';
+import { collectionsForPrompt } from './personalizeData.js';
 
 function readEmbedded(gridId) {
   const el = document.getElementById(`${gridId}-data`);
@@ -95,6 +96,8 @@ export function initQuickView(gridId, opts = {}) {
     archive: document.getElementById('qv-archive'),
     delete: document.getElementById('qv-delete'),
     openFull: document.getElementById('qv-open-full'),
+    collectionsRow: document.getElementById('qv-collections-row'),
+    collectionsList: document.getElementById('qv-collections-list'),
   };
 
   let currentSlug = null;
@@ -129,6 +132,28 @@ export function initQuickView(gridId, opts = {}) {
     const highlighted = esc(item.body).replace(/\{\{[^}]+\}\}/g, m => `<span class="var">${m}</span>`);
     els.body.innerHTML = highlighted;
     els.notes.textContent = item.notes || '';
+
+    // Which of the caller's collections hold this prompt (§9aq). Hidden
+    // unless there is something to say - signed out there is no answer at
+    // all, and a "none" row would be noise on the many prompts in none.
+    //
+    // Matched on item.id, which is the caller's own row id here rather than
+    // the catalog's: personalize.js re-renders the table from their library
+    // and re-embeds the quick-view payload from it, so by the time this runs
+    // on a personalized page the ids are theirs. On a static page there is no
+    // personalization and this short-circuits.
+    if (els.collectionsRow) {
+      const inCollections = collectionsForPrompt(personalization, item.id);
+      if (inCollections.length) {
+        els.collectionsList.innerHTML = inCollections
+          .map(c => `<a class="pd-collection-chip" href="/by-collection/?collection=${encodeURIComponent(c.slug)}">${esc(c.title)}</a>`)
+          .join('');
+        els.collectionsRow.hidden = false;
+      } else {
+        els.collectionsRow.hidden = true;
+      }
+    }
+
     els.added.textContent = fmtDate(item.added);
     if (item.updated) {
       els.modified.textContent = fmtDate(item.updated);

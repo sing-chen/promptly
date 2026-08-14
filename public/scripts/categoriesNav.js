@@ -11,7 +11,7 @@
 //
 // 2. Link targets change by tier (§5). Anonymous links point at the
 //    statically generated /browse/<slug>/ page; signed-in links point at
-//    Home filtered by that category (/?cat=<slug>), because a user-created
+//    /by-category/?cat=<slug> (§9aq - Home until then), because a user-created
 //    category has no static page and sending some categories to one
 //    destination and some to another would be the odd behaviour.
 import { supabase } from './supabaseClient.js';
@@ -24,7 +24,7 @@ function renderLive(categories, counts) {
     return '<p class="sidebar-empty-note">No categories yet.</p>';
   }
   const link = (c) => `
-<a href="/?cat=${encodeURIComponent(c.slug)}" data-cat-slug="${esc(c.slug)}"><span class="nav-icon nav-cat-dot" aria-hidden="true" style="${catColorVars(c)}"></span><span class="nav-label">${esc(categoryName(c))}</span><span class="count">${counts.get(c.slug) || 0}</span></a>`;
+<a href="/by-category/?cat=${encodeURIComponent(c.slug)}" data-cat-slug="${esc(c.slug)}"><span class="nav-icon nav-cat-dot" aria-hidden="true" style="${catColorVars(c)}"></span><span class="nav-label">${esc(categoryName(c))}</span><span class="count">${counts.get(c.slug) || 0}</span></a>`;
 
   // Same cap-and-disclose shape renderNav uses for the static list, so the
   // sidebar can't grow its own scrollbar however many categories exist.

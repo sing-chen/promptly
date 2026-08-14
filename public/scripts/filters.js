@@ -58,6 +58,34 @@ export function initFilterToolbar(toolbarId, { onChange } = {}) {
   };
 }
 
+// Pre-activates pills from the URL: ?cat=<slug> for the category group,
+// ?collection=<slug> for the collection group (§9aq).
+//
+// Exported and shared because two callers need identical behaviour and used
+// to have one copy between them: the page's own inline script, which runs for
+// everybody including anonymous visitors, and personalize.js, which re-runs it
+// after each toolbar rebuild once the caller's own pills exist. Before this
+// was shared, only the signed-in path applied it, so an anonymous visitor
+// reaching /by-category/?cat=writing got the whole catalog and a query
+// parameter the page ignored.
+//
+// Matched on [data-group][data-value], never value alone: categories and
+// collections are separate tables with separate uniqueness and may share a
+// slug, and "launch" meaning both would otherwise activate whichever pill came
+// first in the DOM.
+//
+// No-ops when anything is already active - a rebuild triggered by an edit must
+// not re-assert the URL's filter over one the user has since chosen.
+export function applyFiltersFromUrl(toolbarId) {
+  const bar = document.getElementById(toolbarId);
+  if (!bar || bar.querySelector('.filter-pill.is-active')) return;
+  const params = new URLSearchParams(location.search);
+  const activate = (group, slug) => slug &&
+    bar.querySelector(`.filter-pill[data-group="${group}"][data-value="${CSS.escape(slug)}"]`)?.click();
+  activate('category', params.get('cat'));
+  activate('collection', params.get('collection'));
+}
+
 // Static-page flavor for Category/Home: filters the table's own DOM rows
 // in-place using the data-categories attribute each row already carries
 // (same attribute the §9b table renders for the quick-view modal), rather
@@ -84,6 +112,9 @@ export function initTableFilterToolbar(toolbarId, gridId) {
   }
 
   const toolbar = initFilterToolbar(toolbarId, { onChange: apply });
+  // Before the first apply(), so the page paints already-filtered rather than
+  // showing everything and then visibly narrowing.
+  applyFiltersFromUrl(toolbarId);
 
   function apply() {
     // Empty on pages with no category pill group (e.g. Category, which is

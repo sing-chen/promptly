@@ -1139,6 +1139,28 @@ button.nav-toggle { display: none; }
 .pd-seq-nav a.next { color: var(--seq); }
 .pd-seq-nav a:hover { color: var(--seq); }
 
+/* "In collections" (§9aq) - between the hairline and the Created/Modified
+   row, in both the modal and the static prompt page. Hidden unless the caller
+   has this prompt in at least one collection, so it costs anonymous visitors
+   and uncollected prompts nothing. */
+.pd-collections-row {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 12.5px; margin-bottom: 10px;
+}
+/* Matches .pd-meta-row .kv's label treatment, so "In collections" reads as
+   the same kind of thing as "Created" sitting directly beneath it. */
+.pd-collections-label { color: var(--ink-faint); }
+.pd-collections-list { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+/* The same chip as a collection member on /collections/, minus the remove
+   button - one visual idea for "a collection", wherever it appears. */
+.pd-collection-chip {
+  display: inline-flex; align-items: center;
+  background: var(--well); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 2px 7px;
+  color: var(--ink);
+}
+.pd-collection-chip:hover { border-color: var(--accent); text-decoration: underline; }
+
 .pd-meta-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-soft); }
 .pd-meta-row .kv span:first-child { color: var(--ink-faint); margin-right: 4px; }
 .pd-meta-row .kv span:last-child { font-variant-numeric: tabular-nums; }

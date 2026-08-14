@@ -25,15 +25,20 @@ function renderLive(collections) {
   // thing to do here is what categoriesNav.js already does, which is nothing.
   // /?collection=<slug>, not /collections/ (§9ap). These used to go to the
   // management page, which answered "show me what is in this" with a form for
-  // renaming it. They now land on Home filtered to that collection, exactly
-  // as categoriesNav.js's links land on Home filtered to a category - list or
-  // grid, whichever view the caller last chose.
+  // renaming it. They now land on /by-collection/ filtered to that collection,
+  // exactly as categoriesNav.js's links land on /by-category/ - list or grid,
+  // whichever view the caller last chose.
+  //
+  // §9ap sent these to Home. §9aq moved them off it: one screen was serving as
+  // All Prompts, Prompts by Category and Prompts by Collection at once, which
+  // meant carrying both pill rows and calling itself "All Prompts" while
+  // showing a filtered subset.
   //
   // The count is the one thing not mirrored from categories: it would need
   // every prompt loaded here purely to compute it, and this module currently
   // reads collections alone.
   const items = collections.slice(0, SIDEBAR_LIST_CAP).map(c => `
-<a href="/?collection=${encodeURIComponent(c.slug)}" data-collection-slug="${esc(c.slug)}"><span class="nav-icon" aria-hidden="true">${ICON.collection}</span><span class="nav-label">${esc(c.title)}</span></a>`).join('');
+<a href="/by-collection/?collection=${encodeURIComponent(c.slug)}" data-collection-slug="${esc(c.slug)}"><span class="nav-icon" aria-hidden="true">${ICON.collection}</span><span class="nav-label">${esc(c.title)}</span></a>`).join('');
   const more = collections.length > SIDEBAR_LIST_CAP
     ? `<a href="/collections/" class="sidebar-view-all">View all ${collections.length} →</a>`
     : '';
