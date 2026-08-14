@@ -217,6 +217,7 @@ Dashboard → **Authentication → Sign In / Providers → Email**:
 | Setting | Value | Why |
 | --- | --- | --- |
 | **Confirm email** | **on** | Decided as part of §9ar. Nobody can log in until they click the link. The app is written for this: `signUp()` returning no session is what tells it the mail went out, and it says so explicitly if a session ever comes back instead |
+| **Secure password change** | **off — considered, not overlooked** (14 Aug 2026) | It would require re-authentication before a signed-in caller can change their password. Left off: the exposure it closes is someone with an already-unlocked browser, and the `/account/` → `/reset-password/` route (§9au) is a routine action that a re-auth prompt would make feel like a recovery. Worth revisiting if the site ever holds anything a stranger would want, which today it does not — a library of prompts you can also export in one click |
 
 Dashboard → **Authentication → URL Configuration**:
 
