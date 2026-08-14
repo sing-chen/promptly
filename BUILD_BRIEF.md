@@ -815,6 +815,22 @@ What changed is **labels and user-facing prose only**. Deliberately untouched: i
 
 ---
 
+## 9ac. Why-Log-In Serves Two States, Not Three (new)
+
+Three audiences are worth writing for on this page: a visitor with no account, a visitor who has one but is not logged in, and someone logged in. The instinct that the first two are "the same or very similar" is right, and the reason is stronger than similarity: **they are not distinguishable, and never can be.** A browser either presents a session or it does not, and "no session" says nothing about whether an account exists somewhere. The page cannot branch on it without guessing.
+
+So it serves them together, by writing for the situation they actually share — you are browsing without a library — and letting the two buttons at the foot split the audience **by intent rather than by detection**: Log in for someone who has an account, Sign up for someone who does not. That is what §9ab's split is for, and it is why the split matters beyond tidiness.
+
+**The logged-out intro now speaks to both.** It says browsing without an account is not a trial or a degraded mode but how the site works, and adds the line the returning-user case needs: logging in brings your library back, nothing in it expires, and browsing logged out never touches it. That was the real gap — a visitor with an account had no reassurance that ignoring the login for a while had cost them nothing.
+
+**The logged-in state gets its own opening and its own ending.** Both live in the static markup and are toggled by `setNavAccountState`, the same mechanism as everything else on this page; the logged-out halves start visible because they are the majority audience. The opening states plainly that everything below is already theirs. The ending replaces the sign-up CTA — the wrong close for someone who already has an account, but so is nothing at all, since this page is reached from the footer and a logged-in reader arrived deliberately. It links the four screens the rest of the page describes and never linked: `/account/`, `/categories/`, `/collections/`, `/archived/`. That also closes the §9aa finding that nothing on the site pointed at the account stats.
+
+The comparison panels and both prose sections stay in **both** states — they explain the model rather than sell it, which is as useful after signing up as before. One wording change was needed: "When you sign up, every published prompt is copied…" became "At sign-up, …", so it reads as an explanation rather than a future promise to someone for whom it already happened.
+
+**Verified**: the two intros are mutually exclusive in both states, logged-in opens on its own intro and closes on the four links, all four resolve, and AA holds in both themes for every new element (intros 5.42/8.31, heading 13.48/15.22, links 5.76/7.99) with no overflow.
+
+---
+
 ## 10. Build Order (revised)
 
 1. ~~Scaffold custom build script + `/prompts` folder~~ — done.

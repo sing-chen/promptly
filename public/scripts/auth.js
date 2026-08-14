@@ -26,6 +26,13 @@ function setNavAccountState(session) {
   // Note the negation: `!!session`, not `!session`.
   document.getElementById('why-signin-cta')?.toggleAttribute('hidden', !!session);
   document.getElementById('why-signup-asks')?.toggleAttribute('hidden', !!session);
+  document.getElementById('why-intro-out')?.toggleAttribute('hidden', !!session);
+  // ...and the two that appear only once there IS a session. Note these take
+  // `!session` like everything above - the page carries both halves in its
+  // static markup and shows one, because it cannot tell a visitor with no
+  // account from one who simply has not logged in.
+  document.getElementById('why-intro-in')?.toggleAttribute('hidden', !session);
+  document.getElementById('why-next-in')?.toggleAttribute('hidden', !session);
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('new-category-btn')?.toggleAttribute('hidden', !session);
