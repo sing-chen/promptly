@@ -61,7 +61,7 @@ async function load(root) {
   root.innerHTML = '<p style="color:var(--ink-faint);">Loading…</p>';
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    root.innerHTML = '<h1>Archived Prompts</h1><p><a href="/account/">Sign in</a> to see your archived prompts.</p>';
+    root.innerHTML = '<h1>Archived Prompts</h1><p><a href="/account/">Log in</a> to see your archived prompts.</p>';
     return;
   }
 

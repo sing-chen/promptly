@@ -5,7 +5,7 @@ import { esc } from './lib/render.mjs';
 
 function setNavAccountState(session) {
   const link = document.getElementById('nav-account-link');
-  if (link) link.textContent = session ? session.user.email : 'Sign in';
+  if (link) link.textContent = session ? session.user.email : 'Log in';
   // Sign out lives under the email in the sidebar so it's reachable from
   // anywhere, rather than only via /account/. Nothing to sign out of when
   // signed out, so it's hidden then.
@@ -19,11 +19,13 @@ function setNavAccountState(session) {
   // Same reasoning as New Prompt - collections are per-user, no admin
   // concept (db.js's createCollection() has no admin check either).
   document.getElementById('new-collection-btn')?.toggleAttribute('hidden', !session);
-  // /why-sign-in/'s call to action - the one toggle here that runs the other
-  // way round. Everything above appears when you sign in; this disappears,
-  // because "Sign in / sign up" is nonsense to someone already signed in.
+  // /why-sign-in/'s call to action and its "what signing up asks for"
+  // section - the two toggles here that run the other way round. Everything
+  // above appears when you log in; these disappear, because neither says
+  // anything to someone who already has an account.
   // Note the negation: `!!session`, not `!session`.
   document.getElementById('why-signin-cta')?.toggleAttribute('hidden', !!session);
+  document.getElementById('why-signup-asks')?.toggleAttribute('hidden', !!session);
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('new-category-btn')?.toggleAttribute('hidden', !session);
@@ -66,10 +68,16 @@ function renderSignedIn(root, session) {
   // esc() because this is free text the user typed, rendered into innerHTML.
   // The exposure is only to themselves, but "only self-XSS" is not a reason to
   // interpolate raw user input into markup.
+  // The greeting sits in the identity line rather than the <h1>, so the page
+  // still announces itself as "Account" in the heading and the tab title.
+  // Accounts created before the first-name field existed have no name at all,
+  // so the greeting has to be genuinely optional - not "Hi , you are logged
+  // in as…".
   const firstName = (session.user.user_metadata?.first_name || '').trim();
+  const greeting = firstName ? `Hi ${esc(firstName)}, you are` : 'You are';
   root.innerHTML = `
-<h1>${firstName ? `Hello, ${esc(firstName)}` : 'Account'}</h1>
-<p class="account-identity">Signed in as <strong>${esc(session.user.email)}</strong></p>
+<h1>Account</h1>
+<p class="account-identity">${greeting} logged in as <strong>${esc(session.user.email)}</strong></p>
 <div id="account-stats"></div>`;
   initAccountStats(document.getElementById('account-stats'), session.user);
 }
@@ -79,7 +87,7 @@ function renderSignedOut(root) {
   root.innerHTML = `
 <h1>Account</h1>
 <div class="filter-pill-group account-tabs">
-  <button type="button" class="filter-pill is-active" data-tab="sign-in" aria-pressed="true">Sign in</button>
+  <button type="button" class="filter-pill is-active" data-tab="sign-in" aria-pressed="true">Log in</button>
   <button type="button" class="filter-pill" data-tab="sign-up" aria-pressed="false">Sign up</button>
 </div>
 <form id="auth-form" class="account-form">
@@ -100,7 +108,7 @@ function renderSignedOut(root) {
   <label>Password
     <input type="password" name="password" required minlength="6" autocomplete="current-password">
   </label>
-  <button type="submit" id="auth-submit-btn" class="btn btn-primary">Sign in</button>
+  <button type="submit" id="auth-submit-btn" class="btn btn-primary">Log in</button>
   <p id="auth-message" hidden></p>
 </form>`;
 
@@ -114,21 +122,34 @@ function renderSignedOut(root) {
   const firstNameField = root.querySelector('#auth-firstname-field');
   const firstNameInput = firstNameField.querySelector('input');
 
-  tabs.forEach(tab => tab.addEventListener('click', () => {
+  function setMode(tab) {
     mode = tab.dataset.tab;
     tabs.forEach(t => {
       const active = t === tab;
       t.classList.toggle('is-active', active);
       t.setAttribute('aria-pressed', String(active));
     });
-    submitBtn.textContent = mode === 'sign-in' ? 'Sign in' : 'Sign up';
+    submitBtn.textContent = mode === 'sign-in' ? 'Log in' : 'Sign up';
     passwordInput.autocomplete = mode === 'sign-in' ? 'current-password' : 'new-password';
     // Both, together, always - see the comment on the field itself.
     const signingUp = mode === 'sign-up';
     firstNameField.hidden = !signingUp;
     firstNameInput.required = signingUp;
     messageEl.hidden = true;
-  }));
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => setMode(tab)));
+
+  // /why-sign-in/ links Sign up at /account/#sign-up. Without this the split
+  // into two buttons would be cosmetic - both would land on the log-in form
+  // and the reader would have to find the tab themselves. Reusing setMode()
+  // rather than setting `mode` directly is what keeps the first-name field's
+  // hidden/required pair in step; setting the variable alone would show a
+  // sign-up form that silently refuses to submit.
+  if (location.hash === '#sign-up') {
+    const tab = tabs.find(t => t.dataset.tab === 'sign-up');
+    if (tab) setMode(tab);
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

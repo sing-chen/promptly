@@ -200,7 +200,7 @@ async function init() {
 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    root.innerHTML = '<h1>Collections</h1><p><a href="/account/">Sign in</a> to create and manage collections.</p>';
+    root.innerHTML = '<h1>Collections</h1><p><a href="/account/">Log in</a> to create and manage collections.</p>';
   } else {
     renderedForUserId = session.user.id;
     await render(root);
@@ -209,7 +209,7 @@ async function init() {
   supabase.auth.onAuthStateChange(async (_event, session) => {
     if (!session) {
       renderedForUserId = null;
-      root.innerHTML = '<h1>Collections</h1><p><a href="/account/">Sign in</a> to create and manage collections.</p>';
+      root.innerHTML = '<h1>Collections</h1><p><a href="/account/">Log in</a> to create and manage collections.</p>';
     } else if (session.user.id !== renderedForUserId) {
       renderedForUserId = session.user.id;
       await render(root);

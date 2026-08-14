@@ -38,8 +38,8 @@ function announce() {
 function signedOutView() {
   return `
 <div class="surface sidebar-callout categories-callout">
-  <p>Categories organise your prompts. Browsing uses the shared set; signing in gives you your own — rename them, pick their colours, add ones that fit how you actually work.</p>
-  <p><a href="/why-sign-in/" class="btn btn-primary">Why sign in?</a></p>
+  <p>Categories organise your prompts. Browsing uses the shared set; logging in gives you your own — rename them, pick their colours, add ones that fit how you actually work.</p>
+  <p><a href="/why-sign-in/" class="btn btn-primary">Why log in?</a></p>
 </div>`;
 }
 

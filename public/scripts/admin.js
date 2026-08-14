@@ -63,7 +63,7 @@ async function load(root) {
   root.innerHTML = '<p style="color:var(--ink-faint);">Loading…</p>';
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
-    root.innerHTML = '<h1>Admin</h1><p><a href="/account/">Sign in</a> to access the admin page.</p>';
+    root.innerHTML = '<h1>Admin</h1><p><a href="/account/">Log in</a> to access the admin page.</p>';
     return;
   }
   const admin = await isAdmin();
