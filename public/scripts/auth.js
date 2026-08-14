@@ -10,6 +10,10 @@ function setNavAccountState(session) {
   // anywhere, rather than only via /account/. Nothing to sign out of when
   // signed out, so it's hidden then.
   document.getElementById('nav-signout-btn')?.toggleAttribute('hidden', !session);
+  // Sits alongside Log out for the same reason: reachable from any page, and
+  // meaningless without a session. It links to /account/ rather than
+  // downloading anything - see the comment on the element in lib/render.mjs.
+  document.getElementById('nav-export-link')?.toggleAttribute('hidden', !session);
   // Open to any signed-in user (db.js's createPrompt() has no admin check) -
   // the New Prompt modal's own "make this a default prompt" checkbox is
   // admin-gated, not the button itself. Starts hidden server-side so

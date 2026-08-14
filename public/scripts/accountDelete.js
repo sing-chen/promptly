@@ -233,7 +233,7 @@ function initDialog() {
 // ── page sections ────────────────────────────────────────────────────
 
 const TOOLS_MARKUP = `
-<section class="account-tools">
+<section class="account-tools" id="export">
   <h2>Export your library</h2>
   <p>Everything in your account, in a file you keep. Built in your browser — nothing is sent anywhere.</p>
   <div class="export-options">
@@ -262,18 +262,66 @@ export function initAccountTools(root, user) {
   // this, signing in as someone else in the same tab would hand them the
   // previous account's data.
   cached = null;
+
+  // Remove any host from a previous call before appending, because this
+  // function genuinely can run twice for one page view - and did, shipping a
+  // page with two Export sections and two Delete account buttons.
+  //
+  // The race, since it is not obvious from either end: auth.js renders the
+  // account page from init() and again from onAuthStateChange, and each render
+  // resets #account-root's innerHTML before calling this. That alone would be
+  // harmless. What breaks it is that auth.js reaches this function through a
+  // dynamic import(), so the append is deferred - both renders wipe the root
+  // first and both appends land afterwards, so nothing is cleaned up by the
+  // second render and the sections stack.
+  //
+  // Removing rather than early-returning is what makes this correct for the
+  // case that matters: the second call may carry a DIFFERENT user (a sign-in
+  // completing after the initial signed-out paint), and an early return would
+  // leave the first user's markup in place wired to stale handlers.
+  root.querySelector('#account-tools-host')?.remove();
+
   const host = document.createElement('div');
+  host.id = 'account-tools-host';
   host.innerHTML = TOOLS_MARKUP;
   root.appendChild(host);
 
-  document.getElementById('export-md-btn')
+  // Scoped to `host` rather than getElementById, so that even if a duplicate
+  // ever survives the removal above, these bind to the copy just created
+  // rather than to whichever one happens to be first in the document.
+  host.querySelector('#export-md-btn')
     .addEventListener('click', (e) => exportAs('md', e.currentTarget));
-  document.getElementById('export-json-btn')
+  host.querySelector('#export-json-btn')
     .addEventListener('click', (e) => exportAs('json', e.currentTarget));
 
   initDialog();
 
-  document.getElementById('delete-account-btn').addEventListener('click', async () => {
+  // The sidebar's Export library link points at /account/#export, and this
+  // section does not exist when the browser resolves that hash - it is
+  // appended here, after the session check and a dynamic import. So the
+  // browser silently does nothing and the link appears to just go to the
+  // account page. Scrolling explicitly once the markup exists is the fix.
+  // Same shape as auth.js's #sign-up handling, which had the same problem for
+  // the same reason.
+  //
+  // Deferred rather than called straight after appendChild, because called
+  // synchronously it silently does nothing: the section is in the DOM but the
+  // document has not been laid out at its new height yet, so there is nothing
+  // to scroll to and no error either. Measured - the same call one task later
+  // moves the page 674px.
+  //
+  // setTimeout rather than requestAnimationFrame, deliberately. rAF does not
+  // fire at all while the tab is not compositing, so in a background tab the
+  // scroll would be deferred indefinitely - and it made this untestable here,
+  // where the browser pane can be hidden. A task-queue yield flushes layout
+  // without depending on the page being painted.
+  if (location.hash === '#export') {
+    setTimeout(() => {
+      host.querySelector('#export')?.scrollIntoView({ block: 'start' });
+    }, 0);
+  }
+
+  host.querySelector('#delete-account-btn').addEventListener('click', async () => {
     // Asked at click time rather than at render time, so the button is never
     // briefly wrong. An admin gets the explanation pane; everyone else gets
     // the real flow. Either way 0008 is what enforces it - this only decides

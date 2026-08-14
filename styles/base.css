@@ -1871,6 +1871,15 @@ tr.is-flash, .prompt-card.is-flash {
   text-align: left;
 }
 .sidebar-signout:hover { color: var(--danger); text-decoration: underline; }
+/* Export library shares .sidebar-signout's layout and overrides its colours,
+   so it must come after: both selectors are (0,1,0) and (0,2,0) respectively,
+   and the tie is broken by document order. Two changes, each deliberate.
+   --ink-soft rather than the inherited --ink-faint, because that measures
+   2.79:1 (OPEN_ITEMS.md D5b) and new text should not enlarge a known failure.
+   And an accent hover rather than the danger red Log out uses - red signals
+   destructive, and downloading a copy of your own work is the opposite. */
+.sidebar-export { color: var(--ink-soft); text-decoration: none; }
+.sidebar-export:hover { color: var(--accent); text-decoration: underline; }
 
 /* ── Account page stats (/account/, public/scripts/accountStats.js) ──
    Tiles for headline numbers, a bar chart for category spread. Reuses the
@@ -1949,6 +1958,16 @@ tr.is-flash, .prompt-card.is-flash {
    heading levels in this section can't drift apart. */
 .export-option h3 { font-family: var(--display); font-size: 13.5px; margin: 0; padding: 0; }
 .export-option p { font-size: 12.5px; line-height: 1.55; color: var(--ink-soft); margin: 0; flex: 1; }
+/* .btn-secondary is a transparent fill with a --line border, which is tuned to
+   sit on --paper. These buttons sit on --well, where that border measures well
+   under the 3:1 WCAG 1.4.11 asks of a UI component's boundary and the button
+   reads as a label rather than a control. Two changes together: --paper gives
+   the button a fill distinct from the panel it sits in, and --ink-soft gives
+   the boundary a contrast that survives the darker ground (4.9:1 light,
+   8.7:1 dark, measured). The doubled selector is needed - `.btn-secondary` is
+   (0,1,0) and would otherwise win on document order. */
+.export-option .btn-secondary { background: var(--paper); border-color: var(--ink-soft); }
+.export-option .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
 .account-danger { margin: 32px 0 0; border-top: 1px solid var(--line-soft); padding-top: 28px; }
 .account-danger h2 { font-size: 15px; margin: 0 0 4px; color: var(--danger); }
