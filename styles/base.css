@@ -1736,6 +1736,10 @@ label.np-admin-check {
 .why-compare-col { padding: 18px 20px; }
 .why-compare-col h2 { font-family: var(--display); font-size: 14px; margin: 0 0 10px; }
 .why-compare-col ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; font-size: 13.5px; color: var(--ink-soft); }
+/* The page gained .prose-page for its new prose sections, and `.prose-page li`
+   sets an explicit 14px that would otherwise beat the 13.5px inherited from the
+   ul above. Restated here so the comparison panels keep the size they had. */
+.why-compare-col li { font-size: 13.5px; }
 
 /* Help text under the modal's admin-only choices. The publish decision and
    the notify decision both have consequences that aren't obvious from a
