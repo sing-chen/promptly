@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient.js';
 import { initAccountStats } from './accountStats.js';
 import { isAdmin } from './db.js';
-import { esc } from './lib/render.mjs';
+import { esc, ICON } from './lib/render.mjs';
 
 // These two mirror a rule that is actually enforced somewhere else: Supabase
 // Auth's own password policy (dashboard → Authentication → Sign In / Providers
@@ -245,7 +245,16 @@ function renderSignedOut(root) {
        form refusing a password that genuinely works is a lockout with no
        explanation and no way round it. -->
   <label>Password
-    <input type="password" name="password" required autocomplete="current-password">
+    <!-- The wrapper exists purely so the toggle has something to be
+         positioned against. .account-form label is a flex column, and an
+         absolutely-positioned child of that would anchor to the label - i.e.
+         to the "Password" text as well as the input - rather than to the
+         field itself. -->
+    <span class="pw-field">
+      <input type="password" name="password" required autocomplete="current-password">
+      <button type="button" id="auth-pw-toggle" class="icon-btn pw-toggle"
+              aria-pressed="false" aria-label="Show password" data-tip="Show password">${ICON.eye}</button>
+    </span>
   </label>
   <!-- Stated before the attempt rather than revealed by failing one. Both of
        these are hidden in sign-in mode - the rules do not apply to a password
@@ -271,6 +280,7 @@ function renderSignedOut(root) {
 
   const firstNameField = root.querySelector('#auth-firstname-field');
   const firstNameInput = firstNameField.querySelector('input');
+  const pwToggle = root.querySelector('#auth-pw-toggle');
   const rulesEl = root.querySelector('#auth-password-rules');
   const strengthEl = root.querySelector('#auth-strength');
   const strengthFill = strengthEl.querySelector('.auth-strength-bar span');
@@ -283,6 +293,44 @@ function renderSignedOut(root) {
     messageEl.setAttribute('role', role);
     messageEl.hidden = false;
   }
+
+  // Show/hide password (§9ai). Worth having on both tabs, not just sign-up:
+  // the commonest use is checking a password manager's generated string
+  // actually landed in the field, and the second commonest is working out why
+  // a login keeps failing.
+  //
+  // aria-pressed carries the state, aria-label and data-tip carry the action.
+  // The icon alone names nothing to a screen reader, and an eye with no label
+  // is ambiguous even visually - it reads equally as "is shown" or "click to
+  // show".
+  function setPasswordVisible(visible) {
+    // Guard: this runs from setMode() too, which fires on every tab click.
+    // Without it, switching tabs would re-render the icon and reset the
+    // selection below for no reason.
+    if ((passwordInput.type === 'text') === visible) return;
+    // Restoring the caret is the whole reason this is more than one line.
+    // Changing an input's type discards its selection in every engine tested,
+    // so a toggle mid-typing would otherwise dump the cursor at one end of the
+    // field - which is exactly when someone reaches for this control.
+    const { selectionStart, selectionEnd } = passwordInput;
+    const hadFocus = document.activeElement === passwordInput;
+    passwordInput.type = visible ? 'text' : 'password';
+    if (hadFocus) {
+      passwordInput.focus();
+      // try/catch because selectionStart is null on some input types and
+      // setSelectionRange throws on those; not worth failing a toggle over.
+      try { passwordInput.setSelectionRange(selectionStart, selectionEnd); } catch {}
+    }
+    pwToggle.innerHTML = visible ? ICON.eyeOff : ICON.eye;
+    pwToggle.setAttribute('aria-pressed', String(visible));
+    const label = visible ? 'Hide password' : 'Show password';
+    pwToggle.setAttribute('aria-label', label);
+    pwToggle.dataset.tip = label;
+  }
+
+  pwToggle.addEventListener('click', () => {
+    setPasswordVisible(passwordInput.type === 'password');
+  });
 
   function updateStrength(password) {
     // Nothing to rate on an empty field, and an empty field is the state the
@@ -323,6 +371,10 @@ function renderSignedOut(root) {
       passwordInput.removeAttribute('maxlength');
     }
     rulesEl.hidden = !signingUp;
+    // Re-mask on every tab switch. Leaving a password on screen because the
+    // user changed tabs is a decision nobody made - the reveal was asked for
+    // in one context and should not silently carry into another.
+    setPasswordVisible(false);
     // Re-rate rather than just hide: switching tabs with a password already
     // typed would otherwise leave the previous mode's rating on screen, or
     // leave a sign-up password unrated until the next keystroke.

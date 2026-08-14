@@ -1541,6 +1541,38 @@ footer.site-footer {
 #auth-message { font-size: 13px; color: var(--ink-soft); margin: 0; }
 #auth-message[role="alert"] { color: var(--danger); }
 
+/* Show/hide password toggle (§9ai). The wrapper is what the button anchors
+   to; see the comment on the markup in auth.js for why the label itself will
+   not do. */
+.pw-field { position: relative; display: block; }
+/* width:100% because the input is no longer a direct flex item of the label -
+   it is in a block-level span, where it would otherwise fall back to its
+   intrinsic size and stop short of the field width. padding-right clears the
+   button so a long password does not run underneath it. */
+.pw-field input { width: 100%; padding-right: 40px; }
+/* Overrides .icon-btn's own `position: relative` (set for tooltip anchoring).
+   Same specificity, so this wins only by sitting later in the file - which it
+   does, ~1000 lines later. The tooltip still anchors correctly: an absolutely
+   positioned element is a containing block for its own ::after. */
+.pw-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  /* --ink-soft, not --ink-faint. Measured: --ink-faint on the field's --paper
+     ground is 2.79:1, which fails WCAG 1.4.11's 3:1 for a user-interface
+     component - and this is a control, not decorative text, so the non-text
+     threshold is the one that applies. That is D5b's token, and §9ag made the
+     same call for the sidebar icons for the same reason: do not copy a known
+     failure into a new component because an existing one does it.
+     --ink-soft measures 5.42:1 light / 8.31:1 dark against the same ground. */
+  color: var(--ink-soft);
+}
+.pw-toggle:hover { background: transparent; color: var(--ink); }
+.pw-toggle[aria-pressed="true"] { color: var(--accent); }
+
 /* Password rules + strength meter (public/scripts/auth.js) - sign-up mode
    only, both hidden by setMode() in sign-in mode.
    Negative top margin pulls each back toward the field it describes: the form
