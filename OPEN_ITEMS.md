@@ -92,6 +92,12 @@ because no template covers "these prompts are now copies you own".
   required, not optional.*
 - **A solicitor's read**, if these are to cover more than a personal project. They are
   researched drafts, not legal advice.
+*Corrected in §9x:* the policy originally described only the signed-in experience, and
+its lawful-basis table rested entirely on contract — leaving anonymous browsing, the most
+common use of the site, with no stated Article 6 basis at all. Legitimate interests now
+covers serving the site and securing it, and each section says whether it applies to
+everyone or only to account holders. Worth remembering as a pattern: the account tier is
+where the design attention goes, so the anonymous tier is where the omissions collect.
 *Source: BUILD_BRIEF_v4.md §7; drafted in BUILD_BRIEF.md §9u, restructured in §9v.*
 
 **A5. "Promptly" is already a live product in this exact space.**
