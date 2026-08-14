@@ -330,7 +330,11 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 - **Transactional email / SMTP** - unconfigured, and blocks public launch. Sign-up says
   "check your email", but that mail comes from Supabase's built-in test-only sender.
   Password reset has the same dependency. See BUILD_BRIEF_v5.md §9.
-- `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.
+- **User-authored sequences.** Signed-in users see their *own* copies in every sequence
+  rail (fixed in BUILD_BRIEF.md §9z — `initPersonalizedRail()`), but they cannot build a
+  new chain of their own: sequence pages are generated at build time from the catalog, so
+  a sequence a user invents on their own prompts has nowhere to render. See OPEN_ITEMS.md
+  E4.
 - Multiple admins: a second admin would see only their own catalog rows and couldn't
   edit the first admin's. Fine at one admin; needs a decision before a second.
 

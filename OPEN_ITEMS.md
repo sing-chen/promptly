@@ -193,17 +193,11 @@ zero prompts rather than an error.
 Things that are wrong or misleading in the product as it stands, as opposed to features
 not yet started.
 
-**D1. `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.** Only Home and
-Category call `initPersonalizedTable`, so a signed-in user browsing sequences sees the
-*catalog's* prompts rather than their own copies — the one place the v5 promise that
-"every prompt you see is yours" visibly fails.
-**The premise inherited from v4 §7 was wrong and is corrected here:** that note said
-sequences "stay applied to the curated catalog only", implying user copies have no
-sequence data. They do — `ensure_seeded()` copies `sequence` and `sequence_step` and
-remaps `depends_on` onto the user's own copies, so a signed-in library already forms
-complete chains. What is missing is only the rendering. That makes this much smaller
-than v4 framed it, and separate from E4 (letting users *author* sequences).
-*Source: supabase/README.md Status; premise corrected against `0006` §8 phase 3.*
+**D1. `/sequences/` and `/sequence/[slug]/` aren't personalization-aware.**
+**Fixed — moved to H.** One residual, deliberately left: a sequence a user creates on
+their *own* prompts still has no page, because sequence pages are generated at build time
+from the catalog. That is E4 (user-authored sequences), not this.
+*Source: fixed in BUILD_BRIEF.md §9z.*
 
 **D2. Variable-fill is not built, but the UI teaches it.** The New Prompt modal tells
 users to "wrap any fill-in-the-blank part in double braces, e.g. `{{topic}}`, so it can
@@ -360,5 +354,6 @@ were still being listed as outstanding after they shipped.
 | **Merged-catalog treatment for personalized views** | **Obsolete.** The merged catalog was the v4 model; v5 replaced it with owned copies, so there is nothing to merge. |
 | **B3 — per-user category limit** | **Built** in §9u: 20, as a clause on the `categories_insert` RLS policy (`0007`), deliberately *not* a trigger so `ensure_seeded()` stays exempt via table ownership — a capped seeding transaction would silently stop a user's catalog prompts too. Admins are capped as well, which is what keeps a newly seeded account under the ceiling; a user can still exceed 20 via seeding, by design. Mirrored by `MAX_CATEGORIES_PER_USER` in `lib/schema.mjs`. **Applied and verified** — `verify_0007.sql` passes, with check 7 reading CHECK as designed (it reports the largest per-user category count, which is data-dependent and can legitimately exceed 20 via seeding). Checks 4/5/6 are the ones to re-run if seeding ever misbehaves: they assert the three properties the cap's seeding exemption rests on. |
 | **D4 — sequence-builder's hardcoded category slugs** | **Retired** in §9u, along with the bulk re-categorize control the array existed to populate. Two independent reasons: per-user categories leave no fixed vocabulary to mirror (and `lib/schema.mjs`'s array is gone, so there is nothing to sync against), and the control had been inert anyway — it wrote a singular `category:` key while the schema reads a `categories:` list. Drag-and-drop sequences and bulk delete are untouched and still wanted; the tool is expected to matter again for D1/E4. |
+| **D1 — sequences weren't personalization-aware** | **Fixed** in §9z. `initPersonalizedRail()` rebuilds both rails from the caller's own copies, with quick-view handed the same steps so a card opens *their* text and offers Edit/Delete. The data was never missing — `ensure_seeded()` already copies `sequence`/`sequence_step` and remaps `depends_on` — only the rendering was, exactly as this entry's corrected premise said. Personalized cards drop their `href` (a user's copy has no static page, and where the slug collides the page that exists shows the catalog's text) and take `role="button" tabindex="0"` instead, so keyboard access survives. An emptied chain hides its section on `/sequences/` and explains itself on the detail page. |
 | **Contact form backed by Supabase** | **Considered and deliberately not built** (§9y). A guest-usable form means `anon` INSERT — a permanent open write path from the internet — needing length CHECKs, a honeypot and an IP rate limit, and *then* a notification path, since a table row tells nobody. That last part depends on A1, which is unresolved. `/contact/` is a `mailto:` page with subject-prefilled links instead. Revisit only if email genuinely proves insufficient; the hardening list above is the price of entry. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |

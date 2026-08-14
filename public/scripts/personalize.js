@@ -7,7 +7,7 @@
 import { promptHasCategory } from './lib/schema.mjs';
 import {
   renderPromptTableRows, renderPromptCard, renderFilterToolbar,
-  categoryName, findNewPrompts, NEW_WINDOW_DAYS
+  renderSequenceRailItems, categoryName, findNewPrompts, NEW_WINDOW_DAYS
 } from './lib/render.mjs';
 import { initInteractive } from './favorites.js';
 import { getQuickView } from './quickViewRegistry.js';
@@ -384,4 +384,72 @@ async function rebuildBlock({ gridId, toolbarId, filterFn, sequenceTotals }) {
 
 export function initPersonalizedTable(opts) {
   rebuildBlock(opts).catch(err => console.error('Failed to load your prompts:', err));
+}
+
+// ── sequence rails ──────────────────────────────────────────────────
+// /sequences/ and /sequence/<slug>/ used to be the one place the v5 promise
+// that "every prompt you see is yours" visibly failed: they were the only
+// personalizable views that never called into this module, so a signed-in
+// user browsing a chain was looking at the *catalog's* prompts (OPEN_ITEMS.md
+// D1). The data was never the problem - ensure_seeded() copies `sequence` and
+// `sequence_step` and remaps `depends_on` onto the user's own rows, so a
+// signed-in library already holds complete chains. Only the rendering was
+// missing.
+//
+// Why this is a separate function rather than an option on rebuildBlock():
+// a rail is not a table. There are no rows, no bulk-selection checkboxes, no
+// per-row action buttons and no filter toolbar - it is a list of cards joined
+// by a connector line, and the owner actions are reached by opening a card in
+// the quick-view modal, which already offers them whenever personalization is
+// non-null. Forcing both layouts through one function would mean a parameter
+// switching off most of it.
+async function rebuildRail({ gridId, sequenceSlug, compact, updateSubtitle }) {
+  const rail = document.getElementById(gridId);
+  if (!rail) return;
+
+  const personalization = await getPersonalization();
+  if (!personalization) return; // signed out - the static build stays as rendered
+
+  // `.prompts` excludes archived rows, so archiving a step removes it from
+  // the chain here too, which is the same rule the browse table follows.
+  const steps = personalization.prompts
+    .filter(p => p.sequence === sequenceSlug)
+    .sort((a, b) => (a.sequence_step ?? 0) - (b.sequence_step ?? 0));
+
+  // A signed-in user can delete or archive every prompt in a chain, which an
+  // anonymous visitor cannot - so an empty sequence is a state that only
+  // exists on this side and has to be handled. On /sequences/ the whole
+  // section goes (a heading over nothing reads as a bug); on the detail page
+  // the rail is the content, so it explains itself instead.
+  const section = rail.closest('[data-sequence]');
+  if (!steps.length) {
+    if (section) section.hidden = true;
+    else rail.innerHTML = '<p class="stat-empty">You no longer have any prompts in this sequence. Deleted or archived prompts leave the chain; anything archived can be restored from <a href="/archived/">Archived</a>.</p>';
+    getQuickView(gridId)?.update([], personalization);
+    return;
+  }
+  if (section) section.hidden = false;
+
+  rail.innerHTML = renderSequenceRailItems(steps, { compact, gridId, personalized: true });
+
+  // Hand the modal the caller's own steps, so opening a card shows their
+  // text and offers Edit/Delete rather than showing the catalog's copy.
+  getQuickView(gridId)?.update(steps, personalization);
+
+  // The detail page's subtitle is baked at build time from the catalog's step
+  // count. A user who deleted a step would otherwise read "4 steps" above a
+  // rail showing three.
+  if (updateSubtitle) {
+    const el = document.querySelector('.main-header-subtitle');
+    if (el) el.textContent = `${steps.length} step${steps.length === 1 ? '' : 's'}`;
+  }
+}
+
+export function initPersonalizedRail(opts) {
+  const run = () => rebuildRail(opts)
+    .catch(err => console.error('Failed to personalize this sequence:', err));
+  run();
+  // Editing a step's title, or deleting one, changes the chain - repaint
+  // rather than leaving the rail stale until a reload.
+  document.addEventListener('personalization:changed', run);
 }
