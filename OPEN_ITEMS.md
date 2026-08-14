@@ -58,16 +58,27 @@ mail arrive; A2 is where it lands.
 
 **A3. Terms of Service and Privacy Policy.** **Drafted and live at `/privacy/` and
 `/terms/`, linked from the footer — but not finishable without you.** Written for the UK
-(UK GDPR + Data Protection Act 2018, ICO as supervisory authority, England and Wales as
-governing law) and describing this system specifically rather than a generic one: no
+(UK GDPR + Data Protection Act 2018, ICO as supervisory authority, **Scots law** as
+governing law — data protection is UK-wide so the privacy notice is unaffected by that,
+but contract law is devolved so the Terms are Scottish) and describing this system
+specifically rather than a generic one: no
 analytics or tracking cookies, esm.sh disclosed as a third party that sees visitor IPs,
 Supabase and Vercel as the two processors, and a Terms section on the owned-copies model
 because no template covers "these prompts are now copies you own".
 *Three things remain, and the first is the blocker:*
-- **`LEGAL_DETAILS` in `lib/render.mjs` still holds placeholders** — controller name,
-  contact email, postal address, last-updated date. A privacy notice that does not
-  identify its controller fails the one thing Article 13 actually requires, so
-  `scripts/build.mjs` warns on every run until they are filled in.
+- ~~**`LEGAL_DETAILS` still holds placeholders.**~~ **Done in §9w** — Sing Chen,
+  singfenchen@gmail.com, 14 August 2026. No postal address, deliberately and permanently:
+  Article 13 requires contact details, which an email satisfies, and "available on request"
+  would have been a standing commitment to disclose a home address. The build warning is
+  silent, which is how you know none were missed.
+- **The under-13 exclusion is a live decision.** Currently in place (terms §2, privacy
+  §11) and recommended to stay. Removing it invites the ICO's Children's Code, which
+  covers under-18s and applies to any service "likely to be accessed by children" — a
+  threshold the ICO has refused to quantify beyond "more than de minimis", and one that
+  an absent age floor argues *for*. Its fifteen standards include a DPIA and
+  high-privacy defaults. Separately, in Scotland the Terms are a contract an under-16
+  can only enter for transactions "commonly entered into" on reasonable terms (Age of
+  Legal Capacity (Scotland) Act 1991 s.2(1)); a stated floor sidesteps the argument.
 - ~~**The cookie-consent judgement is worth confirming.**~~ **Answered in §9v.** The site
   sets **no cookies at all** — verified in-browser (`document.cookie` empty) and in code
   (`createClient` takes no options, so supabase-js keeps the session in localStorage).
