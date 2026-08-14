@@ -1541,6 +1541,56 @@ footer.site-footer {
 #auth-message { font-size: 13px; color: var(--ink-soft); margin: 0; }
 #auth-message[role="alert"] { color: var(--danger); }
 
+/* Password rules + strength meter (public/scripts/auth.js) - sign-up mode
+   only, both hidden by setMode() in sign-in mode.
+   Negative top margin pulls each back toward the field it describes: the form
+   is a 14px-gap flex column, which is the right rhythm between separate fields
+   and too much between an input and its own annotation. */
+.auth-rules {
+  font-size: 12.5px;
+  color: var(--ink-faint);
+  margin: -8px 0 0;
+  line-height: 1.45;
+}
+.auth-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -6px;
+}
+.auth-strength-bar {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--well);
+  overflow: hidden;
+}
+.auth-strength-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: var(--danger);
+  transition: width .18s ease, background-color .18s ease;
+}
+.auth-strength-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  /* Reserves room for the longest label so the bar does not resize itself on
+     every keystroke as the text under it changes length. */
+  min-width: 92px;
+  text-align: right;
+}
+/* Three existing semantic tokens, no new ones: --danger below the minimum,
+   --new (the amber already used for "what's new") for the middle, --accent
+   once it is genuinely long. Score 0 and 1 share --danger deliberately -
+   "allowed but weak" and "not allowed" are both states worth flinching at. */
+.auth-strength[data-score="2"] .auth-strength-bar span { background: var(--new); }
+.auth-strength[data-score="3"] .auth-strength-bar span { background: var(--accent); }
+.auth-strength[data-score="2"] .auth-strength-label { color: var(--ink-soft); }
+.auth-strength[data-score="3"] .auth-strength-label { color: var(--accent); }
+
 /* New Prompt modal (renderNewPromptModal in lib/render.mjs, behavior in
    public/scripts/newPrompt.js) - reuses .backdrop/.qv-chrome/.qv-close-btn
    from the quick-view modal for the dialog frame, .account-form for
@@ -2027,7 +2077,13 @@ tr.is-flash, .prompt-card.is-flash {
 .export-option .btn-secondary { background: var(--paper); border-color: var(--ink-soft); }
 .export-option .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
 
-.account-danger { margin: 32px 0 0; border-top: 1px solid var(--line-soft); padding-top: 28px; }
+/* The trailing margin is not decoration. This is the last element on the
+   signed-in account page, and without it the Delete account button sits flush
+   against the site footer's top border - a destructive control touching the
+   page chrome, with nothing separating them. Every other page ends in a table
+   or prose that carries its own trailing space, so nothing had needed this
+   before. */
+.account-danger { margin: 32px 0 56px; border-top: 1px solid var(--line-soft); padding-top: 28px; }
 .account-danger h2 { font-size: 15px; margin: 0 0 4px; color: var(--danger); }
 /* --ink-soft for the same reason as .account-tools > p above, and with more
    at stake: this is the sentence explaining what the Delete account button

@@ -329,6 +329,38 @@ surface that has to be built deliberately rather than switched on.
 [direct marketing by electronic mail](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-direct-marketing-using-electronic-mail/).
 Researched, not legal advice.*
 
+**E7. Editing your name after sign-up.** There is no way to set, change or remove a first
+name once an account exists. Two consequences, one of them live right now:
+
+- **Every account created before the field existed has no name at all**, so the
+  `/account/` greeting silently falls back to "You are logged in as…". That includes the
+  admin account (created 12 Aug 2026; the field shipped in §9v on the 14th), which is
+  currently the only real account — so the feature is invisible to the only person using
+  the site. This is working exactly as designed: the greeting is deliberately optional
+  precisely so those accounts do not render "Hi , you are logged in as…".
+- Anyone who mistypes their name, changes it, or wants it gone is stuck with it.
+
+A one-off `update auth.users set raw_user_meta_data = … || jsonb_build_object('first_name', …)`
+fixes a specific account from the SQL editor (the session token carries `user_metadata`,
+so it needs a fresh login to take effect). That is a patch for the operator, not a fix for
+the gap.
+
+*Why this is section E rather than a quick input box:* it reopens the question §9v
+deliberately sidestepped. The first name went into `user_metadata` **because it was
+written once, at sign-up, read in one place, and needed no protection** — that is what
+justified avoiding a `profiles` table, which would have to be created in step with the
+auth user and deleted in step with them. A second, editable field there starts behaving
+like a profile without a profile's guarantees: `user_metadata` sits **outside RLS**
+(scoped by Supabase Auth, not by a policy), and is writable by the user via
+`supabase.auth.updateUser()`, which means no server-side validation of what lands in it.
+Tolerable for a display name; the wrong shape to keep adding to.
+
+So the decision to make is not "add an input" but **where profile-shaped data should live
+before there is a second field of it** — metadata with client-side-only validation, or a
+`profiles` table with RLS and a deletion path that `0008`'s cascade already knows how to
+handle. Worth answering once, deliberately, rather than per field.
+*Source: observed on the live account page during the §9ag session.*
+
 ---
 
 ## F. Undecided design questions

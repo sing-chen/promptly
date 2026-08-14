@@ -3,6 +3,97 @@ import { initAccountStats } from './accountStats.js';
 import { isAdmin } from './db.js';
 import { esc } from './lib/render.mjs';
 
+// These two mirror a rule that is actually enforced somewhere else: Supabase
+// Auth's own password policy (dashboard → Authentication → Sign In / Providers
+// → Email → Minimum password length, currently 10). Nothing in this file is a
+// security control - a determined user can edit it out in devtools in about
+// four seconds. What it buys is a decent error *before* a round trip, and a
+// statement of the rules before someone has already picked a password.
+//
+// If you change the number in the dashboard, change it here too. There is no
+// way to read the setting back from the client, so the two are kept in step by
+// hand and by nothing else.
+const MIN_PASSWORD_LENGTH = 10;
+// Not a policy choice. Supabase hashes with bcrypt, which ignores everything
+// past 72 *bytes* - so a longer password is silently truncated, and two
+// passwords sharing their first 72 bytes are the same password as far as
+// logging in is concerned. Better to say so than to let it happen invisibly.
+// Bytes, not characters, is the real limit; this counts characters, which is
+// the conservative direction for ASCII and the wrong one for heavy emoji use.
+// Not worth a TextEncoder for a limit nobody is going near.
+const MAX_PASSWORD_LENGTH = 72;
+
+// Deliberately NOT checking for capitals, digits or symbols. Composition rules
+// of that kind mostly produce "Password1!" - which satisfies every one of them
+// and is far weaker than a long lowercase phrase. Current guidance (NIST
+// SP 800-63B, NCSC) is length first, and the Supabase side is configured to
+// match: minimum length raised, "Password Requirements" left at no required
+// characters.
+//
+// The one content rule here is the containment check, which catches a pattern
+// composition rules never do: a password built out of the account's own email
+// or the first name typed into the field directly above it.
+//
+// Returns an array of human-readable problems, empty when the password passes.
+function validatePassword(password, { email = '', firstName = '' } = {}) {
+  const problems = [];
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    problems.push(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+  // Reachable despite the maxlength attribute on the input: maxlength only
+  // constrains what a *person* types or pastes, and a password manager filling
+  // the field by assigning to .value walks straight past it.
+  if (password.length > MAX_PASSWORD_LENGTH) {
+    problems.push(`Password must be ${MAX_PASSWORD_LENGTH} characters or fewer.`);
+  }
+
+  const haystack = password.toLowerCase();
+  // The part before the @, not the whole address - "sing@gmail.com" as a
+  // password is the local part plus a domain everyone shares, and it is the
+  // local part that makes it guessable.
+  const localPart = email.split('@')[0].trim().toLowerCase();
+  // The 3-character floor on both checks is what stops this being obnoxious.
+  // A two-letter name or local part would reject any password happening to
+  // contain those letters in order, which is most of them.
+  if (localPart.length >= 3 && haystack.includes(localPart)) {
+    problems.push('Password must not contain your email address.');
+  }
+  const name = firstName.trim().toLowerCase();
+  if (name.length >= 3 && haystack.includes(name)) {
+    problems.push('Password must not contain your name.');
+  }
+  return problems;
+}
+
+// Advisory only - nothing here can block a submit, and it is deliberately not
+// wired into validatePassword(). A meter that vetoes is a composition rule
+// wearing a different hat, and it fails the same way: it rejects long
+// memorable phrases for lacking variety while waving through short noisy ones.
+//
+// No zxcvbn. It is the better estimator by some distance, but it is ~400KB for
+// a hint, on a site whose entire dependency list is two packages. The scoring
+// below is length-dominant on purpose, because that is what the policy above
+// says matters - a meter rewarding a different thing to the rule it sits under
+// would just be arguing with itself on screen.
+//
+// Returns 0-3, indexing STRENGTH_LEVELS.
+function scorePassword(password) {
+  const len = password.length;
+  if (len < MIN_PASSWORD_LENGTH) return 0;
+  let score = len >= 16 ? 3 : len >= 12 ? 2 : 1;
+  // Variety earns at most one step, and only once the password is long enough
+  // for that step to mean something. Cheap approximation of "search space is
+  // bigger than 26 characters wide".
+  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/]
+    .filter(re => re.test(password)).length;
+  if (classes >= 3 && len >= 12) score = Math.min(3, score + 1);
+  return score;
+}
+
+// Index 0 is what shows below the minimum - phrased as the rule rather than as
+// a judgement ("Weak" would be misleading; it is not weak, it is not allowed).
+const STRENGTH_LEVELS = [`Under ${MIN_PASSWORD_LENGTH} characters`, 'Weak', 'Good', 'Strong'];
+
 function setNavAccountState(session) {
   // The sidebar footer is two mutually exclusive states (§9ag). Signed out:
   // a "Log in" link. Signed in: the email as inert text, with View account /
@@ -147,9 +238,26 @@ function renderSignedOut(root) {
   <label>Email
     <input type="email" name="email" required autocomplete="email">
   </label>
+  <!-- No minlength/maxlength here, and that is not an oversight. Both are
+       sign-up-only and get set by setMode() below. The form defaults to
+       sign-in mode, where a length rule would be actively harmful: accounts
+       made before this policy existed have shorter passwords, and the login
+       form refusing a password that genuinely works is a lockout with no
+       explanation and no way round it. -->
   <label>Password
-    <input type="password" name="password" required minlength="6" autocomplete="current-password">
+    <input type="password" name="password" required autocomplete="current-password">
   </label>
+  <!-- Stated before the attempt rather than revealed by failing one. Both of
+       these are hidden in sign-in mode - the rules do not apply to a password
+       that already exists, and rating one the user cannot change here would be
+       a pointless thing to do to somebody trying to log in. -->
+  <p id="auth-password-rules" class="auth-rules" hidden>At least ${MIN_PASSWORD_LENGTH} characters. No capitals, digits or symbols needed — length does more for security than variety does.</p>
+  <div id="auth-strength" class="auth-strength" hidden>
+    <div class="auth-strength-bar"><span></span></div>
+    <!-- aria-live so the rating is announced as it changes; the bar itself is
+         decorative and carries no text of its own. -->
+    <span class="auth-strength-label" aria-live="polite"></span>
+  </div>
   <button type="submit" id="auth-submit-btn" class="btn btn-primary">Log in</button>
   <p id="auth-message" hidden></p>
 </form>`;
@@ -163,6 +271,30 @@ function renderSignedOut(root) {
 
   const firstNameField = root.querySelector('#auth-firstname-field');
   const firstNameInput = firstNameField.querySelector('input');
+  const rulesEl = root.querySelector('#auth-password-rules');
+  const strengthEl = root.querySelector('#auth-strength');
+  const strengthFill = strengthEl.querySelector('.auth-strength-bar span');
+  const strengthLabel = strengthEl.querySelector('.auth-strength-label');
+
+  // Both call sites set role as well as text - a message that stays role=alert
+  // from a previous failure would have the next success announced as an error.
+  function showMessage(text, role) {
+    messageEl.textContent = text;
+    messageEl.setAttribute('role', role);
+    messageEl.hidden = false;
+  }
+
+  function updateStrength(password) {
+    // Nothing to rate on an empty field, and an empty field is the state the
+    // form opens in - showing "Under 10 characters" before a single keystroke
+    // reads as a complaint about something the user has not done yet.
+    if (!password) { strengthEl.hidden = true; return; }
+    const score = scorePassword(password);
+    strengthEl.hidden = false;
+    strengthEl.dataset.score = String(score);
+    strengthFill.style.width = `${((score + 1) / 4) * 100}%`;
+    strengthLabel.textContent = STRENGTH_LEVELS[score];
+  }
 
   function setMode(tab) {
     mode = tab.dataset.tab;
@@ -177,8 +309,34 @@ function renderSignedOut(root) {
     const signingUp = mode === 'sign-up';
     firstNameField.hidden = !signingUp;
     firstNameInput.required = signingUp;
+    // The length rules are sign-up-only for the reason given on the input
+    // itself: an existing password predating the policy still has to work.
+    // Set as attributes on the way in and removed on the way out, rather than
+    // left in place and ignored - a stale minlength would make the browser
+    // block submit on a valid login with its own message, which no code here
+    // could override.
+    if (signingUp) {
+      passwordInput.minLength = MIN_PASSWORD_LENGTH;
+      passwordInput.maxLength = MAX_PASSWORD_LENGTH;
+    } else {
+      passwordInput.removeAttribute('minlength');
+      passwordInput.removeAttribute('maxlength');
+    }
+    rulesEl.hidden = !signingUp;
+    // Re-rate rather than just hide: switching tabs with a password already
+    // typed would otherwise leave the previous mode's rating on screen, or
+    // leave a sign-up password unrated until the next keystroke.
+    if (signingUp) updateStrength(passwordInput.value);
+    else strengthEl.hidden = true;
     messageEl.hidden = true;
   }
+
+  // Only meaningful in sign-up mode; updateStrength is a no-op elsewhere
+  // because setMode has already hidden the meter and nothing here shows it
+  // again.
+  passwordInput.addEventListener('input', () => {
+    if (mode === 'sign-up') updateStrength(passwordInput.value);
+  });
 
   tabs.forEach(tab => tab.addEventListener('click', () => setMode(tab)));
 
@@ -200,6 +358,30 @@ function renderSignedOut(root) {
     const email = form.email.value.trim();
     const password = form.password.value;
     const firstName = form.first_name.value.trim();
+
+    // Sign-up only. Running this on sign-in would lock out any account whose
+    // password predates the policy - the whole point of checking here rather
+    // than on the shared path.
+    //
+    // Ahead of the network call so the common mistakes cost nothing, but the
+    // server is still the thing that decides: Supabase enforces its own
+    // minimum regardless of what this concludes, and its error surfaces
+    // through the same messageEl below.
+    if (mode === 'sign-up') {
+      const problems = validatePassword(password, { email, firstName });
+      if (problems.length) {
+        // Re-enable before returning - the button was disabled at the top of
+        // this handler on the assumption a request was about to go out, and
+        // bailing early has to undo that or the form is dead.
+        submitBtn.disabled = false;
+        // All of them at once. Reporting the first and making the user
+        // resubmit to discover the second is how a two-rule form turns into
+        // four attempts.
+        showMessage(problems.join(' '), 'alert');
+        return;
+      }
+    }
+
     // First name rides in options.data, which Supabase Auth stores on
     // auth.users.raw_user_meta_data and returns as user.user_metadata. No
     // migration and no profiles table for one field - and deliberately not a
@@ -214,15 +396,11 @@ function renderSignedOut(root) {
     submitBtn.disabled = false;
 
     if (error) {
-      messageEl.textContent = error.message;
-      messageEl.setAttribute('role', 'alert');
-      messageEl.hidden = false;
+      showMessage(error.message, 'alert');
       return;
     }
     if (mode === 'sign-up') {
-      messageEl.textContent = 'Check your email to confirm your account, then sign in.';
-      messageEl.setAttribute('role', 'status');
-      messageEl.hidden = false;
+      showMessage('Check your email to confirm your account, then sign in.', 'status');
     }
     // A successful sign-in re-renders via onAuthStateChange below, not here.
   });
