@@ -1790,6 +1790,14 @@ footer.site-footer {
   line-height: 1.55;
 }
 
+/* The same banner in its "something went wrong, but you are not stuck"
+   register (§9as). Only the rule changes colour — the text stays on --paper at
+   full body contrast, because the accent is carrying emphasis rather than
+   meaning, and a tinted fill would put every word behind a ratio that has to
+   be re-measured. --danger is the site's existing "this needs your attention"
+   token; nothing new was added for one banner. */
+.auth-banner-warn { border-left-color: var(--danger); }
+
 /* New Prompt modal (renderNewPromptModal in lib/render.mjs, behavior in
    public/scripts/newPrompt.js) - reuses .backdrop/.qv-chrome/.qv-close-btn
    from the quick-view modal for the dialog frame, .account-form for

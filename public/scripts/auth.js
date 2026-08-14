@@ -28,19 +28,49 @@ const RESET_LANDING = () => new URL('/reset-password/', location.origin).href;
 // rather than as a rejected promise anywhere, so without this an expired
 // confirmation link is indistinguishable from a working one that quietly did
 // nothing.
+//
+// Both values below come from that one synchronous read. They are separate
+// exports because they answer different questions and a page can need either:
+// LINK_ERROR is "the link was dead", LINK_ARRIVAL is "the visitor got here by
+// following a link at all", which is not otherwise recoverable once the
+// fragment is gone.
+const LINK_PARAMS = new URLSearchParams(location.hash.replace(/^#/, ''));
+
+// True when this page load came from an emailed link — success or failure.
+// A working link carries type=recovery (or type=signup) alongside the tokens;
+// a dead one carries the error fields instead.
+//
+// This exists because a session is NOT evidence of a good link. Someone who is
+// already logged in has a session before the link is even considered, so a
+// page that only asks "is there a session?" cannot tell a spent link from a
+// working one — which is how §9ar's first live test produced a "no longer
+// valid" screen that never appeared. See resetPassword.js.
+export const LINK_ARRIVAL = Boolean(
+  LINK_PARAMS.get('type') || LINK_PARAMS.get('error') || LINK_PARAMS.get('error_code')
+);
+
 export const LINK_ERROR = (() => {
-  const params = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const params = LINK_PARAMS;
   const code = params.get('error_code');
   if (!params.get('error') && !code) return null;
   // Supabase's own description is URL-encoded prose written for a developer;
   // the two cases people actually hit get their own sentence, and anything
   // else falls back to what the server said rather than to a shrug.
-  // Deliberately does not name a lifetime: this one string is shown for both
-  // kinds of link, and they expire on different clocks (24 hours for a signup
+  //
+  // These are **diagnoses only** — no "request a new one below", because what
+  // to do next is not the same on every screen that shows this. /account/
+  // appends its own instruction, /reset-password/ has a button for it, and the
+  // already-signed-in case (§9as) needs the opposite advice: carry on, you do
+  // not need a new link at all. A shared string with a call to action baked in
+  // had one caller cutting the end off the other's sentence with a regex,
+  // which is the version of this that eventually goes wrong silently.
+  //
+  // Deliberately does not name a lifetime either: this is shown for both kinds
+  // of link, and they expire on different clocks (24 hours for a signup
   // confirmation, one hour for a password reset). The screen that knows which
   // is which says so; this one only knows the link is dead.
-  if (code === 'otp_expired') return 'That link has expired. Links are single-use — request a new one below.';
-  if (code === 'access_denied') return 'That link has already been used, or was replaced by a newer one. Request a new one below.';
+  if (code === 'otp_expired') return 'That link has expired. Links are single-use and last a limited time.';
+  if (code === 'access_denied') return 'That link has already been used, or was replaced by a newer one.';
   return params.get('error_description')?.replace(/\+/g, ' ') || 'That link could not be used.';
 })();
 
@@ -494,8 +524,10 @@ function renderSignedOut(root) {
 
   // A dead link (expired, already used, superseded) is the one auth failure
   // that arrives with no form submission behind it, so it has to be surfaced
-  // on load or not at all.
-  if (LINK_ERROR) showMessage(LINK_ERROR, 'alert');
+  // on load or not at all. LINK_ERROR is the diagnosis; the instruction is
+  // this screen's to add, because this screen is the one with the controls
+  // that carry it out.
+  if (LINK_ERROR) showMessage(`${LINK_ERROR} Sign up again, or use “Forgotten your password?” below, to get a new one.`, 'alert');
   // Confirmed, but no session - the address is now verified and they simply
   // need to log in. Happens when the link is opened somewhere that cannot
   // keep the session (a mail app's in-app browser, most often).

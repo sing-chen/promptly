@@ -31,8 +31,21 @@ you write in this repo — it is dashboard settings, DNS, a name decision and a 
 and that is exactly why they get forgotten. (It said "these four" until §9ar built A2 and
 the app half of A1; counting them in the heading was always going to go stale.)
 
-**A1. Transactional email / SMTP.** **The app side is built (§9ar); what remains is
-dashboard configuration, and one genuine decision inside it.**
+**A1. Transactional email / SMTP.** **Working, on a deliberate interim sender. What
+remains is the cutover, not the capability.**
+
+*Proven end to end, 14 Aug 2026:* Gmail SMTP configured (§1a of the runbook), templates
+in, redirects allow-listed, confirmation required — and the full seven-step sequence run
+against the live project. **Mail reached the inbox, not spam, on both Gmail and Outlook**,
+which is the one thing nothing in this repo could establish and the fact that makes the
+interim good enough to open sign-ups on. Step 7 initially appeared to fail and did not:
+the instruction was wrong (it only tests single-use when logged out) and the defect it
+accidentally exposed is fixed in §9as.
+
+*What is still owed, and why this stays in section A:* the cutover to a domain plus Resend
+(runbook §6), gated on **A5**; **revoking the Google app password** when that happens,
+since it is a credential to a whole mailbox and outlives the configuration; and the
+**`/privacy/` §7 processor edit**, owed the day anyone but you can sign up.
 
 *Built and verified in-browser:* email confirmation required before log-in, a sign-up
 screen that says an activation email is coming and warns it may land in spam, a "check

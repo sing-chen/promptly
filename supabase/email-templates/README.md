@@ -11,9 +11,17 @@ link lands. **None of it does anything until the four steps below are done.**
 
 ## Current sender — update this line when it changes
 
-> **Built-in (nothing configured).** Chosen next step: the **Gmail interim**
-> (§1a) to unblock testing, with the cutover to a real sender in §6 to follow
-> once the test sequence passes and OPEN_ITEMS.md A5 is settled.
+> **Gmail SMTP (the §1a interim), live and tested.** Configured 14 August 2026
+> and proven end to end: sign-up, confirmation, resend, log-in-before-confirming,
+> password reset and the expired-link screen all behave, and **the mail reached
+> the inbox — not spam — on both Gmail and Outlook**. That last fact is the one
+> nothing in this repo could establish, and it is what makes the interim good
+> enough to open sign-ups on.
+>
+> **Still the interim.** §6 is the cutover to a domain plus Resend, gated on
+> OPEN_ITEMS.md A5, and it carries the two things that must not be forgotten:
+> revoke the Google app password, and add the email provider to `/privacy/` §7
+> before anyone but you has an account.
 >
 > *Last updated: 14 August 2026.*
 
@@ -296,12 +304,25 @@ a test on it is not undoable. Option D/E in
    arrives.
 6. Follow it. `/reset-password/` should show the form, not the "no longer
    valid" state. Set a password and confirm you stay logged in.
-7. Follow the *same* link a second time. It should now say the link is no
-   longer valid — that is the single-use guarantee working.
+7. **Log out first, or open a private window** — then follow the *same* reset
+   link a second time. It should say the link is no longer valid.
 
-Step 7 is the one people skip and the one worth doing: it is also the check
-that the fragment-error path is being read correctly, which nothing else
-exercises.
+**Step 7 only tests anything if you are logged out**, and this instruction
+originally forgot to say so — which is how the first live run "failed" it. Step
+6 leaves you signed in on purpose, and `/reset-password/` serves a signed-in
+caller the form regardless of the link, because they can genuinely change their
+password whether or not the link was any good. So a second click while signed
+in shows the form, and that is correct behaviour, not a spent link being
+honoured.
+
+What that run *did* find is worth keeping: the page used to render that form
+with no mention of the dead link at all, leaving no way to tell a spent link
+from a live one. It now says so in a banner and keeps the form (§9as). Both
+halves matter — the honest message, and not taking away an action the visitor
+is entitled to.
+
+Step 7 is still the one people skip, and it is the only check on the
+fragment-error path.
 
 **And the one thing this repo can never test:** whether mail from your domain
 actually reaches strangers. Deliverability is a property of DNS records and

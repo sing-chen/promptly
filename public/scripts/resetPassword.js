@@ -18,16 +18,23 @@
 //    forgotten my password" end in exactly the same place, so this page serves
 //    both rather than growing a second copy of itself under /account/.
 import { supabase } from './supabaseClient.js';
-import { LINK_ERROR } from './auth.js';
+import { LINK_ERROR, LINK_ARRIVAL } from './auth.js';
 import { ICON } from './lib/render.mjs';
 import {
   MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, PASSWORD_RULES_TEXT,
   validatePassword, attachPasswordToggle, renderStrength
 } from './password.js';
 
-function renderForm(root, session) {
+// `notice` is the dead-link warning, and it is only ever non-empty for a
+// caller who *has* a session — see init() for why that combination is not a
+// contradiction. `heading` differs for the two ways in: following a reset link
+// is "choose a new password", while a signed-in visitor who simply navigated
+// here is changing one they still know. Same form, same rules, and the only
+// honest difference is what to call it.
+function renderForm(root, session, { notice = '', heading = 'Choose a new password' } = {}) {
   root.innerHTML = `
-<h1>Choose a new password</h1>
+<h1>${escapeText(heading)}</h1>
+${notice}
 <p class="account-identity">For <strong>${escapeText(session.user.email)}</strong></p>
 <form id="pwreset-form" class="account-form">
   <label>New password
@@ -104,7 +111,8 @@ function renderForm(root, session) {
 function renderNoSession(root) {
   root.innerHTML = `
 <h1>This link is no longer valid</h1>
-<p>${escapeText(LINK_ERROR || 'Password-reset links last an hour and can be used once. Requesting a new one also cancels any older link you were sent.')}</p>
+<p>${escapeText(LINK_ERROR || 'Password-reset links last an hour and can be used once. Requesting a new one also cancels any older link you were sent.')}
+Request a new one and it will work like the first.</p>
 <p class="auth-panel-actions"><a class="btn btn-primary" href="/account/#forgot">Request a new link</a></p>`;
 }
 
@@ -129,8 +137,31 @@ async function init() {
   // what makes this a single call rather than a poll: by the time it resolves,
   // the fragment has been processed and either produced a session or not.
   const { data: { session } } = await supabase.auth.getSession();
-  if (session) renderForm(root, session);
-  else renderNoSession(root);
+  if (!session) { renderNoSession(root); return; }
+
+  // A session is not evidence that the link worked, and this is the case that
+  // proved it in testing (§9as). Having just set a password, the visitor is
+  // logged in; clicking the now-spent link a second time lands here, finds
+  // that session, and — before this branch existed — rendered the form as if
+  // the link were fine. The one thing the screen must not do is leave someone
+  // unable to tell a dead link from a live one.
+  //
+  // The form still renders, and that is deliberate rather than a compromise:
+  // they are signed in, so they genuinely can change their password here, and
+  // taking the ability away to punish a stale link would help nobody. What
+  // changes is that the screen says what happened.
+  const notice = LINK_ERROR ? `
+<div class="auth-banner auth-banner-warn" role="status">
+  <strong>${escapeText(LINK_ERROR)}</strong>
+  You are already logged in on this device, though, so you can still set a new
+  password here — there is no need to request another link.
+</div>` : '';
+  // LINK_ARRIVAL, not the presence of a session: a session is there either
+  // way. Someone who followed a link is mid-reset; someone who typed the URL
+  // is changing a password they still know, and calling that "choose a new
+  // password" implies a process they never started.
+  const heading = LINK_ARRIVAL ? 'Choose a new password' : 'Change your password';
+  renderForm(root, session, { notice, heading });
 }
 
 document.addEventListener('DOMContentLoaded', init);
