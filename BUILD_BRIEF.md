@@ -735,6 +735,24 @@ Nothing about the *Terms* needed changing — they already bind anyone using the
 
 ---
 
+## 9y. Contact Page — a mailto, not a form (new)
+
+The public contact address moves to `contact@promptly.simplelogin.com`, a SimpleLogin alias rather than a personal mailbox. It lives in `LEGAL_DETAILS` and therefore feeds **both** legal documents, which is the point of that object: one public address, changed in one place. Ten occurrences updated, zero left behind.
+
+**A contact form was designed and rejected, and the reasoning is the useful part**, because "add a contact form" looks like the obvious answer to "we have Supabase". A form usable by guests means granting `anon` INSERT on a table — a permanently open write path into the database from the entire internet, and the one case where "RLS is the boundary, not key secrecy" works against you rather than for you. Making that safe needs length CHECKs, a honeypot, and an IP-keyed rate limit (feasible: Supabase exposes request headers to Postgres via `current_setting('request.headers')`). And then it still needs somewhere for messages to *go*, because a row in a table notifies nobody — which would have meant either an admin screen to remember to check, or a `pg_net` trigger to an email provider, and choosing that provider is OPEN_ITEMS.md A1, still unresolved. All of that to reproduce what an email client already does.
+
+The alias is what makes the simple answer safe: publishing the address in plain text is exactly what makes it copyable and what makes the page work without JavaScript, and an alias can be burned and replaced without touching a personal address. The page uses subject-prefilled `mailto:` links — free in a static page, and it means a UK GDPR rights request arrives already labelled as one, which matters against the privacy notice's one-month commitment.
+
+**`.legal-page` became `.prose-page` for the shared typography.** `/contact/` needed the same prose treatment without being a legal document, and styling it with a class called `legal-page` would have been a lie that the next reader has to untangle. The legal-only rules — contents list, lawful-basis table, last-updated line — stay scoped to `.legal-page`, which the two documents still carry alongside `.prose-page`. Verified after the rename that the legal pages are unchanged: 14px body, 15px headings, 32px heading margins, accent underlined links, the `.legal-updated` override still winning at 12px.
+
+**The privacy notice changed with it, as it has to.** Emailing us is us processing personal data — an email address and free text — so section 3 gains a third category ("anything you email us", flagged as correspondence rather than anything in the database), section 4 gains a legitimate-interests row for replying, and section 9 gains a retention line. The count in section 4's intro moved from "the first two rows" to "the first three", which is the kind of thing that silently goes stale when a table gains a row.
+
+**A wrap defect found by measuring, and worth the note because there is no clean CSS fix.** The fifth footer link pushed the row past one line on small screens, and at 320px the second line began `| Contact` — a separator with nothing before it. Pipes between inline items always dangle at a wrap point; gluing each pipe to its neighbour only moves the orphan to the end of the previous line, and CSS cannot hide a separator conditionally on it landing at a line start. So below 400px the pipes are dropped and `.footer-links` becomes a flex row with a gap, which is what the pipe was standing in for. 400px rather than the measured ~360px threshold, because between the two the row fits only by a few pixels. Verified at 320, 360 (gapped, no pipes, no orphan), 440 and 1280 (pipes, single line).
+
+**Verified by measurement**: five `mailto:` links all pointing at the alias with four carrying prefilled subjects, the address rendering as selectable text rather than only a link, no horizontal overflow at 320/360/440/1280, and AA contrast throughout in both themes — body 5.42/8.31, headings 13.48/15.22, address link 5.19/8.20, list links 5.76/7.99, footer 5.89/7.45.
+
+---
+
 ## 10. Build Order (revised)
 
 1. ~~Scaffold custom build script + `/prompts` folder~~ — done.

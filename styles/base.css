@@ -1417,6 +1417,21 @@ footer.site-footer {
    so it carries no contrast obligation - it just has to be visible. */
 .footer-sep { color: var(--ink-faint); margin: 0 3px; user-select: none; }
 
+/* Below 400px the five footer links can't sit on one line, and a wrapped line
+   that begins with a separator reads as a mistake - measured at 320px, the
+   second line was literally "| Contact". There is no CSS that hides a
+   separator only when it lands at a line start, and gluing each pipe to its
+   neighbour just moves the dangling one to the end of the previous line
+   instead. So below the width where one line fits, the pipes go and flex gap
+   does the separating - which is what a pipe was standing in for anyway.
+   400px rather than the measured ~360px threshold: between the two the row
+   fits only by a handful of pixels, and the gapped version looks better than a
+   line that is technically not overflowing. */
+@media (max-width: 400px) {
+  .footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
+  .footer-sep { display: none; }
+}
+
 /* Account page (sign-in/up form + signed-in state, rendered client-side by
    auth.js into #account-root - see lib/render.mjs renderAccountPage) */
 /* 380px is right for the sign-in form, which was this page's only job. The
@@ -1609,22 +1624,27 @@ label.np-admin-check {
 /* /why-sign-in/ page (lib/render.mjs renderWhySignInPage) - a single wide
    column, stacked (not side-by-side) so neither box has to squeeze its text
    into half the page width and wrap awkwardly. */
-/* Legal pages (/privacy/, /terms/). Narrower than .container's 1180px because
-   these are the only long-form prose on the site: at full width a line of body
-   text runs past 150 characters, which is roughly twice the length the eye
-   tracks comfortably. 720px lands around 90 characters at this type size.
-   Everything else here is spacing - the documents are plain h2 + p + ul, and
-   deliberately not styled to look like anything other than a document. */
-.legal-page { max-width: 720px; }
-.legal-page h2 {
+/* Prose pages (/privacy/, /terms/, /contact/). Narrower than .container's
+   1180px because these are the only long-form prose on the site: at full width
+   a line of body text runs past 150 characters, which is roughly twice the
+   length the eye tracks comfortably. 720px lands around 90 characters at this
+   type size. Everything else here is spacing - the pages are plain h2 + p + ul,
+   and deliberately not styled to look like anything other than a document.
+
+   The hook is .prose-page rather than .legal-page because /contact/ needs the
+   same typography without being a legal document; the legal pages carry both
+   classes, and the genuinely legal-only rules below (contents list,
+   lawful-basis table, last-updated line) stay scoped to .legal-page. */
+.prose-page { max-width: 720px; }
+.prose-page h2 {
   font-family: var(--display); font-size: 15px;
   margin: 32px 0 10px; padding-top: 4px;
 }
-.legal-page h2:first-of-type { margin-top: 24px; }
-.legal-page p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 12px; }
-.legal-page ul { margin: 0 0 12px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
-.legal-page li { font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
-.legal-page strong { color: var(--ink); }
+.prose-page h2:first-of-type { margin-top: 24px; }
+.prose-page p { font-size: 14px; line-height: 1.65; color: var(--ink-soft); margin: 0 0 12px; }
+.prose-page ul { margin: 0 0 12px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.prose-page li { font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+.prose-page strong { color: var(--ink); }
 
 /* Links have to be styled here explicitly, and the reason is a trap worth
    naming: the site's global rule is `a { color: inherit; text-decoration: none }`
@@ -1638,9 +1658,9 @@ label.np-admin-check {
    Underlined as well as coloured, because these are mid-sentence prose links
    rather than buttons - colour alone is never sufficient. --accent measures
    5.76:1 against --paper. */
-.legal-page a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.legal-page a:hover { color: var(--accent-hover); }
-.legal-page code { font-family: var(--mono, monospace); font-size: 12.5px; }
+.prose-page a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.prose-page a:hover { color: var(--accent-hover); }
+.prose-page code { font-family: var(--mono, monospace); font-size: 12.5px; }
 /* Scoped under .legal-page deliberately. Unscoped, `.legal-updated` (0,1,0)
    loses to `.legal-page p` (0,1,1) above and silently renders at 14px/--ink-soft
    - which is exactly what happened, and was only caught by reading the computed
@@ -1653,6 +1673,19 @@ label.np-admin-check {
    inherit a contrast failure. The 12px size carries the "secondary" signal
    instead, which is what was actually wanted. */
 .legal-page .legal-updated { font-size: 12px; color: var(--ink-soft); margin-bottom: 20px; }
+
+/* /contact/'s address line. The one thing a visitor came for, so it is given
+   its own band rather than sitting inline in a paragraph - and it stays plain
+   selectable text inside the link so it can be copied, not just clicked. */
+.contact-address {
+  background: var(--well); border: 1px solid var(--line-soft);
+  border-radius: 8px; padding: 14px 18px; margin: 4px 0 8px;
+  text-align: center;
+}
+.contact-address a { font-size: 15px; font-weight: 600; word-break: break-word; }
+/* The what-to-use-it-for list: each item leads with a link, so the default
+   8px prose gap runs them together. */
+.contact-page ul { gap: 12px; }
 
 /* Contents block. A <nav><ol> rather than a styled list of <p>s, so the
    numbering is the list's own and a screen reader announces it as navigation

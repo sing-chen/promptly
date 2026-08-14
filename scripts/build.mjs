@@ -10,7 +10,7 @@ import {
   renderFavoritesPage, renderSearchPage, renderPromptDetail,
   renderAboutPage, renderAccountPage, renderAdminPage, renderCollectionsPage,
   renderArchivedPage, renderWhySignInPage, renderCategoriesPage, setAssetVersion,
-  renderPrivacyPage, renderTermsPage, legalPlaceholdersRemaining
+  renderPrivacyPage, renderTermsPage, renderContactPage, legalPlaceholdersRemaining
 } from '../lib/render.mjs';
 import { loadEnv } from '../lib/env.mjs';
 
@@ -155,6 +155,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
   writeRoute('why-sign-in', renderWhySignInPage(data));
   writeRoute('privacy', renderPrivacyPage(data));
   writeRoute('terms', renderTermsPage(data));
+  writeRoute('contact', renderContactPage(data));
 
   // A privacy notice that still says "[CONTROLLER NAME]" is worse than no
   // privacy notice: it looks like a considered document while failing the one
@@ -187,7 +188,7 @@ export const SUPABASE_ANON_KEY = ${JSON.stringify(env.SUPABASE_ANON_KEY || '')};
     writeRoute(`prompt/${prompt.slug}`, renderPromptDetail(prompt, data));
   }
 
-  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in/privacy/terms, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
+  return `Built ${data.prompts.length} prompt page(s), ${data.categories.length} category page(s), ${data.sequences.length} sequence page(s), plus home/sequences/favorites/search/about/why-sign-in/privacy/terms/contact, the account-tier shells (account/admin/collections/categories/archived) and robots.txt.`;
 }
 
 // CLI entrypoint: `node scripts/build.mjs` (also what `npm run build` runs).

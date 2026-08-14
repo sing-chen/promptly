@@ -102,6 +102,13 @@ everyone or only to account holders. Worth remembering as a pattern: the account
 where the design attention goes, so the anonymous tier is where the omissions collect.
 *Source: BUILD_BRIEF_v4.md §7; drafted in BUILD_BRIEF.md §9u, restructured in §9v.*
 
+**A6. Confirm the contact alias actually receives mail.** `contact@promptly.simplelogin.com`
+is published on every page of the site, in both legal documents, and is the address the
+privacy notice commits to answering rights requests on within one month. Nothing in this
+repo can test that — send it something and check it arrives. Related to but separate from
+A1: A1 is about mail the *service* sends, this is about mail *reaching you*.
+*Source: BUILD_BRIEF.md §9y.*
+
 **A5. "Promptly" is already a live product in this exact space.**
 [promptly.fyi](https://www.promptly.fyi) is "Promptly AI" — a browser extension with a
 curated prompt library, custom folders and saved favourites, claiming 10,000+ users and
@@ -353,4 +360,5 @@ were still being listed as outstanding after they shipped.
 | **Merged-catalog treatment for personalized views** | **Obsolete.** The merged catalog was the v4 model; v5 replaced it with owned copies, so there is nothing to merge. |
 | **B3 — per-user category limit** | **Built** in §9u: 20, as a clause on the `categories_insert` RLS policy (`0007`), deliberately *not* a trigger so `ensure_seeded()` stays exempt via table ownership — a capped seeding transaction would silently stop a user's catalog prompts too. Admins are capped as well, which is what keeps a newly seeded account under the ceiling; a user can still exceed 20 via seeding, by design. Mirrored by `MAX_CATEGORIES_PER_USER` in `lib/schema.mjs`. **Applied and verified** — `verify_0007.sql` passes, with check 7 reading CHECK as designed (it reports the largest per-user category count, which is data-dependent and can legitimately exceed 20 via seeding). Checks 4/5/6 are the ones to re-run if seeding ever misbehaves: they assert the three properties the cap's seeding exemption rests on. |
 | **D4 — sequence-builder's hardcoded category slugs** | **Retired** in §9u, along with the bulk re-categorize control the array existed to populate. Two independent reasons: per-user categories leave no fixed vocabulary to mirror (and `lib/schema.mjs`'s array is gone, so there is nothing to sync against), and the control had been inert anyway — it wrote a singular `category:` key while the schema reads a `categories:` list. Drag-and-drop sequences and bulk delete are untouched and still wanted; the tool is expected to matter again for D1/E4. |
+| **Contact form backed by Supabase** | **Considered and deliberately not built** (§9y). A guest-usable form means `anon` INSERT — a permanent open write path from the internet — needing length CHECKs, a honeypot and an IP rate limit, and *then* a notification path, since a table row tells nobody. That last part depends on A1, which is unresolved. `/contact/` is a `mailto:` page with subject-prefilled links instead. Revisit only if email genuinely proves insufficient; the hardening list above is the price of entry. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |
