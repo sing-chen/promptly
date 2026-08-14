@@ -125,8 +125,11 @@ function setNavAccountState(session) {
   // runs.
   document.getElementById('new-prompt-btn')?.toggleAttribute('hidden', !session);
   // Same reasoning as New Prompt - collections are per-user, no admin
-  // concept (db.js's createCollection() has no admin check either).
-  document.getElementById('new-collection-btn')?.toggleAttribute('hidden', !session);
+  // concept (db.js's createCollection() has no admin check either). This is
+  // the gear that replaced the "+" in §9am; it navigates to /collections/
+  // rather than opening a modal, and is hidden signed out because there is
+  // nothing there to manage without an account.
+  document.getElementById('manage-collections-btn')?.toggleAttribute('hidden', !session);
   // /why-sign-in/'s call to action and its "what signing up asks for"
   // section - the two toggles here that run the other way round. Everything
   // above appears when you log in; these disappear, because neither says
@@ -144,28 +147,6 @@ function setNavAccountState(session) {
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('manage-categories-btn')?.toggleAttribute('hidden', !session);
-  // The (i) hints carry the route to their section's page now that neither
-  // label is a link (§9al), so the link inside each has to say something true
-  // in both states rather than being hidden in one of them.
-  //
-  // Signed out it is a pitch, pointing at /why-sign-in/. Signed in it is
-  // navigation, pointing at the page itself. Collections needs this more than
-  // Categories does: its "+" opens a modal instead of navigating, and the
-  // sidebar list only links to /collections/ once you actually have one, so
-  // without this a new account has no route there at all.
-  const setCta = (id, href, text) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.href = href;
-    el.textContent = text;
-  };
-  if (session) {
-    setCta('collections-info-cta', '/collections/', 'Manage collections →');
-    setCta('categories-info-cta', '/categories/', 'Manage categories →');
-  } else {
-    setCta('collections-info-cta', '/why-sign-in/', 'Log in to create one →');
-    setCta('categories-info-cta', '/why-sign-in/', 'Log in to make them yours →');
-  }
   // Library is per-user content with no meaningful signed-out state - hide
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.

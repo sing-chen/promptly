@@ -1788,32 +1788,16 @@ label.np-admin-check {
   box-shadow: var(--shadow); transition: opacity .1s ease;
 }
 .field-info:hover + .field-hint, .field-info:focus-visible + .field-hint { visibility: visible; opacity: 1; }
-/* Pinned by click (public/scripts/fieldInfo.js, §9al). Hover above is
-   unchanged and still the common case; this is the state that lets you reach
-   INTO the hint, which hover cannot do - the pointer has to leave the button
-   to get there, and that dismisses it.
+/* Opened by click or tap (public/scripts/fieldInfo.js, §9al/§9am). Hover
+   above is unchanged and still the common case on a desktop; this is what
+   makes the hint reachable at all on touch, where neither :hover nor
+   :focus-visible fires and the button was silently doing nothing.
    Same two properties as the hover rule rather than a display change, so the
    opacity transition applies either way. */
 .field-hint.is-pinned { visibility: visible; opacity: 1; }
-/* The (i) reads as "open" while pinned, borrowing the hover treatment - a
-   control that stays active with the pointer elsewhere needs to look it. */
+/* The (i) reads as "open", borrowing the hover treatment - a control holding
+   something open with the pointer elsewhere needs to look like it is. */
 .field-info[aria-expanded="true"] { background: var(--accent-soft); color: var(--accent); }
-/* The hint's optional call to action. Block-level with its own top margin
-   because it follows a sentence and should not read as part of it.
-   --accent is wrong here: the hint's ground is --ink (a dark bubble in both
-   themes), and the light theme's accent measures 1.9:1 against it. --paper is
-   the hint's own body colour and the only thing guaranteed to sit on that
-   ground in both themes, so the link is distinguished by weight and an
-   underline instead of by hue. */
-.field-hint-cta {
-  display: block;
-  margin-top: 8px;
-  font-weight: 700;
-  color: var(--paper);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.field-hint-cta:hover { text-decoration-thickness: 2px; }
 
 /* Admin page (/admin/, lib/render.mjs renderAdminPage, behavior in
    public/scripts/admin.js) - wider than the sign-in form's .account-page,

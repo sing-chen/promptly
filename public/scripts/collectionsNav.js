@@ -47,9 +47,18 @@ function init() {
 
   refreshNow();
   supabase.auth.onAuthStateChange(refreshNow);
-  // Dispatched by newCollection.js on create and collections.js on
-  // delete/add/remove - keeps this list in sync without a poll.
+  // Dispatched by collections.js on create/delete/add/remove - keeps this
+  // list in sync without a poll. (newCollection.js used to fire it too, until
+  // §9am removed the sidebar's create modal.)
   document.addEventListener('collections:changed', refreshNow);
+
+  // Mirrors categoriesNav.js's handler exactly, which is the point of §9am:
+  // both sections now have a gear that navigates to the page where all of
+  // that section's management lives, rather than one navigating and one
+  // opening a modal that looked identical.
+  document.getElementById('manage-collections-btn')?.addEventListener('click', () => {
+    location.href = '/collections/';
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

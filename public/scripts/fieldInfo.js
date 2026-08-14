@@ -1,84 +1,76 @@
-// Click-to-pin for the site's (i) hints (§9al).
+// Click/tap-to-open for the site's (i) hints (§9al, narrowed in §9am).
 //
-// The hints were CSS-only: `.field-info:hover + .field-hint` showed them and
-// nothing else did. That is fine for a sentence you read and move on from, and
-// useless the moment the hint contains something you have to reach - there is
-// no rule keeping it open while the pointer travels, so moving toward a link
-// inside dismisses the thing you are moving toward.
+// This existed briefly to let a hint hold a link. It no longer holds one - the
+// routes moved onto each section's gear - and it survives for the reason that
+// turned out to matter more: **the hints were unreachable on touch.**
 //
-// Hover still works and is untouched, because it is the right interaction for
-// the common case. This adds a second, deliberate one: click (or Enter/Space,
-// which a <button> gives for free) pins the hint open until you dismiss it.
+// Measured, not assumed. The CSS shows a hint on `.field-info:hover` or
+// `:focus-visible`. A tap fires neither: hover has no meaning without a
+// pointer, and `:focus-visible` deliberately does not match a tap (it is the
+// keyboard-only half of :focus). Emulating a touch tap on the (i) left the
+// hint at `visibility: hidden` - so on a phone these buttons did nothing at
+// all, silently. That was true before any of this, but it matters more now
+// that the hint is the only place the explanation lives, the sidebar callout
+// having been folded into it.
 //
-// Applies to every .field-info on the page, not just the sidebar's - the New
-// Prompt modal and the Sequences label use the same idiom, and a control that
-// pins in one place and not another is worse than one that never pins.
+// Hover is untouched and still the common case on a desktop. This adds the
+// second, explicit interaction: click, tap, or Enter/Space (free from
+// <button>) opens; a second one, a click elsewhere, or Esc closes.
+//
+// Applies to every .field-info on the page, not just the sidebar's - the
+// Sequences label and the New Prompt modal use the same idiom, and a control
+// that opens in one place but not another is worse than one that never does.
 
 const OPEN_CLASS = 'is-pinned';
 
-// The currently pinned button, or null. Only one at a time: two open hints
-// would overlap in the sidebar, and closing the previous one is what makes
-// clicking between them behave the way people expect.
-let pinned = null;
+// The currently open button, or null. One at a time: two open hints would
+// overlap in the sidebar, and closing the previous is what makes clicking
+// between them behave the way people expect.
+let open = null;
 
 function hintFor(btn) {
-  // The hint is always the button's next sibling - fieldInfo() emits them as a
-  // pair. aria-describedby would be the more robust lookup, but it points at
-  // an id, and ids in the New Prompt modal are duplicated per instance in a
-  // way that predates this.
+  // Always the button's next sibling - fieldInfo() emits them as a pair.
+  // aria-describedby would be the more robust lookup, but it points at an id,
+  // and ids in the New Prompt modal are duplicated per instance in a way that
+  // predates this.
   return btn.nextElementSibling?.classList.contains('field-hint')
     ? btn.nextElementSibling
     : null;
 }
 
-function unpin() {
-  if (!pinned) return;
-  hintFor(pinned)?.classList.remove(OPEN_CLASS);
-  pinned.setAttribute('aria-expanded', 'false');
-  pinned = null;
-}
-
-function pin(btn) {
-  const hint = hintFor(btn);
-  if (!hint) return;
-  unpin();
-  hint.classList.add(OPEN_CLASS);
-  btn.setAttribute('aria-expanded', 'true');
-  pinned = btn;
+function close() {
+  if (!open) return;
+  hintFor(open)?.classList.remove(OPEN_CLASS);
+  open.setAttribute('aria-expanded', 'false');
+  open = null;
 }
 
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.field-info');
-  if (btn) {
-    // preventDefault because these sit inside <label> elements in the New
-    // Prompt modal, where a click would otherwise be forwarded to the labelled
-    // input - focusing a text field every time you ask for help.
-    e.preventDefault();
-    if (pinned === btn) unpin();
-    else pin(btn);
-    return;
-  }
-  // A click inside the hint itself must not close it - that is the whole
-  // point, and it includes the link the hint may carry.
-  if (e.target.closest('.field-hint')) return;
-  unpin();
+  if (!btn) { close(); return; }
+  // preventDefault because these sit inside <label> elements in the New Prompt
+  // modal, where the click would otherwise be forwarded to the labelled input
+  // - focusing a text field every time you ask for help.
+  e.preventDefault();
+  const hint = hintFor(btn);
+  if (open === btn || !hint) { close(); return; }
+  close();
+  hint.classList.add(OPEN_CLASS);
+  btn.setAttribute('aria-expanded', 'true');
+  open = btn;
 });
 
 // Esc closes, matching every other dismissible thing on the site. Focus goes
-// back to the button: the hint may have been reached by keyboard, and leaving
-// focus on a now-hidden element strands it.
+// back to the button rather than being left wherever it was.
 document.addEventListener('keydown', (e) => {
-  if (e.key !== 'Escape' || !pinned) return;
-  const btn = pinned;
-  unpin();
+  if (e.key !== 'Escape' || !open) return;
+  const btn = open;
+  close();
   btn.focus();
 });
 
-// Tabbing past the hint's last focusable child closes it. Without this a
-// pinned hint stays open behind whatever you move on to, since the click and
-// Esc handlers above never fire.
+// Moving focus elsewhere closes it - otherwise a hint opened by keyboard stays
+// visible behind whatever you tab on to, since neither handler above fires.
 document.addEventListener('focusin', (e) => {
-  if (!pinned) return;
-  if (e.target === pinned || hintFor(pinned)?.contains(e.target)) return;
-  unpin();
+  if (open && e.target !== open) close();
 });
