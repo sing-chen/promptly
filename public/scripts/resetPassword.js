@@ -22,7 +22,7 @@ import { LINK_ERROR, LINK_ARRIVAL } from './auth.js';
 import { ICON } from './lib/render.mjs';
 import {
   MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, PASSWORD_RULES_TEXT,
-  validatePassword, attachPasswordToggle, renderStrength
+  validatePassword, attachPasswordToggle, renderStrength, passwordToggleContent
 } from './password.js';
 
 // `notice` is the dead-link warning, and it is only ever non-empty for a
@@ -43,11 +43,15 @@ ${notice}
 <p class="account-identity">For <strong>${escapeText(session.user.email)}</strong></p>
 <form id="pwreset-form" class="account-form">
   <label>New password
-    <span class="pw-field">
+    <!-- has-label from the start, unconditionally: every visit to this page is
+         someone choosing a new password, which is the case the visible word
+         exists for (§9au). The sign-up form toggles the class because one form
+         serves three modes; this one has nothing to toggle between. -->
+    <span class="pw-field has-label">
       <input type="password" name="password" required autocomplete="new-password"
              minlength="${MIN_PASSWORD_LENGTH}" maxlength="${MAX_PASSWORD_LENGTH}">
       <button type="button" id="pwreset-toggle" class="icon-btn pw-toggle"
-              aria-pressed="false" aria-label="Show password" data-tip="Show password">${ICON.eye}</button>
+              aria-pressed="false" aria-label="Show password" data-tip="Show password">${passwordToggleContent(ICON.eye, 'Show')}</button>
     </span>
   </label>
   <p class="auth-rules">${PASSWORD_RULES_TEXT}</p>

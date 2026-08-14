@@ -4,7 +4,7 @@ import { isAdmin } from './db.js';
 import { esc, ICON } from './lib/render.mjs';
 import {
   MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH, PASSWORD_RULES_TEXT,
-  validatePassword, attachPasswordToggle, renderStrength
+  validatePassword, attachPasswordToggle, renderStrength, passwordToggleContent
 } from './password.js';
 
 // Where Supabase sends people back to after they click a link in one of its
@@ -285,10 +285,10 @@ function renderSignedOut(root) {
          absolutely-positioned child of that would anchor to the label - i.e.
          to the "Password" text as well as the input - rather than to the
          field itself. -->
-    <span class="pw-field">
+    <span class="pw-field" id="auth-pw-wrap">
       <input type="password" name="password" required autocomplete="current-password">
       <button type="button" id="auth-pw-toggle" class="icon-btn pw-toggle"
-              aria-pressed="false" aria-label="Show password" data-tip="Show password">${ICON.eye}</button>
+              aria-pressed="false" aria-label="Show password" data-tip="Show password">${passwordToggleContent(ICON.eye, 'Show')}</button>
     </span>
   </label>
   <!-- Stated before the attempt rather than revealed by failing one. Both of
@@ -333,6 +333,7 @@ function renderSignedOut(root) {
   const firstNameField = root.querySelector('#auth-firstname-field');
   const firstNameInput = firstNameField.querySelector('input');
   const passwordField = root.querySelector('#auth-password-field');
+  const pwWrap = root.querySelector('#auth-pw-wrap');
   const pwToggle = root.querySelector('#auth-pw-toggle');
   const rulesEl = root.querySelector('#auth-password-rules');
   const signupNote = root.querySelector('#auth-signup-note');
@@ -492,6 +493,13 @@ function renderSignedOut(root) {
     }
     rulesEl.hidden = !signingUp;
     signupNote.hidden = !signingUp;
+    // The reveal carries a visible "Show" on sign-up only (§9au). This is the
+    // screen where a password is being *chosen*, so a typo is not caught by
+    // the login failing — it is caught days later, by a login that fails for
+    // no visible reason. On the log-in tab the icon alone is enough: you are
+    // recalling a password, not composing one, and the tab is narrow on the
+    // things it asks for.
+    pwWrap.classList.toggle('has-label', signingUp);
     // Re-mask on every mode switch. Leaving a password on screen because the
     // user changed tabs is a decision nobody made - the reveal was asked for
     // in one context and should not silently carry into another.

@@ -343,7 +343,13 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   matches Supabase's own 60-second throttle), the "activate your account first"
   answer to a log-in against an unconfirmed address, and password reset, whose
   link lands on `/reset-password/` (`public/scripts/resetPassword.js`). The
-  password rules are shared with that page from `public/scripts/password.js`.
+  password rules are shared with that page from `public/scripts/password.js`,
+  along with the reveal toggle — which carries a visible "Show"/"Hide" on the
+  two screens where a password is *chosen* and stays a bare icon on log-in
+  (§9au). There is deliberately **no confirm-password field**: that decision is
+  recorded in §9au and rests partly on reset now existing, so it should not be
+  added back as an oversight. `/account/` links to `/reset-password/` for a
+  routine password change — a link, never a second form.
   **Sign out lives in the
   sidebar footer**, under the signed-in email, so it's reachable from any page.
   Sign-up also collects a **first name**, passed as `signUp({ options: { data } })` and

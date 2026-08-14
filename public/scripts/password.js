@@ -119,6 +119,25 @@ export const STRENGTH_LEVELS = [`Under ${MIN_PASSWORD_LENGTH} characters`, 'Weak
 // Returns a setter so callers that need to force the field back to masked
 // (auth.js does, on every tab switch) do not have to reach into the DOM
 // themselves.
+// The toggle's contents. Always includes the word, and CSS decides whether it
+// is seen (§9au) — `.pw-field.has-label` shows it, everything else hides it.
+//
+// Why the word exists at all: on a screen where you are *choosing* a password
+// rather than recalling one, a typo is not discovered by failing to log in —
+// it is discovered days later, by a login that fails for no visible reason.
+// The reveal is the check for that, and an unlabelled eye is not findable
+// enough to be used by the people most likely to need it. This was the
+// alternative to a confirm-password field: measured evidence (GOV.UK's design
+// system, NIST SP 800-63B) is that a second field produces mismatch errors at
+// roughly the rate it prevents typos, and breaks password managers, which fill
+// one field and leave the other empty.
+//
+// Markup rather than a JS string swap, so the label is in the DOM from first
+// paint and does not appear a frame late.
+export function passwordToggleContent(icon, label) {
+  return `${icon}<span class="pw-toggle-text">${label}</span>`;
+}
+
 export function attachPasswordToggle(input, button, { eye, eyeOff }) {
   function setVisible(visible) {
     // Guard: callers invoke this on state changes that may not be a change at
@@ -139,9 +158,11 @@ export function attachPasswordToggle(input, button, { eye, eyeOff }) {
       // setSelectionRange throws on those; not worth failing a toggle over.
       try { input.setSelectionRange(selectionStart, selectionEnd); } catch {}
     }
-    button.innerHTML = visible ? eyeOff : eye;
-    button.setAttribute('aria-pressed', String(visible));
     const label = visible ? 'Hide password' : 'Show password';
+    // The visible word is the short form; the accessible name stays the full
+    // phrase, since "Show" alone names nothing when read out of context.
+    button.innerHTML = passwordToggleContent(visible ? eyeOff : eye, visible ? 'Hide' : 'Show');
+    button.setAttribute('aria-pressed', String(visible));
     button.setAttribute('aria-label', label);
     button.dataset.tip = label;
   }

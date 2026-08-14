@@ -249,6 +249,22 @@ const TOOLS_MARKUP = `
     </div>
   </div>
 </section>
+<!-- Change password (§9au). The capability was already there and had no door:
+     /reset-password/ serves a signed-in caller the same form, deliberately, so
+     that "I forgot it" and "I want to change it" end in one screen instead of
+     two copies of one. What was missing was any way to reach it without an
+     email, which made a routine action look like it required losing access
+     first.
+
+     A link, not a button, and for the same reason the sidebar's Export entry
+     is one (§9af): it navigates. It is also why there is no form here - a
+     second password form on this page would be the duplicate the shared page
+     exists to avoid. -->
+<section class="account-tools" id="password">
+  <h2>Password</h2>
+  <p>Change the password on this account. You are already logged in, so you will not need an email to do it.</p>
+  <a class="btn btn-secondary" href="/reset-password/">Change password</a>
+</section>
 <section class="account-danger">
   <h2>Delete account</h2>
   <p>Close your account and remove your library. You can carry on using Promptly as a guest afterwards.</p>

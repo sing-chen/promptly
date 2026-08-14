@@ -1668,6 +1668,42 @@ footer.site-footer {
 .pw-toggle:hover { background: transparent; color: var(--ink); }
 .pw-toggle[aria-pressed="true"] { color: var(--accent); }
 
+/* The labelled variant (§9au), on the screens where a password is being
+   chosen rather than recalled: sign-up, and /reset-password/. The word is
+   always in the markup and hidden by default, so nothing has to be swapped in
+   a frame late.
+
+   The button stops being a 30px square and sizes to its contents, so the
+   input's padding-right grows to match - otherwise a long password runs
+   underneath the label instead of under the icon. Both live on .has-label so
+   the two numbers cannot drift apart. */
+.pw-toggle-text { display: none; }
+.pw-field.has-label .pw-toggle {
+  width: auto;
+  /* Sized to the wider of the two words rather than to whichever is showing.
+     The button is anchored to the field's right edge, so a width that changes
+     with the label moves its left edge on every press - measured at 70px for
+     "Show" and 66px for "Hide", which is small and exactly the kind of twitch
+     that makes a control feel unreliable under the cursor that just clicked
+     it. */
+  min-width: 72px;
+  justify-content: center;
+  height: 28px;
+  gap: 5px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+.pw-field.has-label .pw-toggle-text { display: inline; }
+.pw-field.has-label input { padding-right: 84px; }
+/* A visible border, unlike the bare icon. The icon reads as a control by
+   sitting inside the field; a word without an edge reads as a hint printed on
+   it, which is the opposite of the "this is findable and pressable" the label
+   was added for. */
+.pw-field.has-label .pw-toggle { border: 1px solid var(--line); }
+.pw-field.has-label .pw-toggle:hover { background: var(--well); border-color: var(--ink-soft); }
+
 /* Password rules + strength meter (public/scripts/auth.js) - sign-up mode
    only, both hidden by setMode() in sign-in mode.
    Negative top margin pulls each back toward the field it describes: the form
