@@ -213,11 +213,13 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
 - [`0008_delete_account.sql`](migrations/0008_delete_account.sql):
   `delete_my_account()`, a SECURITY DEFINER function letting a signed-in user
   close their own account from `/account/`. **Applied and verified against the
-  live project** — all 8 checks in [`verify_0008.sql`](verify_0008.sql) as
-  expected (7 PASS plus check 8 reading CHECK, which reports the admin count).
-  The behavioural half is still outstanding: no account has actually been
-  deleted through it yet, and that test cannot be skipped — see "Needs
-  configuration" below.
+  live project, and proven end to end** — all 8 checks in
+  [`verify_0008.sql`](verify_0008.sql) as expected (7 PASS plus check 8 reading
+  CHECK, which reports the admin count), and a throwaway non-admin account
+  deleted through the real UI. That last test was the one that mattered and the
+  one no script here could perform, since the function deletes straight out of
+  `auth.users` — Supabase's own schema, where the supported path is the admin
+  API.
   It takes no parameter and deletes `auth.uid()`, so it can only ever act on
   its caller; `search_path` is pinned, which is the standard escalation guard
   for SECURITY DEFINER. One row is deleted and ON DELETE CASCADE removes the
@@ -343,21 +345,17 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   seconds without opening the SQL editor.
 
 **Built, but needs configuration to take effect:**
-- **`0008_delete_account.sql` is applied and structurally verified, but no
-  account has been deleted through it.** Every precondition now checks out
-  against the live project — the owner holds DELETE by grant, it escapes the
-  RLS that *is* enabled on `auth.users` via `BYPASSRLS`, and every FK cascades.
-  What remains unproven is the act itself: the function deletes straight out of
-  `auth.users`, which is Supabase's own schema where the supported path is the
-  admin API. The delete cascades correctly to `auth.identities`,
-  `auth.sessions` and `auth.refresh_tokens`, and this is the conventional way
-  to do self-serve deletion without a backend, but it is supported **by
-  convention, not by contract**. Prove it end-to-end on a **throwaway
-  non-admin signup** — never from the admin account, which the function is
-  written to refuse and which would be unrecoverable if that refusal ever
-  failed. Testing the refusal itself *is* worth doing from the admin account:
-  press the button and confirm the dialog explains rather than proceeds.
-  Re-check after any Supabase auth upgrade.
+- **`0008_delete_account.sql` depends on a Supabase role attribute, so re-run
+  `verify_0008.sql` after any auth upgrade.** Deletion works today and has been
+  proven end to end. But it rests on `postgres` carrying `BYPASSRLS`, because
+  `auth.users` *does* have RLS enabled — and on `postgres` holding DELETE there
+  by grant, being neither a superuser nor the table's owner
+  (`supabase_auth_admin`). None of that is under this project's control, and
+  the failure mode is the quiet one: if `BYPASSRLS` were withdrawn, the delete
+  would succeed while removing nothing — the account survives and the UI
+  reports it closed. `verify_0008.sql` check 6 is the only thing that would
+  say so. The same applies to writing into `auth` at all, which is supported by
+  convention rather than by contract.
 - **Category CRUD and seeding are unexercised against a real database.** `0006` is
   applied and the schema is verified, but the signed-in paths — creating, renaming,
   recolouring and reordering a category, the delete-with-reassignment RPC, and
