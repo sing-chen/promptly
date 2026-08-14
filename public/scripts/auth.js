@@ -144,25 +144,41 @@ function setNavAccountState(session) {
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
   document.getElementById('manage-categories-btn')?.toggleAttribute('hidden', !session);
-  // The Categories label swaps between a link and inert text alongside the
-  // gear appearing, because the gear is the thing that makes the link a
-  // duplicate (§9ak). Both halves ship in the static markup - see the comment
-  // on them in lib/render.mjs for why the signed-out link has to survive.
-  // Note these run opposite ways round: the link hides when there IS a
-  // session, the static label when there is not.
-  document.getElementById('nav-categories-label')?.toggleAttribute('hidden', !!session);
-  document.getElementById('nav-categories-label-static')?.toggleAttribute('hidden', !session);
+  // The (i) hints carry the route to their section's page now that neither
+  // label is a link (§9al), so the link inside each has to say something true
+  // in both states rather than being hidden in one of them.
+  //
+  // Signed out it is a pitch, pointing at /why-sign-in/. Signed in it is
+  // navigation, pointing at the page itself. Collections needs this more than
+  // Categories does: its "+" opens a modal instead of navigating, and the
+  // sidebar list only links to /collections/ once you actually have one, so
+  // without this a new account has no route there at all.
+  const setCta = (id, href, text) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.href = href;
+    el.textContent = text;
+  };
+  if (session) {
+    setCta('collections-info-cta', '/collections/', 'Manage collections →');
+    setCta('categories-info-cta', '/categories/', 'Manage categories →');
+  } else {
+    setCta('collections-info-cta', '/why-sign-in/', 'Log in to create one →');
+    setCta('categories-info-cta', '/why-sign-in/', 'Log in to make them yours →');
+  }
   // Library is per-user content with no meaningful signed-out state - hide
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.
   document.getElementById('nav-library-link')?.toggleAttribute('hidden', !session);
   // Archived Prompts is per-user content too - same reasoning.
   document.getElementById('nav-archived-link')?.toggleAttribute('hidden', !session);
-  // The Collections "(i)" tooltip is redundant signed out - the sidebar
-  // already shows an explainer callout there instead of a live list
-  // (collectionsNav.js), so the tooltip only earns its place once that
-  // callout is gone.
-  document.getElementById('collections-info-btn')?.toggleAttribute('hidden', !session);
+  // The Collections "(i)" used to be hidden signed out, on the reasoning that
+  // the explainer callout below it already said the same thing. §9al removed
+  // the callout and moved its text into the hint, which reverses the
+  // conclusion: the hint is now the ONLY place that explanation lives, so
+  // hiding it from logged-out visitors would hide it from exactly the people
+  // it was written for. Both (i) buttons are permanent, in both states, and
+  // are not toggled here at all.
 
   const adminLink = document.getElementById('nav-admin-link');
   if (!adminLink) return;
