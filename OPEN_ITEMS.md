@@ -47,6 +47,10 @@ Supabase Auth itself sends (confirm sign-up, magic link, reset, invite, email ch
 a *separate* marketing-style welcome email is not covered and would need its own sender;
 and metadata is read when the mail is triggered, so it must be passed at `signUp` time —
 which it is.
+*Not to be confused with E6:* this is **transactional** mail — confirmation, password
+reset — which the user asked for by acting, and which rides on contract as its lawful
+basis. Configuring SMTP does not make **marketing** mail permissible; that needs consent
+collected separately, and E6 explains why the account address cannot just be reused.
 *Source: BUILD_BRIEF_v5.md §9; email-template variables per
 [Supabase docs](https://supabase.com/docs/guides/auth/auth-email-templates).*
 
@@ -282,6 +286,46 @@ ones. Deferred, not decided. *Source: BUILD_BRIEF_v4.md §7.*
 house style. Originally scoped as a Claude Code skill for hand-authored Markdown; that
 workflow is gone, so it now belongs in the New Prompt modal or the `/admin/` publish
 step. *Source: BUILD_BRIEF.md §12.*
+
+**E6. Newsletter / product-update emails.** **Not possible today, and the account email
+address cannot simply be reused for it.** Three independent blockers, each sufficient on
+its own:
+
+1. **The published documents forbid it.** `/privacy/` says "no marketing list to join"
+   and "It is never added to a mailing list, because there is no mailing list", and its
+   Article 6 table lists only contract plus legitimate interests for security and
+   replies. Sending a newsletter would contradict the notice already published — a
+   transparency failure before any marketing law is reached.
+2. **Purpose limitation** (UK GDPR Art 5(1)(b)). The address was collected to create an
+   account and run the service. Marketing is a different purpose, not a compatible
+   further use of that one.
+3. **PECR reg 22**, which is the binding constraint and is stricter than the GDPR:
+   marketing email to an individual needs *prior consent*. The "soft opt-in" exception
+   requires details obtained "in the course of a sale or negotiations for a sale" of
+   similar products. **Promptly is free, with no paid tier and no payment method, so
+   there is no sale and nothing negotiating toward one** — the exception almost certainly
+   does not apply. *Revisit this specific point if a paid tier ever exists; it is the one
+   fact that would change the analysis.*
+
+*What building it would require — the reason this is section E and not a small task:*
+- An **unticked** opt-in at sign-up, worded separately from accepting the terms and
+  **not** a condition of getting an account (Art 7(4): bundled consent is not freely
+  given).
+- A record of *when* consent was given and *what wording* was shown — Art 7(1) puts the
+  burden of demonstrating it on you.
+- Somewhere to store the preference. Unlike the first name, this does **not** belong in
+  `user_metadata`: it is consent evidence, it needs to be queryable to build a send list,
+  and metadata sits outside RLS. That means a schema change.
+- An unsubscribe link in every message, honoured promptly (PECR, and Art 21(3)).
+- Privacy-notice edits: new purpose, lawful basis of **consent** (not contract, not
+  legitimate interests), the right to withdraw, and retention — plus deleting the two
+  sentences that currently promise the opposite.
+
+Deferred rather than declined: it is a coherent feature, just one with a compliance
+surface that has to be built deliberately rather than switched on.
+*Source: researched in the §9ac session; ICO guidance on
+[direct marketing by electronic mail](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-direct-marketing-using-electronic-mail/).
+Researched, not legal advice.*
 
 ---
 
