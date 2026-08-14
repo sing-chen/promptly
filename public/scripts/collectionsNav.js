@@ -6,7 +6,7 @@
 // the original static callout markup.
 import { supabase } from './supabaseClient.js';
 import { loadCollections } from './db.js';
-import { esc, SIDEBAR_LIST_CAP } from './lib/render.mjs';
+import { esc, SIDEBAR_LIST_CAP, ICON } from './lib/render.mjs';
 
 // Caps the visible list the same way renderNav caps Categories in
 // lib/render.mjs (SIDEBAR_LIST_CAP) - the sidebar must never grow its own
@@ -17,10 +17,16 @@ function renderLive(collections) {
   if (collections.length === 0) {
     return '<p class="sidebar-empty-note">No collections yet.</p>';
   }
-  const sorted = collections.slice().sort((a, b) => a.title.localeCompare(b.title));
-  const items = sorted.slice(0, SIDEBAR_LIST_CAP).map(c => `<a href="/collections/">${esc(c.title)}</a>`).join('');
-  const more = sorted.length > SIDEBAR_LIST_CAP
-    ? `<a href="/collections/" class="sidebar-view-all">View all ${sorted.length} →</a>`
+  // No sort here, deliberately (§9ao). This used to re-sort alphabetically by
+  // title, which silently discarded the order loadCollections() returns and
+  // made drag-to-reorder on /collections/ look broken: the arrangement saved,
+  // the sidebar ignored it. loadCollections() orders by `position` (0009) with
+  // title as the tie-break, exactly as loadMyCategories() does - so the right
+  // thing to do here is what categoriesNav.js already does, which is nothing.
+  const items = collections.slice(0, SIDEBAR_LIST_CAP).map(c => `
+<a href="/collections/"><span class="nav-icon" aria-hidden="true">${ICON.collection}</span><span class="nav-label">${esc(c.title)}</span></a>`).join('');
+  const more = collections.length > SIDEBAR_LIST_CAP
+    ? `<a href="/collections/" class="sidebar-view-all">View all ${collections.length} →</a>`
     : '';
   return items + more;
 }
