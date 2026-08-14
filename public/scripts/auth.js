@@ -143,7 +143,7 @@ function setNavAccountState(session) {
   document.getElementById('why-next-in')?.toggleAttribute('hidden', !session);
   // Categories are editable only when signed in (BUILD_BRIEF_v6.md §4.1) -
   // a guest still sees the list, just not the "+" that adds to it.
-  document.getElementById('new-category-btn')?.toggleAttribute('hidden', !session);
+  document.getElementById('manage-categories-btn')?.toggleAttribute('hidden', !session);
   // Library is per-user content with no meaningful signed-out state - hide
   // rather than send an anonymous visitor to a page that just tells them
   // to sign in.

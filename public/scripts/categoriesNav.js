@@ -67,10 +67,12 @@ function init() {
     supabase.auth.getSession().then(({ data: { session } }) => refresh(list, session));
   });
 
-  // The sidebar "+" is the fast path to adding one; the page is where the
-  // rest of the management lives, so it just navigates there rather than
-  // duplicating the editor in a modal.
-  document.getElementById('new-category-btn')?.addEventListener('click', () => {
+  // Navigates rather than opening an editor, which is the deliberate choice -
+  // /categories/ is where add, rename, recolour and delete all live, and
+  // duplicating any of that in a modal would mean two places to keep in step.
+  // §9aj relabelled the control to match: it was a "+" captioned "New
+  // category", which described a modal this has never opened.
+  document.getElementById('manage-categories-btn')?.addEventListener('click', () => {
     location.href = '/categories/';
   });
 }

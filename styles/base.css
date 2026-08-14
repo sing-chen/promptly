@@ -882,7 +882,10 @@ button.nav-toggle { display: none; }
 .card-title {
   font-family: var(--display);
   font-weight: 700;
-  font-size: 13.5px;
+  /* 15px, moved with .title-cell (§9aj) - the two are the same content in two
+     views and had drifted to no purpose. See the note there for why body size
+     rather than larger. */
+  font-size: 15px;
   /* Takes the whole row now that the action icons have moved to their own
      line below - .card-top is space-between, so without this the title stays
      at its natural width and wraps far earlier than it needs to. */
@@ -1236,11 +1239,29 @@ button.nav-toggle { display: none; }
 .cat-cell { display: flex; flex-wrap: wrap; gap: 4px; max-width: 168px; }
 .cat-cell .cat-badge.cat-overflow { font-size: 9.5px; }
 
-.title-cell { font-family: var(--display); font-weight: 700; font-size: 13.5px; }
+/* 15px, matching body copy (§9aj). It was 13.5px, i.e. the most important
+   text in the row was set SMALLER than ordinary prose, leaving weight and the
+   display face to carry the hierarchy on their own - which is what made it
+   read as cramped rather than emphatic. Kept level with body rather than
+   pushed above it: bold display type at the same size already reads as a
+   heading, and going larger costs rows on screen. Matches .card-title, which
+   moved with it. */
+.title-cell { font-family: var(--display); font-weight: 700; font-size: 15px; }
 /* Typography/color come from .chip.chip-seq - this just positions it inline
    next to the title text within the table cell. */
 .title-cell .seq-tag { margin-left: 8px; vertical-align: middle; }
-.purpose-line { display: block; font-family: var(--sans); font-weight: 400; font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; max-width: 480px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 13px/--ink-soft (§9aj), up from 11.5px/--ink-faint. Two problems, one fix.
+   It was the smallest text on the page AND the lowest contrast, measured at
+   3.03:1 against the table's white ground - a real AA failure for text, which
+   needs 4.5:1, and D5b's token again. Low contrast reads as "small" even when
+   the size is fine, so the two compounded.
+   It also brings list view into line with grid: .card-purpose was already
+   13px/--ink-soft, so the same subline had two different treatments depending
+   on which view you were in. 5.89:1 now.
+   max-width raised with the type - 13px in a 480px box shows noticeably fewer
+   characters before the ellipsis than 11.5px did, and the point of the line is
+   the words in it. */
+.purpose-line { display: block; font-family: var(--sans); font-weight: 400; font-size: 13px; color: var(--ink-soft); margin-top: 3px; max-width: 540px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Always visible now, not just on hover/focus/selection - a row's
    fav/copy/archive/delete icons were easy to miss entirely otherwise,
