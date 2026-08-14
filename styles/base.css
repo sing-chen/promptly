@@ -1601,6 +1601,18 @@ footer.site-footer {
    .is-dashboard when it renders stats - the form keeps its narrow measure. */
 .account-page { max-width: 380px; padding-top: 8px; }
 .account-page.is-dashboard { max-width: 940px; }
+/* A third measure, for the states that are prose rather than a form (§9at):
+   "check your email", "activate your account first", the dead-link screen and
+   the password-changed confirmation. 380px is a good width for a stack of
+   input fields and a bad one for three sentences and a bulleted list - at
+   ~40 characters a line, the spam-folder advice wrapped into a column and read
+   as squashed, which is exactly what it looked like.
+
+   560px is ~62 characters at this size, inside the 45-75 the typographic
+   measure guidance puts as comfortable. Applied by JS on the screens that need
+   it rather than by widening .account-page outright, because the form's narrow
+   measure is correct and is what makes it read as a form. */
+.account-page.is-message { max-width: 560px; }
 .account-tabs { margin: 16px 0; }
 .account-form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
 .account-form label {

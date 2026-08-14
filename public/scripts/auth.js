@@ -181,6 +181,9 @@ function renderSignedIn(root, session) {
   // Widens the page for the stat grid; the signed-out form keeps the narrow
   // measure .account-page was sized for.
   root.closest('.account-page')?.classList.add('is-dashboard');
+  // …and drop the message measure, which a caller can be carrying if they got
+  // here by confirming from the "check your email" panel.
+  root.closest('.account-page')?.classList.remove('is-message');
   // The first name captured at sign-up is used here, and this is the only
   // place it is used - which is the point rather than an afterthought. Under
   // UK GDPR's data-minimisation principle, collecting a name and then never
@@ -239,7 +242,9 @@ ${confirmedBanner}
 const RESEND_COOLDOWN_SECONDS = 60;
 
 function renderSignedOut(root) {
-  root.closest('.account-page')?.classList.remove('is-dashboard');
+  // Both alternative measures cleared on a fresh paint - this function always
+  // renders the form, which owns the default 380px.
+  root.closest('.account-page')?.classList.remove('is-dashboard', 'is-message');
   root.innerHTML = `
 <h1>Account</h1>
 <div class="filter-pill-group account-tabs" id="auth-tabs">
@@ -360,6 +365,9 @@ function renderSignedOut(root) {
   // `kind` is 'signup' or 'recovery' and selects which Supabase call the
   // resend button makes.
   function showEmailSentPanel({ kind, email, heading, lead }) {
+    // Widen the column: this screen is prose, not a form, and the form's
+    // 380px measure squashes it (§9at).
+    root.closest('.account-page')?.classList.add('is-message');
     form.hidden = true;
     tabsEl.hidden = true;
     forgotHead.hidden = true;
@@ -411,6 +419,10 @@ function renderSignedOut(root) {
     });
 
     panel.querySelector('#auth-panel-back').addEventListener('click', () => {
+      // Back to the form, so back to the form's measure. Paired with the
+      // add() above; leaving it wide would make the log-in fields stretch to
+      // 560px for no reason other than where the visitor had just been.
+      root.closest('.account-page')?.classList.remove('is-message');
       panel.hidden = true;
       panel.innerHTML = '';
       form.hidden = false;

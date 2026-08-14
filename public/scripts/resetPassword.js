@@ -32,6 +32,11 @@ import {
 // here is changing one they still know. Same form, same rules, and the only
 // honest difference is what to call it.
 function renderForm(root, session, { notice = '', heading = 'Choose a new password' } = {}) {
+  // The form's own measure is 380px and that is right for one field. With the
+  // dead-link banner above it the screen is mostly prose, so it takes the
+  // wider one - the width follows what is actually on the page rather than
+  // which function drew it.
+  root.closest('.account-page')?.classList.toggle('is-message', Boolean(notice));
   root.innerHTML = `
 <h1>${escapeText(heading)}</h1>
 ${notice}
@@ -94,6 +99,9 @@ ${notice}
     // in and can simply carry on - bouncing them to a log-in form to re-enter
     // the password they just chose is the classic version of this screen and
     // it is pointless work.
+    // Prose from here on, so it takes the wider measure (§9at) - the same
+    // reason the dead-link screen does.
+    root.closest('.account-page')?.classList.add('is-message');
     root.innerHTML = `
 <h1>Password changed</h1>
 <div class="auth-banner" role="status">
@@ -109,6 +117,7 @@ ${notice}
 // is stripped); when it says nothing, the honest answer is that the link is no
 // longer valid without claiming to know why.
 function renderNoSession(root) {
+  root.closest('.account-page')?.classList.add('is-message');
   root.innerHTML = `
 <h1>This link is no longer valid</h1>
 <p>${escapeText(LINK_ERROR || 'Password-reset links last an hour and can be used once. Requesting a new one also cancels any older link you were sent.')}
