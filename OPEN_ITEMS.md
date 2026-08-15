@@ -239,25 +239,61 @@ why the only number a browser session can honestly produce is zero.
 
 ## C. Configuration to confirm
 
-**C1. The Vercel Deploy Hook URL is NOT set. Answered 15 Aug 2026 — and it is now a
-task, not a question.** Observed rather than queried: a publish and an unpublish were
-confirmed through `/admin/` during the §9av test pass and **no Vercel deployment
-appeared**. `0005`'s trigger fires on exactly that transition, so a hook that was set
-would have produced one.
+**C1. The auto-rebuild chain is broken somewhere between the trigger and Vercel. Narrowed
+15 Aug 2026, not yet resolved — and the first attempt to resolve it was wrong in a way
+worth keeping.** A publish and an unpublish were confirmed through `/admin/` and **no
+Vercel deployment appeared**. That is solid evidence the chain is broken. It was then
+written up here as "the Deploy Hook URL is NOT set", which was **an over-reading of one
+negative observation**: the Vercel side turned out to have a live hook ("Supabase catalog
+rebuild", branch `main`) all along. A single failed end-to-end run identifies a broken
+chain, never which link — and this register is the wrong place to record a guess as a
+finding.
+
+*The chain has five links, and any one of them produces exactly the symptom observed:*
+1. `deploy_settings.deploy_hook_url` is null — the Vercel hook exists but `set_deploy_hook_url()`
+   was never run with it. Still the most likely, just no longer assumed.
+2. `pg_net` is not functioning. It is async and queue-based, and a stalled worker is a
+   known Supabase failure mode that surfaces as requests silently never leaving.
+3. The POST left and Vercel rejected it — a revoked or rotated URL still stored here.
+4. The trigger did not fire. Unlikely: `0006` §9e redefines `prompts_static_rebuild()`
+   without `0005`'s `categories` comparison, so the column `0006` dropped is not
+   referenced, and an erroring trigger would have aborted the publish rather than
+   letting it succeed quietly.
+5. The deploy did happen and was missed.
+
+*Why none of this shows up in the app, and why `request_static_rebuild()` returning
+cleanly proves nothing:* it swallows every failure into `raise warning` **by design** —
+a deploy hook is a side effect and must never roll back the write that triggered it. So
+it returns success whether or not anything was sent. The evidence lives in **pg_net's own
+response table**, which is where the diagnosis has to start:
+```sql
+-- 1. Is the URL actually stored here?
+select deploy_hook_url is not null as hook_is_set, updated_at from deploy_settings;
+
+-- 2. Fire it directly, bypassing the trigger entirely.
+select request_static_rebuild('manual test');
+
+-- 3. The decisive one — did a request leave, and what came back?
+select id, status_code, error_msg, created
+from net._http_response order by created desc limit 10;
+```
+A row with `status_code` 201 means the whole chain works and link 4 or 5 is the answer.
+No row at all means nothing was sent — link 1 or 2. A row with an error message names
+link 3 outright.
 
 *The consequence, and why it stayed invisible for so long:* **catalog changes do not
 reach anonymous visitors.** Signed-in users are unaffected — they read Supabase live
 through `ensure_seeded()` — so every check made while logged in shows the system working
 perfectly. The static site simply keeps serving whatever the last git-push deploy built.
 
-*The fix, in two steps:* create a Deploy Hook for `main` in Vercel (Project Settings →
-Git → Deploy Hooks), then in the Supabase SQL editor:
-```sql
-select set_deploy_hook_url('<the URL>');
-```
-Confirm with `select deploy_hook_url is not null as hook_is_set from deploy_settings;` —
-which is also the only way to check it, since `deploy_settings` has RLS with no policies
-and an anon read returns an empty set either way.
+*If step 1 comes back false*, that is the whole fix — copy the existing Vercel hook URL
+and run `select set_deploy_hook_url('<the URL>');`. No new hook needs creating; one
+already exists on `main`.
+
+Note `deploy_settings` has RLS with no policies, so none of this can be checked from
+application code — an anon read returns an empty set whether or not a URL is stored.
+That property is deliberate (the URL is a capability: anyone holding it can trigger
+production builds) and it is also why this item has survived unanswered for so long.
 
 *One correction this forces elsewhere:* `supabase/README.md`'s Status section says `0005`
 was "confirmed working once configured", citing an edit that produced a real deployment.
