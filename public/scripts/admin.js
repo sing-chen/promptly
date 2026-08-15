@@ -26,10 +26,19 @@ import { esc, fmtDate, categoryName } from './lib/render.mjs';
 // which is a bigger change than B4 asked for. The wording therefore names the
 // consequence rather than counting it.
 //
-// Unpublish gets a dialog too, matching the one newPrompt.js already shows for
-// the same action on the Edit modal's curation checkbox. That one is not new
-// weight - it's the same action behaving the same way in both places it's
-// offered, which it didn't before.
+// Unpublish gets a dialog too, so the action confirms wherever it is offered
+// - newPrompt.js has confirmed from the Edit modal's curation checkbox all
+// along, and this page was the one that didn't.
+//
+// But the two are NOT the same operation, and the wording must not pretend
+// they are. This page's Unpublish is unpublishPrompt(), which sets
+// `published: false` and nothing else - the row stays is_curated, reverts to a
+// catalog draft, and is still listed here. The Edit modal's untick is
+// demoteFromCatalog(), which also clears is_curated: that one really does
+// leave the catalog, becomes a personal prompt, and disappears from this page.
+// So "Remove from the catalog?" belongs to that path and was wrong here; it
+// said the prompt was leaving something it stays in. Same distinction the
+// modal's own hint text draws between a catalog draft and a published row.
 const PUBLISH_CONFIRM = (title) => ({
   title: 'Publish to everyone?',
   message: `"${title}" will be copied into every account's library — the ones that exist now, and every account created later. Those copies are independent, so this can't be recalled: unpublishing stops new copies but leaves the ones already handed out. Editing it after this is a broadcast to everyone holding one.`,
@@ -38,8 +47,8 @@ const PUBLISH_CONFIRM = (title) => ({
 });
 
 const UNPUBLISH_CONFIRM = (title) => ({
-  title: 'Remove from the catalog?',
-  message: `"${title}" will stop being handed out to new accounts. Users who already have a copy keep it — copies are independent — but nobody new will receive it.`,
+  title: 'Unpublish this prompt?',
+  message: `"${title}" goes back to being a catalog draft, visible only to you, and stops being handed out to new accounts. It stays in your catalog — untick "Publish to everyone" on the prompt itself to remove it entirely. Users who already have a copy keep it: copies are independent, so nothing is taken back.`,
   confirmLabel: 'Unpublish'
 });
 
