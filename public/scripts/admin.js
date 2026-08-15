@@ -5,7 +5,43 @@
 // publish/unpublish toggle supabase/README.md's "Next steps" called for.
 import { supabase } from './supabaseClient.js';
 import { isAdmin, loadPrompts, publishPrompt, unpublishPrompt } from './db.js';
+import { confirmDialog } from './confirmDialog.js';
 import { esc, fmtDate, categoryName } from './lib/render.mjs';
+
+// OPEN_ITEMS.md B4. Publishing is the one control on this page whose effect
+// can't be undone: ensure_seeded() hands out independent copies, so
+// unpublishing afterwards stops future grants and removes nothing (§0004's
+// catalog_grants comment). Until the notify-and-merge screen exists (B2),
+// a mistake published is a mistake in every library that received it. The
+// button was as light as any other toggle; these two dialogs are the
+// mitigation the draft flow (is_curated=true, published=false) was only ever
+// half of.
+//
+// Deliberately no "this will be copied to N libraries". The number can't be
+// read from here and the client is the wrong place to fix that: catalog_grants
+// is RLS'd to `user_id = auth.uid()` (0004), and an admin never holds grants
+// at all because ensure_seeded() no-ops for them - so the honest count from
+// this session is always zero, which reads as reassurance rather than a
+// warning. Getting a real N means a SECURITY DEFINER RPC and a migration,
+// which is a bigger change than B4 asked for. The wording therefore names the
+// consequence rather than counting it.
+//
+// Unpublish gets a dialog too, matching the one newPrompt.js already shows for
+// the same action on the Edit modal's curation checkbox. That one is not new
+// weight - it's the same action behaving the same way in both places it's
+// offered, which it didn't before.
+const PUBLISH_CONFIRM = (title) => ({
+  title: 'Publish to everyone?',
+  message: `"${title}" will be copied into every account's library — the ones that exist now, and every account created later. Those copies are independent, so this can't be recalled: unpublishing stops new copies but leaves the ones already handed out. Editing it after this is a broadcast to everyone holding one.`,
+  confirmLabel: 'Publish to everyone',
+  danger: false
+});
+
+const UNPUBLISH_CONFIRM = (title) => ({
+  title: 'Remove from the catalog?',
+  message: `"${title}" will stop being handed out to new accounts. Users who already have a copy keep it — copies are independent — but nobody new will receive it.`,
+  confirmLabel: 'Unpublish'
+});
 
 function renderRow(p) {
   const statusClass = p.published ? 'admin-status-published' : 'admin-status-draft';
@@ -28,7 +64,11 @@ function renderRow(p) {
 
 function renderList(root, prompts) {
   if (prompts.length === 0) {
-    root.innerHTML = '<p style="color:var(--ink-faint);">No default prompts yet. Create one from the sidebar\'s "+ New Prompt" button and check "Make this a default prompt".</p>';
+    // The checkbox this names is #np-admin-checkbox in renderNewPromptModal.
+    // It read "Make this a default prompt" until §9av - a label that had not
+    // existed for some time, which is the failure mode of quoting another
+    // screen's wording from memory. Quote what is on the screen, or don't quote.
+    root.innerHTML = '<p style="color:var(--ink-faint);">No default prompts yet. Create one from the sidebar\'s "+ New Prompt" button and tick "Publish to everyone".</p>';
     return;
   }
   root.innerHTML = `
@@ -41,10 +81,25 @@ function renderList(root, prompts) {
   </table>
 </div>`;
 
+  // Titles come from this map rather than a data-title attribute so the
+  // dialog gets the real string - the table's markup is HTML-escaped, and a
+  // title with an apostrophe or an ampersand in it would otherwise reach the
+  // confirmation still carrying the entities.
+  const titleById = new Map(prompts.map(p => [String(p.id), p.title]));
+
   root.querySelectorAll('.admin-publish-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.id;
       const wasPublished = btn.dataset.published === 'true';
+      const title = titleById.get(String(id)) || 'This prompt';
+
+      // Confirm before the button is disabled, not after: a cancelled dialog
+      // has to leave the row exactly as it was, ready to be clicked again.
+      const ok = await confirmDialog(
+        wasPublished ? UNPUBLISH_CONFIRM(title) : PUBLISH_CONFIRM(title)
+      );
+      if (!ok) return;
+
       btn.disabled = true;
       try {
         await (wasPublished ? unpublishPrompt(id) : publishPrompt(id));

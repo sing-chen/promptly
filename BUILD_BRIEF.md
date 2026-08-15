@@ -1225,6 +1225,24 @@ The third is consistency with what is already locked here. §9ai put the reveal 
 
 A seventh instance of the run's measurement lesson, and the most clear-cut: a page width came back as 44px. `window.innerWidth` was **0** — the browser pane was collapsed, so nothing was being laid out. An impossible number is a broken measurement first.
 
+## 9av. Publish Names Its Consequence (new)
+
+OPEN_ITEMS.md **B4**. `/admin/`'s publish control was a bare `btn-secondary` that fired `publishPrompt()` straight from the click — visually and behaviourally identical to Unpublish beside it, and to every other toggle on the site. It is not identical. `ensure_seeded()` hands out **independent copies**, so publishing is the one action on that page with no undo: unpublishing afterwards stops future grants and removes nothing, and until the notify-and-merge screen exists (B2) an error published is an error in every library that received it. The draft flow (`is_curated = true, published = false`) was the mitigation, and it only ever covered the half before the click.
+
+**Both directions now confirm**, via the existing `confirmDialog()` rather than a bespoke modal — `renderLayout` already puts the shell on every page, so this needed no markup at all. Publish is `danger: false`, so its confirm button is `btn-primary`: this is a deliberate, consequential action, not a destructive one, and painting it red would say the wrong thing about what is being agreed to.
+
+**Unpublish gets one too, and that is not new weight.** `newPrompt.js` has confirmed the same action since the Edit modal's curation checkbox existed, with wording this deliberately reuses. `/admin/` was the inconsistent surface — the same action, offered twice, behaving differently depending on which screen you reached it from.
+
+**No "this will be copied to N libraries", and the reason is worth recording so it isn't re-attempted from the client.** The register's own phrasing suggested a count, and it can't be read from a browser session: `catalog_grants` is RLS'd to `user_id = auth.uid()` (`0004`), and an admin holds no grants at all because `ensure_seeded()` no-ops for them. So the only number this session can honestly produce is **zero**, which reads as reassurance in exactly the dialog whose job is the opposite. A real N needs a SECURITY DEFINER RPC and a migration — more than B4 asked for, and a candidate follow-on rather than something to fake. The wording therefore **names** the consequence instead of counting it, which is the part that was actually missing.
+
+Two small things the implementation turns on. The confirm runs **before** `btn.disabled = true`, so cancelling leaves the row exactly as it was rather than dead until reload. And the title comes from a `Map` built in `renderList()` rather than a `data-title` attribute — the table's markup is `esc()`d, so an ampersand or apostrophe in a prompt title would otherwise arrive in the dialog still carrying its entity.
+
+**Verified in-browser** against the built site: the dialog opens with `btn btn-primary` (not `btn-danger`), focus lands on the confirm button, the message measures 5.42:1 light and 8.31:1 dark against the modal — `--ink-soft`, deliberately not the `--ink-faint` D5b is still open about — and the primary button 6.26:1 in both. At 380px the two buttons total 239px against 336px of usable width, so nothing wraps the way `.del-modal` did at that width (§9ad); `max-height: 90vh; overflow-y: auto` on `.np-modal` means the longer message can't clip. `admin.js` loads and runs with its new imports, no console errors.
+
+**Not verified, and it needs you**: the actual publish/unpublish round trip. `/admin/` is admin-gated, reaching it means entering a password, and that is not something to do on your behalf. What was exercised is the dialog and the module; what is untested is one click through to `publishPrompt()`.
+
+**A stale label, found while writing the test plan.** `/admin/`'s empty state told you to tick **"Make this a default prompt"**. The checkbox says **"Publish to everyone"** and has since the curation control was reworded; nothing had pointed the two at each other since. Now corrected. The pattern is worth more than the fix: it is one screen **quoting another screen's wording from memory**, which no build step, no test and no reader who is already an admin will ever catch — the empty state only renders for an admin with zero catalog prompts, which is a state this project passed through once. Same failure class as the status claims OPEN_ITEMS.md exists to prevent, one layer down in the UI.
+
 ---
 
 ## 10. Build Order (revised)
