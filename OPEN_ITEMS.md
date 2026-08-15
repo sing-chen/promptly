@@ -239,15 +239,31 @@ why the only number a browser session can honestly produce is zero.
 
 ## C. Configuration to confirm
 
-**C1. Is the Vercel Deploy Hook URL set?** `0005_publish_webhook.sql` is built and
-verified but inert until it is. Without it, catalog changes never reach anonymous
-visitors — signed-in users are unaffected, which is what makes the failure quiet. Check:
+**C1. The Vercel Deploy Hook URL is NOT set. Answered 15 Aug 2026 — and it is now a
+task, not a question.** Observed rather than queried: a publish and an unpublish were
+confirmed through `/admin/` during the §9av test pass and **no Vercel deployment
+appeared**. `0005`'s trigger fires on exactly that transition, so a hook that was set
+would have produced one.
+
+*The consequence, and why it stayed invisible for so long:* **catalog changes do not
+reach anonymous visitors.** Signed-in users are unaffected — they read Supabase live
+through `ensure_seeded()` — so every check made while logged in shows the system working
+perfectly. The static site simply keeps serving whatever the last git-push deploy built.
+
+*The fix, in two steps:* create a Deploy Hook for `main` in Vercel (Project Settings →
+Git → Deploy Hooks), then in the Supabase SQL editor:
 ```sql
-select deploy_hook_url is not null as hook_is_set from deploy_settings;
+select set_deploy_hook_url('<the URL>');
 ```
-It cannot be checked from application code: `deploy_settings` has RLS enabled with no
-policies, so an anon read returns an empty set whether or not a URL is stored.
-*Source: supabase/README.md setup step 7.*
+Confirm with `select deploy_hook_url is not null as hook_is_set from deploy_settings;` —
+which is also the only way to check it, since `deploy_settings` has RLS with no policies
+and an anon read returns an empty set either way.
+
+*One correction this forces elsewhere:* `supabase/README.md`'s Status section says `0005`
+was "confirmed working once configured", citing an edit that produced a real deployment.
+That is not evidence the hook is set **now** — a hook can be created and later deleted, or
+the record cleared. Take this entry as current and that one as historical.
+*Source: supabase/README.md setup step 7; settled by observation during the §9av tests.*
 
 **C2. Vercel env vars are Production-only.** `SUPABASE_URL` / `SUPABASE_ANON_KEY` aren't
 set for Preview or Development. Harmless today; it bites the first time a preview-branch
@@ -316,6 +332,35 @@ it wants making once with the whole list in view rather than incrementally.
 *Source: measured in BUILD_BRIEF.md §9u and §9v.*
 
 **D5c. `.btn-danger` fails AA in dark mode.** **Resolved — see H.**
+
+**D6. Only published catalog prompts can open in full-page mode.** Raised 15 Aug 2026
+while testing §9av, and the observation was exact: the "Open full page ↗" link appears
+only on prompts carrying the catalog badge. Everything else — your own prompts, and
+catalog **drafts** — opens in quick-view and stops there.
+
+*This is currently correct, in the narrow sense that the alternative is a 404.*
+`/prompt/<slug>/` pages are generated at build time from published catalog prompts only
+(`scripts/build.mjs` via `fetchPublishedPrompts()`), so a personal prompt has no page to
+link to. `quickview.js` hides the link on `is_curated === false || published === false`
+rather than sending someone to a dead URL, and `toQuickViewItem()` passes those two
+fields for exactly this purpose. It is the same constraint §9z hit with sequence rails,
+where personalized cards drop their `href` and take `role="button"` instead.
+
+*But "correct" here only means consistent with the architecture, not right as a product.*
+A user whose whole library is their own writing never sees a full page at all, and the
+capability appears to depend on a badge that, to them, looks like it means something else
+entirely. The instinct that they should all open is a reasonable one.
+
+*What closing it actually costs — the reason this is a register item and not a fix:* a
+prompt page for an owned row cannot be a build artifact, because the build has no access
+to per-user rows. It has to be a **client-rendered route** — a shell page that reads an
+id or slug from the URL and personalizes, the same pattern `/account/`, `/admin/` and
+`/collections/` already use. That is a real page to design (it is the detail view, not a
+list), plus routing, plus a not-found state, plus a decision about whether the existing
+`/prompt/<slug>/` becomes that shell for everyone or a second route appears beside it.
+Shares a root cause with **E4**: both are "this content is per-user, and pages are built
+from the catalog". Worth answering together.
+*Source: observed during the §9av test pass.*
 
 **D5. `supabase/seed_default_prompts.sql` no longer runs.** Writes to the dropped
 `prompts.categories` column. Left broken with a header explaining the fix rather than

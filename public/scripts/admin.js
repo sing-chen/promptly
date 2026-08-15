@@ -6,7 +6,7 @@
 import { supabase } from './supabaseClient.js';
 import { isAdmin, loadPrompts, publishPrompt, unpublishPrompt } from './db.js';
 import { confirmDialog } from './confirmDialog.js';
-import { esc, fmtDate, categoryName } from './lib/render.mjs';
+import { esc, fmtDate, categoryName, ICON } from './lib/render.mjs';
 
 // OPEN_ITEMS.md B4. Publishing is the one control on this page whose effect
 // can't be undone: ensure_seeded() hands out independent copies, so
@@ -64,6 +64,11 @@ function renderRow(p) {
   <td><span class="admin-status ${statusClass}">${statusLabel}</span></td>
   <td>${esc(fmtDate(p.updated || p.added))}</td>
   <td>
+    <span class="row-actions">
+      <button type="button" class="icon-btn admin-edit-btn" data-id="${esc(p.id)}" aria-label="Edit ${esc(p.title)}" data-tip="Edit">${ICON.edit}</button>
+    </span>
+  </td>
+  <td>
     <button type="button" class="btn btn-secondary admin-publish-btn" data-id="${esc(p.id)}" data-published="${p.published}">
       ${p.published ? 'Unpublish' : 'Publish'}
     </button>
@@ -84,7 +89,7 @@ function renderList(root, prompts) {
 <div class="table-wrap">
   <table class="browse-table comfortable">
     <thead>
-      <tr><th>Title</th><th style="width:110px;">Status</th><th class="col-updated">Updated</th><th style="width:110px;"></th></tr>
+      <tr><th>Title</th><th style="width:110px;">Status</th><th class="col-updated">Updated</th><th style="width:44px;"></th><th style="width:110px;"></th></tr>
     </thead>
     <tbody>${prompts.map(renderRow).join('')}</tbody>
   </table>
@@ -95,6 +100,23 @@ function renderList(root, prompts) {
   // title with an apostrophe or an ampersand in it would otherwise reach the
   // confirmation still carrying the entities.
   const titleById = new Map(prompts.map(p => [String(p.id), p.title]));
+
+  // Edit reuses the same modal every other surface uses: dispatch
+  // 'prompt:edit-request' with the row itself and newPrompt.js opens in edit
+  // mode (its listener is on `document`, so it works from any page). This page
+  // had no editing UI at all - the module header called that deliberate, but
+  // the reasoning had gone stale: it dates from when /admin/ only ever showed
+  // rows that were also visible on Home, where Edit already existed. A *draft*
+  // (is_curated, not published) appears on neither Home nor any static page,
+  // so /admin/ was the only place it was listed and the only place it couldn't
+  // be edited. The catalog author had to demote it to change a typo.
+  root.querySelectorAll('.admin-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = prompts.find(p => String(p.id) === String(btn.dataset.id));
+      if (!prompt) return;
+      document.dispatchEvent(new CustomEvent('prompt:edit-request', { detail: prompt }));
+    });
+  });
 
   root.querySelectorAll('.admin-publish-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -157,6 +179,13 @@ function init() {
   }
   load(root);
   supabase.auth.onAuthStateChange(() => load(root));
+  // newPrompt.js fires this after every successful save. Without it, editing
+  // from this page leaves the row showing its old title until a manual reload
+  // - and worse, a save that unticks "Publish to everyone" demotes the prompt
+  // out of the catalog entirely, so the row should vanish and instead sits
+  // there looking live. Home and Search have listened for this all along; this
+  // page just never had anything to refresh.
+  document.addEventListener('personalization:changed', () => load(root));
 }
 
 document.addEventListener('DOMContentLoaded', init);

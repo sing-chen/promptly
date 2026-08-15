@@ -1247,6 +1247,14 @@ The **unpublish round trip is proven**, and by an inference worth keeping rather
 
 **A stale label, found while writing the test plan.** `/admin/`'s empty state told you to tick **"Make this a default prompt"**. The checkbox says **"Publish to everyone"** and has since the curation control was reworded; nothing had pointed the two at each other since. Now corrected. The pattern is worth more than the fix: it is one screen **quoting another screen's wording from memory**, which no build step, no test and no reader who is already an admin will ever catch — the empty state only renders for an admin with zero catalog prompts, which is a state this project passed through once. Same failure class as the status claims OPEN_ITEMS.md exists to prevent, one layer down in the UI.
 
+## 9aw. /admin/ Can Edit What Only It Can See (new)
+
+`/admin/` had no editing UI, and the module header called that deliberate. **The reasoning had gone stale.** It holds while every row on the page is also a row on Home, where Edit already exists — but a **catalog draft** (`is_curated = true, published = false`) appears on Home for nobody, has no static page, and is listed on `/admin/` and nowhere else. So the one class of prompt only this page could show was the one class it refused to edit, and correcting a typo in a draft meant demoting it out of the catalog and promoting it back.
+
+Edit is the same pencil `.icon-btn` the row actions use elsewhere, in its own 44px column before the publish control, dispatching **`prompt:edit-request`** with the row — `newPrompt.js` listens on `document`, so this needed no new modal and no new code path. The page now also listens for **`personalization:changed`**, which every other personalized surface has listened for all along. That is not polish: a save that unticks "Publish to everyone" calls `demoteFromCatalog()`, so the row should *disappear* from `/admin/`, and without the listener it sat there looking live.
+
+**Verified**: header and body cell counts match at 5 (a column added to one and not the other is the obvious way to break this), the button renders at 28×28 matching the row-action family, its icon draws, it does not collide with the publish button, and the pre-existing horizontal scroll at narrow widths is pre-existing — measured with the new column removed, and `.table-wrap` still overflowed.
+
 ---
 
 ## 10. Build Order (revised)
