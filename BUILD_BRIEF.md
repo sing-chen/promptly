@@ -1273,6 +1273,20 @@ Now: a lead line, a two-row status legend, and three short paragraphs covering w
 
 **Measured, both themes**: body text 5.42:1 light / 8.31:1 dark, bold 13.48 / 15.22, and the two pills 4.88 / 8.52 (Draft) and 5.14 / 5.75 (Published) — all clear of 4.5:1, with the lowest being Draft in light. Nothing in the block resolves to `--ink-faint`, checked programmatically rather than by reading the stylesheet, since D5b is still open. Held to `62ch` — §9at's prose measure — at 501px inside the table's 760px, because the measure that suits a five-column table is not the one that suits four paragraphs. At 375px the legend collapses to one column and the page does not scroll sideways.
 
+## 9ay. Admin Takes the Header Pattern; Three Spacing Fixes (new)
+
+Three formatting notes on §9ax, all correct, and the third is the one that mattered structurally.
+
+**The title moves into the main header**, following `/categories/` and `/collections/` — `pageTitle: 'Admin'` plus a one-line summary — and the detailed explanation takes the space the client-rendered `<h1>` used to occupy. Admin had been on `renderMainHeader`'s list of pages that "omit them and just get the controls", and that comment is updated rather than left to contradict the code. **Four `<h1>Admin</h1>`s came out of `admin.js`** — the main state and the three gated ones — since a page-level heading rendered in both places is the duplicate the header comment was warning about. Verified: exactly one `h1` on the page. The header summary and §9ax's opening line are deliberately different sentences; stacking two phrasings of the same claim is what the old arrangement looked like.
+
+**The intro runs the full page width.** §9ax capped it at `62ch` on §9at's prose-measure reasoning, and that was wrong *here*: it left the explanation visibly narrower than the table it describes, which reads as unfinished rather than as a considered measure. Now `716px` at the tested width, with left and right edges matching the table to the pixel — measured, not eyeballed, because "looks aligned" is exactly the claim that turns out to be off by three.
+
+*The trade this makes, recorded because it is a real cost and not a free win:* paragraphs now run **~110 characters**, above the 45–75 that reads comfortably and above the ~82 estimated when the change was made. Edge alignment was the stated problem and full width solves it; if the long lines grate more than the narrow block did, a single `max-width` on `.admin-intro` is the dial, and the honest range is 75–90ch rather than back to 62.
+
+**The action column was 110px against a 96px button**, leaving it 14px from the table edge — `.browse-table td`'s standard right padding, which is right for text and tight for a button, since a button's border reads as the end of the content where a glyph does not. Now 126px with a 22px right padding, giving 19px of clearance.
+
+At 390px the legend still collapses to one column and nothing scrolls sideways.
+
 ---
 
 ## 10. Build Order (revised)

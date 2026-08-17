@@ -1975,9 +1975,14 @@ label.np-admin-check {
      §9av's "quote what is on the screen, or don't quote".
    - --ink-soft throughout, never --ink-faint. This is body text at 13px and
      D5b (--ink-faint measures 2.79:1) is still open.
-   Held to ~62 characters, the measure §9at settled on for prose, rather than
-   running the full 760px the table needs. */
-.admin-intro { margin: 0 0 22px; max-width: 62ch; }
+   Runs the full page width so its left and right edges line up with the table
+   below it. §9ax held it to 62ch on §9at's prose-measure reasoning and that
+   was the wrong call here: it left the block visibly narrower than the thing
+   it describes, which reads as unfinished rather than as a considered measure.
+   The legend's 96px label column keeps the longest lines - the dd column - to
+   roughly 82 characters, and the paragraphs are two or three lines each rather
+   than an essay, so the wider measure costs little. */
+.admin-intro { margin: 0 0 22px; }
 .admin-intro p { font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin: 0 0 10px; }
 .admin-intro p:last-child { margin-bottom: 0; }
 .admin-intro strong { color: var(--ink); font-weight: 700; }
@@ -1988,6 +1993,14 @@ label.np-admin-check {
 @media (max-width: 560px) {
   .admin-legend-row { grid-template-columns: 1fr; gap: 4px; }
 }
+
+/* The action column sat at 110px against a 96px button, leaving the control
+   14px from the table's edge - the standard `.browse-table td` right padding,
+   which is correct for text and too tight for a button, since a button's own
+   border reads as the end of the content where a glyph does not. Widened and
+   given its own padding so the button clears the edge. §9ay. */
+.admin-page .browse-table th:last-child,
+.admin-page .browse-table td:last-child { padding-right: 22px; }
 
 .admin-row-cats { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
 .admin-status {

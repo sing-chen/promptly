@@ -118,7 +118,7 @@ function renderList(root, prompts) {
 <div class="table-wrap">
   <table class="browse-table comfortable">
     <thead>
-      <tr><th>Title</th><th style="width:110px;">Status</th><th class="col-updated">Updated</th><th style="width:44px;"></th><th style="width:110px;"></th></tr>
+      <tr><th>Title</th><th style="width:110px;">Status</th><th class="col-updated">Updated</th><th style="width:44px;"></th><th style="width:126px;"></th></tr>
     </thead>
     <tbody>${prompts.map(renderRow).join('')}</tbody>
   </table>
@@ -177,13 +177,15 @@ function renderList(root, prompts) {
 async function load(root) {
   root.innerHTML = '<p style="color:var(--ink-faint);">Loading…</p>';
   const { data: { session } } = await supabase.auth.getSession();
+  // No <h1> in any of these any more - renderAdminPage puts the title in the
+  // main header (§9ay), so one here would render a second copy of the word.
   if (!session) {
-    root.innerHTML = '<h1>Admin</h1><p><a href="/account/">Log in</a> to access the admin page.</p>';
+    root.innerHTML = '<p><a href="/account/">Log in</a> to access the admin page.</p>';
     return;
   }
   const admin = await isAdmin();
   if (!admin) {
-    root.innerHTML = '<h1>Admin</h1><p style="color:var(--ink-faint);">This page is only available to admins.</p>';
+    root.innerHTML = '<p style="color:var(--ink-soft);">This page is only available to admins.</p>';
     return;
   }
 
@@ -195,7 +197,7 @@ async function load(root) {
   const own = all.filter(p => p.is_curated && p.user_id === session.user.id)
     .sort((a, b) => new Date(b.updated || b.added) - new Date(a.updated || a.added));
 
-  root.innerHTML = `<h1>Admin</h1>${ADMIN_INTRO}<div id="admin-list"></div>`;
+  root.innerHTML = `${ADMIN_INTRO}<div id="admin-list"></div>`;
   renderList(document.getElementById('admin-list'), own);
 }
 
@@ -203,7 +205,7 @@ function init() {
   const root = document.getElementById('admin-root');
   if (!root) return;
   if (!supabase) {
-    root.innerHTML = '<h1>Admin</h1><p style="color:var(--ink-faint);">Account features aren’t configured for this build yet.</p>';
+    root.innerHTML = '<p style="color:var(--ink-soft);">Account features aren’t configured for this build yet.</p>';
     return;
   }
   load(root);
