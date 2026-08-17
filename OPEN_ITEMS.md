@@ -239,79 +239,13 @@ why the only number a browser session can honestly produce is zero.
 
 ## C. Configuration to confirm
 
-**C1. The auto-rebuild chain is broken somewhere between the trigger and Vercel. Narrowed
-15 Aug 2026, not yet resolved — and the first attempt to resolve it was wrong in a way
-worth keeping.** A publish and an unpublish were confirmed through `/admin/` and **no
-Vercel deployment appeared**. That is solid evidence the chain is broken. It was then
-written up here as "the Deploy Hook URL is NOT set", which was **an over-reading of one
-negative observation**: the Vercel side turned out to have a live hook ("Supabase catalog
-rebuild", branch `main`) all along. A single failed end-to-end run identifies a broken
-chain, never which link — and this register is the wrong place to record a guess as a
-finding.
+**C1. Auto-rebuild works, end to end. Resolved 17 Aug 2026 — moved to H.** Nothing was
+ever misconfigured. Verified on the trigger path, not just by hand: a publish confirmed
+through `/admin/` produced `net._http_response` id 28, `status_code` 201, and a matching
+Vercel deployment labelled **Deploy Hook**. H carries the diagnostic ladder and the two
+wrong conclusions reached on the way there, both of which are reusable.
 
-*Established 17 Aug 2026, by running the diagnostic below against the live project —
-three of the five links are eliminated:* `deploy_hook_url` **is set**, and has been since
-13 Aug 16:39 UTC. A manual `request_static_rebuild('manual test')` produced a
-`net._http_response` row with **`status_code` 201 and no error**, so pg_net is working
-and the stored URL is live — Vercel accepted the POST and reported a deployment created.
-The response `id` was **27**, and that is a sequence: 26 requests preceded it, so the
-mechanism has been firing throughout the project's life rather than never working.
-
-*And a trap that would have produced a second wrong conclusion:* the query returned **only
-that one row**, which reads as "the publish never fired a request". It does not mean that.
-**pg_net prunes `net._http_response`** — Supabase cleans it up on a retention measured in
-hours — so old responses are gone by design and their absence is evidence of nothing. The
-response table answers "what happened just now", never "what happened yesterday".
-
-*What remains* is therefore narrower than this entry first assumed: not whether the chain
-is configured, but whether a *trigger-initiated* rebuild reaches Vercel, given that a
-manually initiated one demonstrably does. The next check is a Vercel deployment dated
-17 Aug 05:39–05:40 UTC, which the 201 says exists; Vercel labels hook-initiated builds
-**Deploy Hook** rather than as a git push. Note pg_net is **async and queued**, so a build
-lags the click — checking the dashboard immediately can show nothing and mean nothing,
-which is the most likely explanation for the original observation.
-
-*The five links, kept because the reasoning is reusable — any one produces the same
-symptom:*
-1. `deploy_settings.deploy_hook_url` is null — the Vercel hook exists but `set_deploy_hook_url()`
-   was never run with it. Still the most likely, just no longer assumed.
-2. `pg_net` is not functioning. It is async and queue-based, and a stalled worker is a
-   known Supabase failure mode that surfaces as requests silently never leaving.
-3. The POST left and Vercel rejected it — a revoked or rotated URL still stored here.
-4. The trigger did not fire. Unlikely: `0006` §9e redefines `prompts_static_rebuild()`
-   without `0005`'s `categories` comparison, so the column `0006` dropped is not
-   referenced, and an erroring trigger would have aborted the publish rather than
-   letting it succeed quietly.
-5. The deploy did happen and was missed.
-
-*Why none of this shows up in the app, and why `request_static_rebuild()` returning
-cleanly proves nothing:* it swallows every failure into `raise warning` **by design** —
-a deploy hook is a side effect and must never roll back the write that triggered it. So
-it returns success whether or not anything was sent. The evidence lives in **pg_net's own
-response table**, which is where the diagnosis has to start:
-```sql
--- 1. Is the URL actually stored here?
-select deploy_hook_url is not null as hook_is_set, updated_at from deploy_settings;
-
--- 2. Fire it directly, bypassing the trigger entirely.
-select request_static_rebuild('manual test');
-
--- 3. The decisive one — did a request leave, and what came back?
-select id, status_code, error_msg, created
-from net._http_response order by created desc limit 10;
-```
-A row with `status_code` 201 means the whole chain works and link 4 or 5 is the answer.
-No row at all means nothing was sent — link 1 or 2. A row with an error message names
-link 3 outright.
-
-*The consequence, and why it stayed invisible for so long:* **catalog changes do not
-reach anonymous visitors.** Signed-in users are unaffected — they read Supabase live
-through `ensure_seeded()` — so every check made while logged in shows the system working
-perfectly. The static site simply keeps serving whatever the last git-push deploy built.
-
-*If step 1 comes back false*, that is the whole fix — copy the existing Vercel hook URL
-and run `select set_deploy_hook_url('<the URL>');`. No new hook needs creating; one
-already exists on `main`.
+*Source: supabase/README.md setup step 7; settled during the §9av/§9aw test pass.*
 
 Note `deploy_settings` has RLS with no policies, so none of this can be checked from
 application code — an anon read returns an empty set whether or not a URL is stored.
@@ -620,4 +554,5 @@ were still being listed as outstanding after they shipped.
 | **Library export — one engine or several** | **Resolved** in §9ad. There is one (`lib/export.mjs`), offered in one place (`/account/`), in Markdown and JSON. The `/favorites/` "Export favorites" button — a slug-only JSON array, the site's only previous export — is **retired**, not repointed: a second button labelled for a subset would only raise the question of how the two differ. Its rule survives and now governs the whole export — cross-references by slug, never row id, so the file still means something after the account is gone. CSV was asked for and rejected on its own stated grounds (a multi-line prompt body in a spreadsheet cell is worse to copy from than Markdown, not better) plus a formula-injection footgun; revisit only if a spreadsheet workflow appears, with escaping as the price of entry. Guests lost their slug-list export, knowingly — they have no library, only local favourites. |
 | **A2 — auth UX screens for confirmation and reset** | **Built** in §9ar, and worth recording what it settled rather than only that it shipped. Confirmation is **required** before log-in — the app reads `signUp()` returning no session as "the mail went out", and says so explicitly if a session ever comes back instead, because that would mean the dashboard toggle had been turned off underneath it. The **welcome email is the confirmation email**: a separate one needs its own sender and its own trigger, arrives seconds after the one that must be acted on, and starts to look like the marketing mail E6 blocks. Resend is offered in the two places it is actually wanted (after sign-up, and after a log-in against an unconfirmed address) on a 60-second cooldown that mirrors Supabase's own throttle rather than discovering it by failing. `/reset-password/` serves a signed-in visitor too, so "change my password" and "I forgot my password" end in the same place instead of two copies of one form. And the fragment carrying a dead link's error is read **synchronously at module load** in `auth.js` — supabase-js strips it during its own async init, so a moment later there is nothing to read and an expired link is indistinguishable from one that silently did nothing. |
 | **B4 — publish feels as light as any other toggle** | **Built** in §9av. Publish and unpublish both confirm, via the `confirmDialog()` shell `renderLayout` already puts on every page. Publish is `danger: false` (a `btn-primary` confirm) — consequential, not destructive. Unpublish confirming as well is not extra weight: `newPrompt.js` has confirmed that same action from the Edit modal all along, so `/admin/` was the surface disagreeing with itself. **The "N libraries" count in the original entry was deliberately not built, and this is the part not to re-derive:** `catalog_grants` is RLS'd to `user_id = auth.uid()` (`0004`) and an admin holds no grants at all, since `ensure_seeded()` no-ops for them — so the only count reachable from a browser session is **zero**, which reads as reassurance in the one dialog meant to give pause. A true N needs a SECURITY DEFINER RPC and a migration; it is a reasonable follow-on, but it is not a client-side fix and attempting one there will produce a confidently wrong number. The wording names the consequence instead. **Confirmed in production** on `559c7ea`: both dialogs render correctly and the colour split holds (Unpublish red, Publish to everyone green), and the **unpublish** round trip completed — the same prompt was observed in both states, which requires `unpublishPrompt()` to have run. The **publish** round trip is still the one gap: the evidence is consistent with the row having been published before the session started, so it is recorded as open rather than rounded up. |
+| **C1 — is the Vercel Deploy Hook URL set?** | **Yes, and the whole chain works.** Verified 17 Aug 2026 **on the trigger path**, which is the only test that counted: a publish confirmed through `/admin/` produced `net._http_response` **id 28, `status_code` 201**, and a matching Vercel deployment labelled **Deploy Hook**, Ready in 5s. Earlier checks had only exercised the manual path (`select request_static_rebuild('manual test')` → 201), which proves the plumbing but not that anything calls it. **Nothing was ever misconfigured**; `deploy_hook_url` had been set since 13 Aug 16:39 UTC, and the entry had been open since `0005` shipped. *Three lessons, each of which produced a wrong conclusion here before the right one:* **(1)** The starting symptom — "I confirmed an unpublish and no deploy appeared" — is real evidence a chain is broken but says nothing about **which link**; it was written into this register as "the hook is NOT set" when the hook had been set for four days. A failed end-to-end run is a prompt to enumerate links, not to name one. **(2)** `request_static_rebuild()` swallows every failure into `raise warning` **by design** — a deploy hook must never roll back the write that triggered it — so calling it and seeing no error proves nothing at all. The evidence is in `net._http_response`, never in the return value. **(3)** That table is **pruned on an hours-long retention**, so a near-empty result is *not* evidence a request was never sent; it answers "what happened just now", never "what happened yesterday". Its `id` **is** a sequence, though, so it doubles as a lifetime request counter — seeing 27 on the first look was the clue that the mechanism had been firing all along. *And the actual explanation of the original observation:* **latency.** pg_net is async and queued, so the POST lags the click and the build lags the POST. **Check after two minutes, not immediately** — that one habit would have prevented the entire investigation. |
 | **CLAUDE.md contradicting itself about v6** | **Fixed** in §9u. One paragraph called user-owned categories applied and deployed; a later one called the same pass "not built" and claimed `lib/schema.mjs` still held the `CATEGORIES` array. The second was stale in place. Recorded because it is the third time this project has been bitten by a status claim that gives no sign of being old — the reason this register exists. |

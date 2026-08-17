@@ -139,7 +139,7 @@ remapping (a copied prompt must point at *the user's* copy of its dependency).
 Anonymous visitors stay on the existing static site rather than reading Supabase live on every page view — this keeps their pages fast, working without JS, and off the free tier's read quota. Two pieces make that work together with a single Supabase source of truth:
 
 1. **`scripts/build.mjs` queries Supabase for published defaults** (`is_curated = true, published = true`) at build time (`lib/supabaseBuild.mjs`'s `fetchPublishedPrompts()`, a plain `fetch()` against PostgREST — no `@supabase/supabase-js` dependency needed for one GET request), using the `anon` key, instead of reading `prompts/*.md`. This is the only place `anon`'s `GRANT SELECT` actually gets used for anonymous traffic — real anonymous visitors hit pre-built HTML, not Supabase. If `SUPABASE_URL`/`SUPABASE_ANON_KEY` aren't set, the build proceeds with zero default prompts (a warning is logged) rather than failing.
-2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. **Whether the hook URL is currently set is an open question, not a settled one** — this paragraph used to end "Not yet configured", while the Status section below records `0005` being verified by an edit that produced a real Vercel deployment, which cannot happen with an unset hook. One of the two was stale and neither says which. That contradiction is OPEN_ITEMS.md C1; resolve it with `select deploy_hook_url is not null from deploy_settings;` in the SQL editor rather than by trusting either sentence. It cannot be checked from app code — `deploy_settings` has RLS with no policies, so an anon read returns an empty set either way. While unset, publishing requires a manual redeploy to reach anonymous visitors; signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
+2. **A trigger on `prompts`** POSTs to a **Vercel Deploy Hook URL** to trigger a fresh build+deploy automatically ([`0005_publish_webhook.sql`](migrations/0005_publish_webhook.sql)). It fires on every change that would alter what the build produces - a catalog prompt published, unpublished, edited while published, or deleted - not just on publish, since otherwise a typo fix would never reach anonymous visitors. Statement-level, so a bulk change queues one build rather than one per row. Requires the Deploy Hook URL to be set (`select set_deploy_hook_url('…')`); until then it's inert. Historical note: this was originally specced as a Supabase Database Webhook, but that UI can't express "only when this transition happens", so it's a trigger instead. **The URL is set and the whole chain is verified working** (17 Aug 2026, OPEN_ITEMS.md C1 — now resolved): a publish confirmed through `/admin/` produced a `net._http_response` row with `status_code` 201 and a matching Vercel deployment labelled **Deploy Hook**. This paragraph previously called that an open question, because it once ended "Not yet configured" while the Status section recorded a real deployment — one of the two was stale and neither said which. Both are now reconciled against an actual test rather than against each other. Two things to keep if it ever looks broken again: it **cannot** be checked from app code — `deploy_settings` has RLS with no policies, so an anon read returns an empty set either way — and `request_static_rebuild()` deliberately swallows failures into a warning, so its return value proves nothing; look in `net._http_response`, and remember pg_net is async and queued, so a build lags the click by longer than a dashboard refresh. Signed-in users always see your own drafts/published rows live regardless, since that's a direct RLS-scoped read, not a build artifact.
 
 ## Categories are user-owned too
 
@@ -427,11 +427,6 @@ The v3-era "attach an example output image, shown on the prompt detail page" fea
   Seeding in particular cannot be tested from the admin account at all: `ensure_seeded()`
   deliberately no-ops for admins, so it needs a throwaway non-admin signup (option D/E in
   [`reset_prompts.sql`](reset_prompts.sql) clears it again).
-- **Auto-rebuild on catalog change** (`0005_publish_webhook.sql`) is inert until a
-  Deploy Hook URL is set - see setup step 7. Confirmed working once configured: an
-  edit to a published catalog prompt produced a Vercel deployment. Without it, a
-  catalog change won't reach *anonymous* visitors until someone redeploys by hand.
-  Signed-in users get it on their next visit via `ensure_seeded()` either way.
 - Vercel env vars are **Production-only** - Preview/Development lack `SUPABASE_URL`/
   `SUPABASE_ANON_KEY`.
 
@@ -480,11 +475,11 @@ The three things in the register that are specifically Supabase-side:
   [`email-templates/README.md`](email-templates/README.md). The app side is
   built and waiting on it.
 
-- **Deploy Hook URL** (setup step 7) — `0005` is inert until it is set, and the failure
-  is quiet: catalog changes stop reaching anonymous visitors while signed-in users are
-  unaffected. Check with
-  `select deploy_hook_url is not null from deploy_settings;` in the SQL editor — it
-  cannot be checked from app code, since `deploy_settings` has RLS with no policies.
+- ~~**Deploy Hook URL** (setup step 7)~~ — **done and verified end to end**, 17 Aug 2026.
+  Left here as a pointer rather than deleted, because it was outstanding from `0005`
+  until then and is the kind of entry that gets re-raised. See OPEN_ITEMS.md section H
+  for the diagnosis, which is worth reading before debugging anything else that runs
+  through pg_net.
 - **Clearing test content before seeding canonical prompts**
   ([`reset_prompts.sql`](reset_prompts.sql)) — worth doing *before* any other account
   exists, because after that every edit to a published catalog prompt is a broadcast
