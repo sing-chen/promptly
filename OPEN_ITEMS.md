@@ -249,7 +249,30 @@ rebuild", branch `main`) all along. A single failed end-to-end run identifies a 
 chain, never which link — and this register is the wrong place to record a guess as a
 finding.
 
-*The chain has five links, and any one of them produces exactly the symptom observed:*
+*Established 17 Aug 2026, by running the diagnostic below against the live project —
+three of the five links are eliminated:* `deploy_hook_url` **is set**, and has been since
+13 Aug 16:39 UTC. A manual `request_static_rebuild('manual test')` produced a
+`net._http_response` row with **`status_code` 201 and no error**, so pg_net is working
+and the stored URL is live — Vercel accepted the POST and reported a deployment created.
+The response `id` was **27**, and that is a sequence: 26 requests preceded it, so the
+mechanism has been firing throughout the project's life rather than never working.
+
+*And a trap that would have produced a second wrong conclusion:* the query returned **only
+that one row**, which reads as "the publish never fired a request". It does not mean that.
+**pg_net prunes `net._http_response`** — Supabase cleans it up on a retention measured in
+hours — so old responses are gone by design and their absence is evidence of nothing. The
+response table answers "what happened just now", never "what happened yesterday".
+
+*What remains* is therefore narrower than this entry first assumed: not whether the chain
+is configured, but whether a *trigger-initiated* rebuild reaches Vercel, given that a
+manually initiated one demonstrably does. The next check is a Vercel deployment dated
+17 Aug 05:39–05:40 UTC, which the 201 says exists; Vercel labels hook-initiated builds
+**Deploy Hook** rather than as a git push. Note pg_net is **async and queued**, so a build
+lags the click — checking the dashboard immediately can show nothing and mean nothing,
+which is the most likely explanation for the original observation.
+
+*The five links, kept because the reasoning is reusable — any one produces the same
+symptom:*
 1. `deploy_settings.deploy_hook_url` is null — the Vercel hook exists but `set_deploy_hook_url()`
    was never run with it. Still the most likely, just no longer assumed.
 2. `pg_net` is not functioning. It is async and queue-based, and a stalled worker is a
