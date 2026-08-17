@@ -39,6 +39,35 @@ import { esc, fmtDate, categoryName, ICON } from './lib/render.mjs';
 // So "Remove from the catalog?" belongs to that path and was wrong here; it
 // said the prompt was leaving something it stays in. Same distinction the
 // modal's own hint text draws between a catalog draft and a published row.
+// The page explains itself (§9ax). It is visited rarely and carries the only
+// two controls in the app whose effect cannot be undone, which is the worst
+// combination for relying on the reader's memory. "Your default prompts." said
+// none of it.
+//
+// Every claim below is one the code actually makes, and the awkward one is
+// deliberate: editing a published prompt does NOT reach people who already
+// hold a copy. Copies are independent rows and the notify-and-merge screen is
+// unbuilt (OPEN_ITEMS.md B2), so saying "everyone gets the update" would be
+// describing a feature that does not exist. When B2 ships, this paragraph is
+// part of the change.
+const ADMIN_INTRO = `
+<div class="admin-intro">
+  <p>Every prompt you have marked <strong>“Publish to everyone”</strong>. Your library <em>is</em> the catalog, so these are the originals rather than copies of them.</p>
+  <dl class="admin-legend">
+    <div class="admin-legend-row">
+      <dt><span class="admin-status admin-status-draft">Draft</span></dt>
+      <dd>Only you can see it. Nobody holds a copy and it is not on the public site, so you can edit it as much as you like — nothing is sent anywhere.</dd>
+    </div>
+    <div class="admin-legend-row">
+      <dt><span class="admin-status admin-status-published">Published</span></dt>
+      <dd>Copied into every account’s library, and into each new account on its next visit. It also appears on the public site for visitors who are not logged in.</dd>
+    </div>
+  </dl>
+  <p><strong>Publish</strong> hands out those copies, and they belong to whoever receives them — so it cannot be taken back. <strong>Unpublish</strong> only stops <em>new</em> copies going out and returns the prompt to Draft; everyone who already has one keeps it.</p>
+  <p>Editing a published prompt updates this original and the public site. People already holding a copy keep theirs as it is — copies are independent, and there is no update-push yet.</p>
+  <p>To take a prompt out of the catalog altogether, open it with the pencil and untick “Publish to everyone”. It becomes a personal prompt and leaves this list.</p>
+</div>`;
+
 const PUBLISH_CONFIRM = (title) => ({
   title: 'Publish to everyone?',
   message: `"${title}" will be copied into every account's library — the ones that exist now, and every account created later. Those copies are independent, so this can't be recalled: unpublishing stops new copies but leaves the ones already handed out. Editing it after this is a broadcast to everyone holding one.`,
@@ -166,7 +195,7 @@ async function load(root) {
   const own = all.filter(p => p.is_curated && p.user_id === session.user.id)
     .sort((a, b) => new Date(b.updated || b.added) - new Date(a.updated || a.added));
 
-  root.innerHTML = '<h1>Admin</h1><p class="card-purpose">Your default prompts.</p><div id="admin-list"></div>';
+  root.innerHTML = `<h1>Admin</h1>${ADMIN_INTRO}<div id="admin-list"></div>`;
   renderList(document.getElementById('admin-list'), own);
 }
 

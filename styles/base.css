@@ -1965,6 +1965,30 @@ label.np-admin-check {
    public/scripts/admin.js) - wider than the sign-in form's .account-page,
    since it holds a table. */
 .admin-page { max-width: 760px; }
+
+/* /admin/ intro (§9ax). This page is used rarely and its two controls are the
+   only irreversible ones in the app, so it explains itself rather than
+   assuming the reader remembers. Two decisions worth keeping:
+   - The legend renders the REAL .admin-status pills instead of naming the
+     statuses in prose, so the explanation and the table cannot drift apart -
+     restyle the pill and the legend restyles with it. Same reasoning as
+     §9av's "quote what is on the screen, or don't quote".
+   - --ink-soft throughout, never --ink-faint. This is body text at 13px and
+     D5b (--ink-faint measures 2.79:1) is still open.
+   Held to ~62 characters, the measure §9at settled on for prose, rather than
+   running the full 760px the table needs. */
+.admin-intro { margin: 0 0 22px; max-width: 62ch; }
+.admin-intro p { font-size: 13px; color: var(--ink-soft); line-height: 1.55; margin: 0 0 10px; }
+.admin-intro p:last-child { margin-bottom: 0; }
+.admin-intro strong { color: var(--ink); font-weight: 700; }
+.admin-legend { margin: 0 0 12px; display: flex; flex-direction: column; gap: 9px; }
+.admin-legend-row { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start; }
+.admin-legend dt { margin: 0; }
+.admin-legend dd { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.55; }
+@media (max-width: 560px) {
+  .admin-legend-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
 .admin-row-cats { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
 .admin-status {
   display: inline-flex; align-items: center; font-family: var(--display); font-weight: 700;

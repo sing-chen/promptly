@@ -1261,6 +1261,18 @@ Edit is the same pencil `.icon-btn` the row actions use elsewhere, in its own 44
 
 **Verified in production**: the pencil opens the modal prefilled against a real row, and on save the `/admin/` list reloaded **without a manual refresh** — the demoted prompt left the table on its own, which is the `personalization:changed` listener doing the thing this pass added it for. That is the half worth testing, since the button is inert markup and the listener is the behaviour.
 
+## 9ax. The Admin Page Explains Itself (new)
+
+`/admin/` said **"Your default prompts."** and left everything else to memory: what Draft and Published actually mean, what the one-way action costs, and where the *other* way out lives. Asked for directly, and the reasoning behind the ask is the useful part — **this page is visited rarely and carries the only two controls in the app whose effect cannot be undone.** That is the worst possible combination for relying on recall, and the argument for a page explaining itself rather than being explained in a document nobody has open at the time.
+
+Now: a lead line, a two-row status legend, and three short paragraphs covering what Publish hands out, what Unpublish does and does not take back, and how to leave the catalog entirely.
+
+**The legend renders the real `.admin-status` pills rather than naming the statuses in prose.** Restyle the pill and the legend restyles with it; there is no second copy of "Draft is grey" to fall out of date. Same principle §9av arrived at from the opposite direction, when the empty state was found quoting a checkbox label that had changed underneath it — **quote what is on the screen, or do not quote.**
+
+**One paragraph is deliberately awkward, and it should stay that way until B2 ships.** Editing a published prompt does **not** reach people already holding a copy: copies are independent rows and the notify-and-merge screen is unbuilt. The obvious sentence — "everyone gets the update" — would describe a feature that does not exist, so the text says the true and less satisfying thing instead. When B2 lands, this paragraph is part of that change; the code comment above `ADMIN_INTRO` says so, because the alternative is discovering it from a user.
+
+**Measured, both themes**: body text 5.42:1 light / 8.31:1 dark, bold 13.48 / 15.22, and the two pills 4.88 / 8.52 (Draft) and 5.14 / 5.75 (Published) — all clear of 4.5:1, with the lowest being Draft in light. Nothing in the block resolves to `--ink-faint`, checked programmatically rather than by reading the stylesheet, since D5b is still open. Held to `62ch` — §9at's prose measure — at 501px inside the table's 760px, because the measure that suits a five-column table is not the one that suits four paragraphs. At 375px the legend collapses to one column and the page does not scroll sideways.
+
 ---
 
 ## 10. Build Order (revised)
